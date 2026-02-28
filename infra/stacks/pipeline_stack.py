@@ -1,6 +1,5 @@
 import aws_cdk as cdk
 from aws_cdk import aws_codebuild as codebuild
-from aws_cdk import aws_codepipeline as codepipeline
 from aws_cdk import aws_iam as iam
 from aws_cdk import pipelines
 from constructs import Construct
@@ -59,7 +58,6 @@ class PipelineStack(cdk.Stack):
             "Pipeline",
             pipeline_name="homeagent-pipeline",
             synth=synth,
-            pipeline_type=codepipeline.PipelineType.V2,
             docker_enabled_for_synth=True,
             docker_enabled_for_self_mutation=True,
             code_build_defaults=pipelines.CodeBuildOptions(
