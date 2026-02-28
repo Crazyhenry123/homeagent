@@ -36,7 +36,12 @@ def register():
 @auth_bp.route("/verify", methods=["POST"])
 @require_auth
 def verify():
-    return jsonify({"valid": True, "user_id": g.user_id, "name": g.user_name})
+    return jsonify({
+        "valid": True,
+        "user_id": g.user_id,
+        "name": g.user_name,
+        "role": g.user_role,
+    })
 
 
 admin_bp = Blueprint("admin", __name__)

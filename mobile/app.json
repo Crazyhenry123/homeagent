@@ -5,6 +5,7 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "scheme": "homeagent",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -24,11 +25,21 @@
       "package": "com.homeagent.app"
     },
     "extra": {
-      "apiBaseUrl": "http://Deploy-Servi-XjO6myh4gADc-1702122244.us-east-1.elb.amazonaws.com"
+      "apiBaseUrl": "http://Deploy-Servi-XjO6myh4gADc-1702122244.us-east-1.elb.amazonaws.com",
+      "eas": {
+        "projectId": ""
+      }
+    },
+    "updates": {
+      "url": ""
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     },
     "plugins": [
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      "expo-secure-store"
     ]
   }
 }

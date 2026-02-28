@@ -5,6 +5,7 @@ import type {Conversation} from '../types';
 interface Props {
   conversation: Conversation;
   onPress: (conversationId: string) => void;
+  onLongPress?: (conversationId: string) => void;
 }
 
 function formatDate(iso: string): string {
@@ -22,11 +23,12 @@ function formatDate(iso: string): string {
   return date.toLocaleDateString();
 }
 
-export function ConversationItem({conversation, onPress}: Props) {
+export function ConversationItem({conversation, onPress, onLongPress}: Props) {
   return (
     <TouchableOpacity
       style={styles.container}
-      onPress={() => onPress(conversation.conversation_id)}>
+      onPress={() => onPress(conversation.conversation_id)}
+      onLongPress={() => onLongPress?.(conversation.conversation_id)}>
       <View style={styles.content}>
         <Text style={styles.title} numberOfLines={1}>
           {conversation.title}

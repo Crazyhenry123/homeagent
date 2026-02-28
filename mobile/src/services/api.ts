@@ -7,6 +7,7 @@ import type {
   RegisterResponse,
 } from '../types';
 import {getToken} from './auth';
+import {emitAuthExpired} from './authEvents';
 
 function getBaseUrl(): string {
   // Use configured URL from app.json extra if provided
@@ -54,6 +55,9 @@ async function request<T>(
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      emitAuthExpired();
+    }
     const body = await response.json().catch(() => ({}));
     throw new Error(body.error || `Request failed: ${response.status}`);
   }
@@ -74,8 +78,13 @@ export async function verify(): Promise<{
   valid: boolean;
   user_id: string;
   name: string;
+  role: string;
 }> {
   return request('/api/auth/verify', {method: 'POST'});
+}
+
+export async function generateInviteCode(): Promise<{code: string}> {
+  return request('/api/admin/invite-codes', {method: 'POST'});
 }
 
 export async function getConversations(
