@@ -1,11 +1,11 @@
 # Family AI Agent (homeagent)
 
 ## Project Overview
-Family AI agent app — family members chat with Claude (via Amazon Bedrock) through React Native mobile apps. Backend runs on ECS Fargate with Flask, data in DynamoDB, infra managed with AWS CDK.
+Family AI agent app — family members chat with Claude (via Amazon Bedrock) through a mobile app. Backend runs on ECS Fargate with Flask, data in DynamoDB, infra managed with AWS CDK.
 
 ## Monorepo Structure
 - `backend/` — Flask API (Python 3.12)
-- `mobile/` — React Native app (TypeScript)
+- `mobile/` — Expo React Native app (TypeScript)
 - `infra/` — AWS CDK stacks (Python)
 
 ## Conventions
@@ -21,10 +21,11 @@ Family AI agent app — family members chat with Claude (via Amazon Bedrock) thr
 
 ### TypeScript (mobile)
 - Strict TypeScript, no `any`
-- React Native CLI (not Expo)
+- Expo managed workflow (SDK 52)
 - State management: React Context + useReducer
 - API client in `mobile/src/services/api.ts`
-- Secure token storage via `react-native-keychain`
+- Secure token storage via `expo-secure-store`
+- Test on device via Expo Go app (scan QR code)
 
 ### API
 - All endpoints prefixed with `/api/`
@@ -41,31 +42,47 @@ Family AI agent app — family members chat with Claude (via Amazon Bedrock) thr
 
 ## CI/CD Pipeline (AWS CodePipeline)
 ```
-CodeCommit (main) → Synth CDK → Run Tests → Deploy Infra → Docker Build+Push → Update ECS
+GitHub (master) → Synth CDK → Run Tests → Deploy Infra → Docker Build+Push → Update ECS
 ```
-- **Source**: CodeCommit `homeagent` repo, `main` branch
+- **Source**: GitHub `Crazyhenry123/homeagent` repo via CodeStar Connection
 - **Test**: CodeBuild runs pytest with DynamoDB Local in Docker
 - **Deploy**: CDK Pipelines deploys Network, Data, Security, Service stacks
 - **Build**: CodeBuild builds Docker image, pushes to ECR, triggers ECS rolling deploy
 
 ### First-time setup
 ```bash
+# 1. Create a CodeStar Connection to GitHub in AWS Console
+#    (Developer Tools → Settings → Connections → Create connection)
+# 2. Bootstrap CDK
 cd infra
 pip install -r requirements.txt
-cdk bootstrap                  # one-time CDK bootstrap
-cdk deploy HomeAgentPipeline   # creates pipeline + CodeCommit repo
-# Push code to the CodeCommit repo to trigger the pipeline
+cdk bootstrap aws://ACCOUNT_ID/us-east-1
+
+# 3. Deploy pipeline with connection ARN
+cdk deploy HomeAgentPipeline \
+  -c account=ACCOUNT_ID \
+  -c region=us-east-1 \
+  -c github_connection_arn=arn:aws:codeconnections:us-east-1:ACCOUNT_ID:connection/UUID
+
+# 4. Push to GitHub to trigger the pipeline
+git push origin master
 ```
 
 ## Local Development
 ```bash
+# Backend
 docker-compose up              # Flask + DynamoDB Local
+
+# Mobile
+cd mobile
+npm install
+npx expo start                 # Scan QR code with Expo Go on your phone
 ```
 
 ## Environment Variables
 - `AWS_REGION` — AWS region (default: us-east-1)
 - `DYNAMODB_ENDPOINT` — DynamoDB endpoint (local dev only: http://dynamodb-local:8000)
 - `TABLE_PREFIX` — Optional prefix for DynamoDB table names
-- `BEDROCK_MODEL_ID` — Claude model ID
+- `BEDROCK_MODEL_ID` — Claude model ID (default: us.anthropic.claude-opus-4-6-v1)
 - `SYSTEM_PROMPT` — System prompt for Claude
 - `ADMIN_INVITE_CODE` — Pre-seeded invite code for first admin

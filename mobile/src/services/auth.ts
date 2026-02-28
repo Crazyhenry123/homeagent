@@ -1,21 +1,15 @@
-import * as Keychain from 'react-native-keychain';
+import * as SecureStore from 'expo-secure-store';
 
 const TOKEN_KEY = 'homeagent_device_token';
 
 export async function saveToken(token: string): Promise<void> {
-  await Keychain.setGenericPassword(TOKEN_KEY, token, {
-    service: TOKEN_KEY,
-  });
+  await SecureStore.setItemAsync(TOKEN_KEY, token);
 }
 
 export async function getToken(): Promise<string | null> {
-  const credentials = await Keychain.getGenericPassword({service: TOKEN_KEY});
-  if (credentials) {
-    return credentials.password;
-  }
-  return null;
+  return SecureStore.getItemAsync(TOKEN_KEY);
 }
 
 export async function clearToken(): Promise<void> {
-  await Keychain.resetGenericPassword({service: TOKEN_KEY});
+  await SecureStore.deleteItemAsync(TOKEN_KEY);
 }

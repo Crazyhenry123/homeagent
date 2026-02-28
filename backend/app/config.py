@@ -6,7 +6,7 @@ class Config:
     DYNAMODB_ENDPOINT: str | None = os.environ.get("DYNAMODB_ENDPOINT")
     TABLE_PREFIX: str = os.environ.get("TABLE_PREFIX", "")
     BEDROCK_MODEL_ID: str = os.environ.get(
-        "BEDROCK_MODEL_ID", "us.anthropic.claude-opus-4-0-20250514"
+        "BEDROCK_MODEL_ID", "us.anthropic.claude-opus-4-6-v1"
     )
     SYSTEM_PROMPT: str = os.environ.get(
         "SYSTEM_PROMPT",

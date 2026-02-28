@@ -1,5 +1,4 @@
 import aws_cdk as cdk
-from aws_cdk import aws_codecommit as codecommit
 from aws_cdk import aws_codebuild as codebuild
 from aws_cdk import aws_codepipeline as codepipeline
 from aws_cdk import aws_iam as iam
@@ -10,22 +9,27 @@ from stacks.app_stage import HomeAgentStage
 
 
 class PipelineStack(cdk.Stack):
-    """Self-mutating CDK Pipeline: CodeCommit -> Test -> Deploy infra -> Build & push Docker -> Update ECS."""
+    """Self-mutating CDK Pipeline: GitHub -> Test -> Deploy infra -> Build & push Docker -> Update ECS."""
 
     def __init__(self, scope: Construct, id: str, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
 
         # ------------------------------------------------------------------
-        # Source: CodeCommit
+        # Source: GitHub via CodeStar Connections
         # ------------------------------------------------------------------
-        repo = codecommit.Repository(
-            self,
-            "Repo",
-            repository_name="homeagent",
-            description="HomeAgent family AI agent monorepo",
-        )
+        connection_arn = self.node.try_get_context("github_connection_arn")
+        if not connection_arn:
+            raise ValueError(
+                "Missing required context: github_connection_arn. "
+                "Create a CodeStar Connection in the AWS Console and pass it via "
+                "-c github_connection_arn=arn:aws:codeconnections:REGION:ACCOUNT:connection/ID"
+            )
 
-        source = pipelines.CodePipelineSource.code_commit(repo, "main")
+        source = pipelines.CodePipelineSource.connection(
+            "Crazyhenry123/homeagent",
+            "master",
+            connection_arn=connection_arn,
+        )
 
         # ------------------------------------------------------------------
         # Synth: install CDK deps and synthesize CloudFormation
@@ -164,9 +168,3 @@ class PipelineStack(cdk.Stack):
             pre=[test_step],
             post=[docker_build_step],
         )
-
-        # ------------------------------------------------------------------
-        # Outputs
-        # ------------------------------------------------------------------
-        cdk.CfnOutput(self, "RepoCloneUrlHttp", value=repo.repository_clone_url_http)
-        cdk.CfnOutput(self, "RepoCloneUrlGrc", value=repo.repository_clone_url_grc)

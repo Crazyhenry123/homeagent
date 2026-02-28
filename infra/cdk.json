@@ -2,6 +2,7 @@
   "app": "python3 app.py",
   "context": {
     "@aws-cdk/core:stackRelativeExports": true,
-    "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": true
+    "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": true,
+    "github_connection_arn": ""
   }
 }

@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import {Platform} from 'react-native';
 import type {
   ConversationListResponse,
@@ -7,12 +8,29 @@ import type {
 } from '../types';
 import {getToken} from './auth';
 
-// Default to localhost; override via env or config
-const BASE_URL = __DEV__
-  ? Platform.OS === 'android'
-    ? 'http://10.0.2.2:5000'
-    : 'http://localhost:5000'
-  : 'https://api.example.com'; // Replace with real ALB URL
+function getBaseUrl(): string {
+  // Use configured URL from app.json extra if provided
+  const configUrl = Constants.expoConfig?.extra?.apiBaseUrl;
+  if (configUrl) {
+    return configUrl;
+  }
+
+  // In development, auto-discover the dev machine's IP from Expo
+  if (__DEV__) {
+    const hostUri = Constants.expoConfig?.hostUri;
+    if (hostUri) {
+      const host = hostUri.split(':')[0];
+      return `http://${host}:5000`;
+    }
+    return Platform.OS === 'android'
+      ? 'http://10.0.2.2:5000'
+      : 'http://localhost:5000';
+  }
+
+  return 'https://api.example.com';
+}
+
+export const BASE_URL = getBaseUrl();
 
 async function headers(): Promise<Record<string, string>> {
   const token = await getToken();
@@ -88,5 +106,3 @@ export async function deleteConversation(
 ): Promise<void> {
   await request(`/api/conversations/${conversationId}`, {method: 'DELETE'});
 }
-
-export {BASE_URL};

@@ -51,7 +51,7 @@ class ServiceStack(cdk.Stack):
             ),
             environment={
                 "AWS_REGION": self.region,
-                "BEDROCK_MODEL_ID": "us.anthropic.claude-opus-4-0-20250514",
+                "BEDROCK_MODEL_ID": "us.anthropic.claude-opus-4-6-v1",
                 "SYSTEM_PROMPT": (
                     "You are a helpful family assistant. "
                     "Be warm, friendly, and supportive."

@@ -1,4 +1,5 @@
 from flask import Flask
+from flask_cors import CORS
 
 from app.config import Config
 from app.models.dynamo import init_tables
@@ -14,6 +15,7 @@ def create_app(config: Config | None = None) -> Flask:
     if config is None:
         config = Config()
     app.config.from_object(config)
+    CORS(app)
 
     init_tables(app)
 
