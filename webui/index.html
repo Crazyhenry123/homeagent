@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HomeAgent Debug Console</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <h2>Settings</h2>
+        <label for="api-url-input">API Base URL</label>
+        <input type="text" id="api-url-input" placeholder="https://your-alb-domain.com">
+        <label for="system-prompt-input">System Prompt Override (optional)</label>
+        <textarea id="system-prompt-input" rows="3" placeholder="Leave empty for server default"></textarea>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="closeSettings()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveSettings()">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Register View -->
+    <div id="register-view" class="view hidden">
+      <div class="register-card">
+        <h1>HomeAgent</h1>
+        <p class="subtitle">Debug Console</p>
+        <form id="register-form" onsubmit="handleRegister(event)">
+          <label for="invite-code">Invite Code</label>
+          <input type="text" id="invite-code" required placeholder="Enter invite code">
+          <label for="display-name">Display Name</label>
+          <input type="text" id="display-name" required placeholder="Your name">
+          <div id="register-error" class="error-msg hidden"></div>
+          <button type="submit" class="btn btn-primary btn-block">Register</button>
+        </form>
+        <button class="btn btn-link" onclick="openSettings()">Configure API Endpoint</button>
+      </div>
+    </div>
+
+    <!-- Main Chat View -->
+    <div id="chat-view" class="view hidden">
+      <aside id="sidebar">
+        <div class="sidebar-header">
+          <h2>Conversations</h2>
+          <button class="btn btn-icon" onclick="startNewConversation()" title="New Chat">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div id="conversation-list" class="conversation-list"></div>
+        <div class="sidebar-footer">
+          <div id="user-info" class="user-info"></div>
+          <button class="btn btn-icon" onclick="openSettings()" title="Settings">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 13a3 3 0 100-6 3 3 0 000 6z" stroke="currentColor" stroke-width="1.5"/><path d="M17.4 12.3l-1.5-.9c.1-.5.1-.9.1-1.4s0-.9-.1-1.4l1.5-.9c.2-.1.3-.4.2-.6l-1.5-2.6c-.1-.2-.4-.3-.6-.2l-1.5.9c-.7-.5-1.4-.9-2.2-1.1V2.6c0-.2-.2-.4-.5-.4h-3c-.2 0-.4.2-.4.4v1.5c-.8.2-1.6.6-2.2 1.1l-1.5-.9c-.2-.1-.5 0-.6.2L2.1 7.1c-.1.2-.1.5.2.6l1.5.9c-.1.5-.1.9-.1 1.4s0 .9.1 1.4l-1.5.9c-.2.1-.3.4-.2.6l1.5 2.6c.1.2.4.3.6.2l1.5-.9c.7.5 1.4.9 2.2 1.1v1.5c0 .2.2.4.5.4h3c.2 0 .4-.2.4-.4v-1.5c.8-.2 1.6-.6 2.2-1.1l1.5.9c.2.1.5 0 .6-.2l1.5-2.6c.2-.2.1-.5-.1-.6z" stroke="currentColor" stroke-width="1.5"/></svg>
+          </button>
+        </div>
+      </aside>
+
+      <main id="chat-main">
+        <div id="chat-header" class="chat-header">
+          <button class="btn btn-icon sidebar-toggle" onclick="toggleSidebar()">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <span id="chat-title">New Conversation</span>
+          <div class="chat-header-actions">
+            <span id="token-counter" class="token-counter hidden"></span>
+            <button class="btn btn-icon btn-danger" onclick="deleteCurrentConversation()" title="Delete conversation" id="delete-conv-btn" style="display:none">
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M6 8v8M10 8v8M14 8v8M4 5h12M8 5V3h4v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div id="messages" class="messages">
+          <div id="empty-state" class="empty-state">
+            <h3>HomeAgent Debug Console</h3>
+            <p>Start a conversation to test the agent. Messages stream in real-time via SSE.</p>
+          </div>
+        </div>
+
+        <div id="chat-input-area" class="chat-input-area">
+          <div id="streaming-indicator" class="streaming-indicator hidden">
+            <div class="dot-pulse"></div>
+            <span>Agent is responding...</span>
+            <button class="btn btn-sm btn-secondary" onclick="abortStream()">Stop</button>
+          </div>
+          <form id="chat-form" onsubmit="handleSendMessage(event)">
+            <textarea id="message-input" placeholder="Type a message..." rows="1" onkeydown="handleInputKeydown(event)" oninput="autoResizeTextarea(this)"></textarea>
+            <button type="submit" class="btn btn-primary btn-send" id="send-btn">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10l14-7-4 14-3-7-7-3z" fill="currentColor"/></svg>
+            </button>
+          </form>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

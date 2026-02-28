@@ -168,8 +168,40 @@ class PipelineStack(cdk.Stack):
             ],
         )
 
+        # ------------------------------------------------------------------
+        # Post-deploy: sync web UI static files to S3 + invalidate CloudFront
+        # ------------------------------------------------------------------
+        webui_deploy_step = pipelines.CodeBuildStep(
+            "WebUiDeploy",
+            input=source,
+            commands=[
+                "aws s3 sync webui/ s3://$WEBUI_BUCKET_NAME --delete",
+                'aws cloudfront create-invalidation --distribution-id $WEBUI_DISTRIBUTION_ID --paths "/*"',
+            ],
+            build_environment=build_env,
+            env_from_cfn_outputs={
+                "WEBUI_BUCKET_NAME": deploy_stage.webui_stack.bucket_name_output,
+                "WEBUI_DISTRIBUTION_ID": deploy_stage.webui_stack.distribution_id_output,
+            },
+            role_policy_statements=[
+                iam.PolicyStatement(
+                    actions=[
+                        "s3:PutObject",
+                        "s3:DeleteObject",
+                        "s3:ListBucket",
+                        "s3:GetBucketLocation",
+                    ],
+                    resources=["*"],
+                ),
+                iam.PolicyStatement(
+                    actions=["cloudfront:CreateInvalidation"],
+                    resources=["*"],
+                ),
+            ],
+        )
+
         pipeline.add_stage(
             deploy_stage,
             pre=[test_step],
-            post=[docker_build_step],
+            post=[docker_build_step, webui_deploy_step],
         )
