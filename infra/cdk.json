@@ -3,6 +3,8 @@
   "context": {
     "@aws-cdk/core:stackRelativeExports": true,
     "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": true,
-    "github_connection_arn": ""
+    "github_connection_arn": "arn:aws:codeconnections:us-east-1:177873418135:connection/306cd0ae-555c-4e7b-baac-6897400ec1ec",
+    "account": "177873418135",
+    "region": "us-east-1"
   }
 }

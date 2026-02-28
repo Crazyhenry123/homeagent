@@ -37,8 +37,7 @@ class PipelineStack(cdk.Stack):
             "Synth",
             input=source,
             install_commands=[
-                "cd infra",
-                "pip install -r requirements.txt",
+                "pip install -r infra/requirements.txt",
             ],
             commands=[
                 "cd infra",
