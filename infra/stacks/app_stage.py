@@ -16,7 +16,7 @@ class HomeAgentStage(cdk.Stage):
         network = NetworkStack(self, "Network")
         data = DataStack(self, "Data")
         security = SecurityStack(self, "Security", tables=data.tables)
-        ServiceStack(
+        self.service_stack = ServiceStack(
             self,
             "Service",
             vpc=network.vpc,

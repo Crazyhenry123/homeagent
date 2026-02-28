@@ -100,6 +100,18 @@ class PipelineStack(cdk.Stack):
         # ------------------------------------------------------------------
         # Post-deploy: build Docker image, push to ECR, update ECS service
         # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # Wire up the deploy stage
+        # ------------------------------------------------------------------
+        deploy_stage = HomeAgentStage(
+            self,
+            "Deploy",
+            env=cdk.Environment(
+                account=self.account,
+                region=self.region,
+            ),
+        )
+
         docker_build_step = pipelines.CodeBuildStep(
             "DockerBuildPush",
             input=source,
@@ -120,8 +132,10 @@ class PipelineStack(cdk.Stack):
             build_environment=build_env,
             env={
                 "ECR_REPO_URI": f"{self.account}.dkr.ecr.{self.region}.amazonaws.com/homeagent-backend",
-                "ECS_CLUSTER_NAME": "Deploy-Service-Cluster",
-                "ECS_SERVICE_NAME": "Deploy-Service-Service",
+            },
+            env_from_cfn_outputs={
+                "ECS_CLUSTER_NAME": deploy_stage.service_stack.cluster_name_output,
+                "ECS_SERVICE_NAME": deploy_stage.service_stack.service_name_output,
             },
             role_policy_statements=[
                 iam.PolicyStatement(
@@ -152,18 +166,6 @@ class PipelineStack(cdk.Stack):
                     resources=["*"],
                 ),
             ],
-        )
-
-        # ------------------------------------------------------------------
-        # Wire up the deploy stage
-        # ------------------------------------------------------------------
-        deploy_stage = HomeAgentStage(
-            self,
-            "Deploy",
-            env=cdk.Environment(
-                account=self.account,
-                region=self.region,
-            ),
         )
 
         pipeline.add_stage(

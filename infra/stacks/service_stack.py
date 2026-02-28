@@ -108,5 +108,9 @@ class ServiceStack(cdk.Stack):
             "ServiceUrl",
             value=f"http://{service.load_balancer.load_balancer_dns_name}",
         )
-        cdk.CfnOutput(self, "ClusterName", value=cluster.cluster_name)
-        cdk.CfnOutput(self, "ServiceName", value=service.service.service_name)
+        self.cluster_name_output = cdk.CfnOutput(
+            self, "ClusterName", value=cluster.cluster_name
+        )
+        self.service_name_output = cdk.CfnOutput(
+            self, "ServiceName", value=service.service.service_name
+        )
