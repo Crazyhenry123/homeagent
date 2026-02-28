@@ -33,7 +33,13 @@ class PipelineStack(cdk.Stack):
         # ------------------------------------------------------------------
         # Synth: install CDK deps and synthesize CloudFormation
         # ------------------------------------------------------------------
-        synth = pipelines.ShellStep(
+        build_env = codebuild.BuildEnvironment(
+            build_image=codebuild.LinuxBuildImage.STANDARD_7_0,
+            privileged=True,
+            compute_type=codebuild.ComputeType.MEDIUM,
+        )
+
+        synth = pipelines.CodeBuildStep(
             "Synth",
             input=source,
             install_commands=[
@@ -44,12 +50,13 @@ class PipelineStack(cdk.Stack):
                 "npx cdk synth",
             ],
             primary_output_directory="infra/cdk.out",
-        )
-
-        build_env = codebuild.BuildEnvironment(
-            build_image=codebuild.LinuxBuildImage.STANDARD_7_0,
-            privileged=True,
-            compute_type=codebuild.ComputeType.MEDIUM,
+            build_environment=build_env,
+            role_policy_statements=[
+                iam.PolicyStatement(
+                    actions=["ec2:DescribeAvailabilityZones"],
+                    resources=["*"],
+                ),
+            ],
         )
 
         pipeline = pipelines.CodePipeline(
@@ -71,8 +78,7 @@ class PipelineStack(cdk.Stack):
             "BackendTests",
             input=source,
             install_commands=[
-                "cd backend",
-                "pip install -r requirements.txt pytest",
+                "pip install -r backend/requirements.txt pytest",
             ],
             commands=[
                 "docker run -d --name dynamodb-test -p 8000:8000 "
