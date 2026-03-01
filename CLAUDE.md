@@ -6,6 +6,7 @@ Family AI agent app — family members chat with Claude (via Amazon Bedrock) thr
 ## Monorepo Structure
 - `backend/` — Flask API (Python 3.12)
 - `mobile/` — Expo React Native app (TypeScript)
+- `webui/` — Debug web console (static HTML/CSS/JS, hosted on S3+CloudFront)
 - `infra/` — AWS CDK stacks (Python)
 
 ## Conventions
@@ -34,20 +35,22 @@ Family AI agent app — family members chat with Claude (via Amazon Bedrock) thr
 - Pagination via cursor-based `?limit=N&cursor=X`
 
 ### Infrastructure
-- CDK Python, one stack per concern (network, data, security, service, pipeline)
+- CDK Python, one stack per concern (network, data, security, service, webui, pipeline)
 - CDK Pipelines self-mutating pattern for CI/CD
 - DynamoDB on-demand billing, tables created by CDK (cloud) or auto-init (local)
 - ECS Fargate with ALB, 300s idle timeout for SSE
 - ECR repository `homeagent-backend` for Docker images
+- S3 + CloudFront for debug web UI static hosting
 
 ## CI/CD Pipeline (AWS CodePipeline)
 ```
-GitHub (master) → Synth CDK → Run Tests → Deploy Infra → Docker Build+Push → Update ECS
+GitHub (master) → Synth CDK → Run Tests → Deploy Infra → Docker Build+Push → Update ECS → Deploy Web UI
 ```
 - **Source**: GitHub `Crazyhenry123/homeagent` repo via CodeStar Connection
 - **Test**: CodeBuild runs pytest with DynamoDB Local in Docker
-- **Deploy**: CDK Pipelines deploys Network, Data, Security, Service stacks
+- **Deploy**: CDK Pipelines deploys Network, Data, Security, Service, WebUi stacks
 - **Build**: CodeBuild builds Docker image, pushes to ECR, triggers ECS rolling deploy
+- **WebUI**: Syncs `webui/` to S3 bucket and invalidates CloudFront cache
 
 ### First-time setup
 ```bash
@@ -77,6 +80,11 @@ docker-compose up              # Flask + DynamoDB Local
 cd mobile
 npm install
 npx expo start                 # Scan QR code with Expo Go on your phone
+
+# Web Debug Console
+# Open webui/index.html directly in a browser, or serve with:
+python -m http.server 8080 -d webui
+# Then configure the API endpoint to http://localhost:5000
 ```
 
 ## Environment Variables

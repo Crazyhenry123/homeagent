@@ -5,6 +5,7 @@ from stacks.network_stack import NetworkStack
 from stacks.data_stack import DataStack
 from stacks.security_stack import SecurityStack
 from stacks.service_stack import ServiceStack
+from stacks.webui_stack import WebUiStack
 
 
 class HomeAgentStage(cdk.Stage):
@@ -24,3 +25,4 @@ class HomeAgentStage(cdk.Stage):
             ecr_repo=security.ecr_repo,
             tables=data.tables,
         )
+        self.webui_stack = WebUiStack(self, "WebUi")
