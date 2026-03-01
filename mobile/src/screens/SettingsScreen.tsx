@@ -43,7 +43,7 @@ export function SettingsScreen({navigation}: Props) {
       const result = await generateInviteCode();
       Alert.alert(
         'Invite Code Created',
-        `Share this code with a family member:\n\n${result.code}`,
+        `Share this code with a family member:\n\n${result.code ?? 'Unknown'}`,
         [{text: 'OK'}],
       );
     } catch (err) {

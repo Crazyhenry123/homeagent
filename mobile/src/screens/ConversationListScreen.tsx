@@ -52,7 +52,7 @@ export function ConversationListScreen({navigation}: Props) {
     navigation.navigate('Chat', {conversationId, title: conv?.title});
   };
 
-  const handleDelete = (conversationId: string) => {
+  const confirmDelete = (conversationId: string) => {
     Alert.alert('Delete Conversation', 'Are you sure?', [
       {text: 'Cancel', style: 'cancel'},
       {
@@ -81,7 +81,7 @@ export function ConversationListScreen({navigation}: Props) {
           <ConversationItem
             conversation={item}
             onPress={handlePress}
-            onLongPress={handleDelete}
+            onLongPress={confirmDelete}
           />
         )}
         refreshing={loading}

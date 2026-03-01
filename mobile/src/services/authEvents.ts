@@ -9,6 +9,11 @@ export function onAuthExpired(listener: AuthEventListener): () => void {
   };
 }
 
+let firing = false;
+
 export function emitAuthExpired(): void {
+  if (firing) return;
+  firing = true;
   listeners.forEach(listener => listener());
+  setTimeout(() => { firing = false; }, 1000);
 }

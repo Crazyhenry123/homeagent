@@ -25,16 +25,7 @@
       "package": "com.homeagent.app"
     },
     "extra": {
-      "apiBaseUrl": "http://Deploy-Servi-XjO6myh4gADc-1702122244.us-east-1.elb.amazonaws.com",
-      "eas": {
-        "projectId": ""
-      }
-    },
-    "updates": {
-      "url": ""
-    },
-    "runtimeVersion": {
-      "policy": "appVersion"
+      "apiBaseUrl": "http://Deploy-Servi-XjO6myh4gADc-1702122244.us-east-1.elb.amazonaws.com"
     },
     "plugins": [
       "expo-asset",
