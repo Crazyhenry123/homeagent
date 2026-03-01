@@ -79,7 +79,87 @@ function saveSettings() {
   closeSettings();
 }
 
-// ── Auth ──
+// ── Auth Tab Switching ──
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((el, i) => {
+    el.classList.toggle('active', (tab === 'register') === (i === 0));
+  });
+  $('#register-form').classList.toggle('hidden', tab !== 'register');
+  $('#login-form').classList.toggle('hidden', tab !== 'login');
+}
+
+// ── Auth: Token Login ──
+async function handleTokenLogin(e) {
+  e.preventDefault();
+  const errEl = $('#login-error');
+  errEl.classList.add('hidden');
+
+  const token = $('#login-token').value.trim();
+  if (!token) return;
+
+  try {
+    const res = await fetch(`${state.apiUrl}/api/auth/verify`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.valid) {
+      errEl.textContent = data.error || 'Invalid token';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    state.token = token;
+    state.userName = data.name || 'User';
+    state.userRole = data.role || '';
+    localStorage.setItem('ha_token', token);
+    localStorage.setItem('ha_user_name', state.userName);
+    localStorage.setItem('ha_user_role', state.userRole);
+    showChatView();
+  } catch (err) {
+    errEl.textContent = `Connection failed: ${err.message}`;
+    errEl.classList.remove('hidden');
+  }
+}
+
+// ── Register Page: Generate Invite Code ──
+async function generateInviteCodeFromRegister() {
+  const btn = $('#register-invite-btn');
+  const token = prompt('Enter your admin device token to generate an invite code:');
+  if (!token) return;
+
+  btn.disabled = true;
+  btn.textContent = '...';
+
+  try {
+    const res = await fetch(`${state.apiUrl}/api/admin/invite-codes`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || 'Failed to generate invite code');
+      return;
+    }
+
+    prompt('New invite code (share with family member):', data.code);
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Generate Invite Code';
+  }
+}
+
+// ── Auth: Register ──
 async function handleRegister(e) {
   e.preventDefault();
   const errEl = $('#register-error');

@@ -27,7 +27,13 @@
       <div class="register-card">
         <h1>HomeAgent</h1>
         <p class="subtitle">Debug Console</p>
-        <form id="register-form" onsubmit="handleRegister(event)">
+
+        <div class="auth-tabs">
+          <button class="auth-tab active" onclick="switchAuthTab('register')">Register</button>
+          <button class="auth-tab" onclick="switchAuthTab('login')">Login with Token</button>
+        </div>
+
+        <form id="register-form" class="auth-panel" onsubmit="handleRegister(event)">
           <label for="invite-code">Invite Code</label>
           <input type="text" id="invite-code" required placeholder="Enter invite code">
           <label for="display-name">Display Name</label>
@@ -35,7 +41,18 @@
           <div id="register-error" class="error-msg hidden"></div>
           <button type="submit" class="btn btn-primary btn-block">Register</button>
         </form>
-        <button class="btn btn-link" onclick="openSettings()">Configure API Endpoint</button>
+
+        <form id="login-form" class="auth-panel hidden" onsubmit="handleTokenLogin(event)">
+          <label for="login-token">Device Token</label>
+          <input type="text" id="login-token" required placeholder="Paste your device token">
+          <div id="login-error" class="error-msg hidden"></div>
+          <button type="submit" class="btn btn-primary btn-block">Login</button>
+        </form>
+
+        <div class="register-footer">
+          <button class="btn btn-link" onclick="openSettings()">Configure API Endpoint</button>
+          <button class="btn btn-sm btn-secondary" id="register-invite-btn" onclick="generateInviteCodeFromRegister()">Generate Invite Code</button>
+        </div>
       </div>
     </div>
 

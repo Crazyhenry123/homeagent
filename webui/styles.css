@@ -126,6 +126,33 @@ body {
 }
 .register-card input:focus { outline: none; border-color: var(--accent); }
 .register-card .btn-primary { margin-top: 24px; }
+.auth-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.auth-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 0;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+}
+.auth-tab:hover { color: var(--text-secondary); }
+.auth-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.auth-panel.hidden { display: none; }
+.register-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+}
 .error-msg { color: var(--danger); font-size: 13px; margin-top: 12px; }
 .error-msg.hidden { display: none; }
 
