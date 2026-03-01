@@ -3,6 +3,7 @@ from aws_cdk import aws_cloudfront as cloudfront
 from aws_cdk import aws_cloudfront_origins as origins
 from aws_cdk import aws_elasticloadbalancingv2 as elbv2
 from aws_cdk import aws_s3 as s3
+from aws_cdk import aws_ssm as ssm
 from constructs import Construct
 
 
@@ -91,4 +92,18 @@ class WebUiStack(cdk.Stack):
             self,
             "WebUiUrl",
             value=f"https://{self.distribution.distribution_domain_name}",
+        )
+
+        # SSM parameters so the fast WebUI pipeline can look up bucket/distribution
+        ssm.StringParameter(
+            self,
+            "WebUiBucketNameParam",
+            parameter_name="/homeagent/webui/bucket-name",
+            string_value=self.bucket.bucket_name,
+        )
+        ssm.StringParameter(
+            self,
+            "WebUiDistributionIdParam",
+            parameter_name="/homeagent/webui/distribution-id",
+            string_value=self.distribution.distribution_id,
         )
