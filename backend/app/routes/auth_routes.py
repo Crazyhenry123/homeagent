@@ -17,8 +17,8 @@ def register():
     if missing:
         return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
 
-    if data["platform"] not in ("ios", "android"):
-        return jsonify({"error": "platform must be 'ios' or 'android'"}), 400
+    if data["platform"] not in ("ios", "android", "web"):
+        return jsonify({"error": "platform must be 'ios', 'android', or 'web'"}), 400
 
     try:
         result = register_device(

@@ -34,13 +34,13 @@ class WebUiStack(cdk.Stack):
             error_responses=[
                 cloudfront.ErrorResponse(
                     http_status=403,
-                    response_http_status=200,
-                    response_page_path="/index.html",
+                    response_http_status=403,
+                    response_page_path="/error.html",
                     ttl=cdk.Duration.seconds(0),
                 ),
                 cloudfront.ErrorResponse(
                     http_status=404,
-                    response_http_status=200,
+                    response_http_status=404,
                     response_page_path="/error.html",
                     ttl=cdk.Duration.seconds(0),
                 ),

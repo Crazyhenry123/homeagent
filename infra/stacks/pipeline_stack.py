@@ -188,14 +188,25 @@ class PipelineStack(cdk.Stack):
                     actions=[
                         "s3:PutObject",
                         "s3:DeleteObject",
+                    ],
+                    resources=[
+                        deploy_stage.webui_stack.bucket.arn_for_objects("*"),
+                    ],
+                ),
+                iam.PolicyStatement(
+                    actions=[
                         "s3:ListBucket",
                         "s3:GetBucketLocation",
                     ],
-                    resources=["*"],
+                    resources=[
+                        deploy_stage.webui_stack.bucket.bucket_arn,
+                    ],
                 ),
                 iam.PolicyStatement(
                     actions=["cloudfront:CreateInvalidation"],
-                    resources=["*"],
+                    resources=[
+                        f"arn:aws:cloudfront::{self.account}:distribution/{deploy_stage.webui_stack.distribution.distribution_id}",
+                    ],
                 ),
             ],
         )

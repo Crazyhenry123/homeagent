@@ -3,13 +3,11 @@ const state = {
   token: localStorage.getItem('ha_token') || '',
   userName: localStorage.getItem('ha_user_name') || '',
   apiUrl: localStorage.getItem('ha_api_url') || '',
-  systemPrompt: localStorage.getItem('ha_system_prompt') || '',
   conversations: [],
   currentConversationId: null,
   messages: [],
   isStreaming: false,
   abortController: null,
-  totalTokens: 0,
 };
 
 // ── DOM refs ──
@@ -21,7 +19,6 @@ const messagesEl = $('#messages');
 const emptyState = $('#empty-state');
 const messageInput = $('#message-input');
 const chatTitle = $('#chat-title');
-const tokenCounter = $('#token-counter');
 const streamingIndicator = $('#streaming-indicator');
 const conversationList = $('#conversation-list');
 const userInfo = $('#user-info');
@@ -55,7 +52,6 @@ function showChatView() {
 // ── Settings ──
 function openSettings() {
   $('#api-url-input').value = state.apiUrl;
-  $('#system-prompt-input').value = state.systemPrompt;
   settingsModal.classList.remove('hidden');
 }
 
@@ -65,12 +61,9 @@ function closeSettings() {
 
 function saveSettings() {
   const url = $('#api-url-input').value.trim().replace(/\/+$/, '');
-  const prompt = $('#system-prompt-input').value.trim();
   if (!url) { alert('API URL is required'); return; }
   state.apiUrl = url;
-  state.systemPrompt = prompt;
   localStorage.setItem('ha_api_url', url);
-  localStorage.setItem('ha_system_prompt', prompt);
   closeSettings();
 }
 
@@ -97,7 +90,7 @@ async function handleRegister(e) {
         invite_code: inviteCode,
         display_name: displayName,
         device_name: 'Debug Console',
-        platform: 'ios', // Required by API, use ios as default
+        platform: 'web',
       }),
     });
 
@@ -130,12 +123,20 @@ function apiHeaders() {
 async function apiGet(path) {
   const res = await fetch(`${state.apiUrl}${path}`, { headers: apiHeaders() });
   if (res.status === 401) { logout(); throw new Error('Unauthorized'); }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed: ${res.status}`);
+  }
   return res.json();
 }
 
 async function apiDelete(path) {
   const res = await fetch(`${state.apiUrl}${path}`, { method: 'DELETE', headers: apiHeaders() });
   if (res.status === 401) { logout(); throw new Error('Unauthorized'); }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed: ${res.status}`);
+  }
   return res.json();
 }
 
@@ -205,8 +206,6 @@ function startNewConversation() {
   state.messages = [];
   chatTitle.textContent = 'New Conversation';
   deleteConvBtn.style.display = 'none';
-  state.totalTokens = 0;
-  tokenCounter.classList.add('hidden');
   renderConversationList();
   renderMessages();
   messageInput.focus();
@@ -357,6 +356,40 @@ function scrollToBottom() {
 }
 
 // ── Chat / SSE Streaming ──
+function processSSELine(line, assistantMsg, bubbleEl) {
+  if (!line.startsWith('data: ')) return;
+  const jsonStr = line.slice(6);
+  if (!jsonStr) return;
+
+  try {
+    const event = JSON.parse(jsonStr);
+
+    if (event.type === 'text_delta') {
+      assistantMsg.content += event.content;
+      setSanitizedContent(bubbleEl, renderMarkdown(assistantMsg.content));
+      scrollToBottom();
+
+      if (event.conversation_id && !state.currentConversationId) {
+        state.currentConversationId = event.conversation_id;
+        deleteConvBtn.style.display = 'flex';
+      }
+    } else if (event.type === 'message_done') {
+      if (event.conversation_id) {
+        state.currentConversationId = event.conversation_id;
+      }
+      loadConversations();
+    } else if (event.type === 'error') {
+      const errorSpan = document.createElement('span');
+      errorSpan.style.color = 'var(--danger)';
+      errorSpan.textContent = event.content;
+      bubbleEl.textContent = '';
+      bubbleEl.appendChild(errorSpan);
+    }
+  } catch {
+    // Skip malformed JSON
+  }
+}
+
 async function handleSendMessage(e) {
   e.preventDefault();
   const text = messageInput.value.trim();
@@ -418,40 +451,13 @@ async function handleSendMessage(e) {
       buffer = lines.pop(); // Keep incomplete line in buffer
 
       for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const jsonStr = line.slice(6);
-        if (!jsonStr) continue;
-
-        try {
-          const event = JSON.parse(jsonStr);
-
-          if (event.type === 'text_delta') {
-            assistantMsg.content += event.content;
-            setSanitizedContent(bubbleEl, renderMarkdown(assistantMsg.content));
-            scrollToBottom();
-
-            // Track conversation ID from first chunk
-            if (event.conversation_id && !state.currentConversationId) {
-              state.currentConversationId = event.conversation_id;
-              deleteConvBtn.style.display = 'flex';
-            }
-          } else if (event.type === 'message_done') {
-            if (event.conversation_id) {
-              state.currentConversationId = event.conversation_id;
-            }
-            // Refresh conversation list to show new/updated conversation
-            loadConversations();
-          } else if (event.type === 'error') {
-            const errorSpan = document.createElement('span');
-            errorSpan.style.color = 'var(--danger)';
-            errorSpan.textContent = event.content;
-            bubbleEl.textContent = '';
-            bubbleEl.appendChild(errorSpan);
-          }
-        } catch {
-          // Skip malformed JSON
-        }
+        processSSELine(line, assistantMsg, bubbleEl);
       }
+    }
+
+    // Process any remaining buffered data
+    if (buffer) {
+      processSSELine(buffer, assistantMsg, bubbleEl);
     }
   } catch (err) {
     if (err.name === 'AbortError') {
