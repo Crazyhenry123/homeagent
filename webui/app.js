@@ -29,8 +29,9 @@ const apiEndpointDisplay = $('#api-endpoint-display');
 
 // ── Init ──
 function init() {
-  // Default to same origin (API proxied through CloudFront)
-  if (!state.apiUrl) {
+  // Default to same origin (API proxied through CloudFront).
+  // Also fix stale HTTP URLs when page is served over HTTPS.
+  if (!state.apiUrl || (window.location.protocol === 'https:' && state.apiUrl.startsWith('http://'))) {
     state.apiUrl = window.location.origin;
     localStorage.setItem('ha_api_url', state.apiUrl);
   }
