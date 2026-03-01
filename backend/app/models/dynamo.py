@@ -105,7 +105,10 @@ def _create_local_tables(app: Flask) -> None:
         }
         if "GlobalSecondaryIndexes" in schema:
             params["GlobalSecondaryIndexes"] = schema["GlobalSecondaryIndexes"]
-        dynamodb.create_table(**params)
+        try:
+            dynamodb.create_table(**params)
+        except client.exceptions.ResourceInUseException:
+            pass  # Another worker already created it
 
 
 def _seed_admin_invite_code(app: Flask) -> None:
