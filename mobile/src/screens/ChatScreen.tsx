@@ -1,11 +1,18 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {FlatList, StyleSheet, View} from 'react-native';
+import React, {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  View,
+} from 'react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {ChatInput} from '../components/ChatInput';
 import {MessageBubble} from '../components/MessageBubble';
 import {getMessages} from '../services/api';
 import {streamChat} from '../services/sse';
-import type {Message, SSEEvent} from '../types';
+import type {SSEEvent} from '../types';
 import type {RootStackParamList} from '../navigation/AppNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
@@ -16,27 +23,40 @@ interface DisplayMessage {
   content: string;
 }
 
-export function ChatScreen({route}: Props) {
+export function ChatScreen({route, navigation}: Props) {
   const conversationId = route.params?.conversationId ?? null;
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId);
   const [streaming, setStreaming] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(!!conversationId);
   const flatListRef = useRef<FlatList<DisplayMessage>>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Set header title from conversation title param or default
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: route.params?.title || (conversationId ? 'Chat' : 'New Chat'),
+    });
+  }, [navigation, route.params?.title, conversationId]);
 
   // Load existing messages
   useEffect(() => {
     if (!conversationId) return;
 
-    getMessages(conversationId).then(result => {
-      setMessages(
-        result.messages.map(m => ({
-          id: m.message_id,
-          role: m.role,
-          content: m.content,
-        })),
-      );
-    });
+    setLoadingMessages(true);
+    getMessages(conversationId)
+      .then(result => {
+        setMessages(
+          result.messages.map(m => ({
+            id: m.message_id,
+            role: m.role,
+            content: m.content,
+          })),
+        );
+      })
+      .finally(() => {
+        setLoadingMessages(false);
+      });
   }, [conversationId]);
 
   const scrollToEnd = useCallback(() => {
@@ -112,17 +132,26 @@ export function ChatScreen({route}: Props) {
   }, []);
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={item => item.id}
-        renderItem={({item}) => <MessageBubble message={item} />}
-        contentContainerStyle={styles.messageList}
-        onContentSizeChange={scrollToEnd}
-      />
-      <ChatInput onSend={handleSend} disabled={streaming} />
-    </View>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+      {loadingMessages ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={item => item.id}
+          renderItem={({item}) => <MessageBubble message={item} />}
+          contentContainerStyle={styles.messageList}
+          onContentSizeChange={scrollToEnd}
+        />
+      )}
+      <ChatInput onSend={handleSend} disabled={streaming || loadingMessages} />
+    </KeyboardAvoidingView>
   );
 }
 
@@ -130,6 +159,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   messageList: {
     paddingVertical: 8,

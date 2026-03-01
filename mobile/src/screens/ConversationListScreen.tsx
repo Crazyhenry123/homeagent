@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useLayoutEffect, useState} from 'react';
 import {
   Alert,
   FlatList,
@@ -19,6 +19,18 @@ export function ConversationListScreen({navigation}: Props) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Settings')}
+          hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+          <Text style={styles.headerButton}>Settings</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
+
   const loadConversations = useCallback(async () => {
     try {
       const result = await getConversations();
@@ -36,10 +48,11 @@ export function ConversationListScreen({navigation}: Props) {
   }, [navigation, loadConversations]);
 
   const handlePress = (conversationId: string) => {
-    navigation.navigate('Chat', {conversationId});
+    const conv = conversations.find(c => c.conversation_id === conversationId);
+    navigation.navigate('Chat', {conversationId, title: conv?.title});
   };
 
-  const handleDelete = (conversationId: string) => {
+  const confirmDelete = (conversationId: string) => {
     Alert.alert('Delete Conversation', 'Are you sure?', [
       {text: 'Cancel', style: 'cancel'},
       {
@@ -68,6 +81,7 @@ export function ConversationListScreen({navigation}: Props) {
           <ConversationItem
             conversation={item}
             onPress={handlePress}
+            onLongPress={confirmDelete}
           />
         )}
         refreshing={loading}
@@ -94,6 +108,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F2F2F7',
+  },
+  headerButton: {
+    color: '#007AFF',
+    fontSize: 16,
   },
   empty: {
     flex: 1,

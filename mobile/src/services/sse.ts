@@ -1,6 +1,7 @@
 import type {SSEEvent} from '../types';
 import {getToken} from './auth';
 import {BASE_URL} from './api';
+import {emitAuthExpired} from './authEvents';
 
 /**
  * Custom SSE client using fetch (React Native lacks native EventSource).
@@ -37,6 +38,9 @@ export async function streamChat(
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      emitAuthExpired();
+    }
     const text = await response.text().catch(() => 'Unknown error');
     onError(new Error(`Chat failed: ${response.status} ${text}`));
     return;

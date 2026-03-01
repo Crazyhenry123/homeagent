@@ -5,6 +5,7 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "scheme": "homeagent",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -28,7 +29,8 @@
     },
     "plugins": [
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      "expo-secure-store"
     ]
   }
 }
