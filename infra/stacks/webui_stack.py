@@ -32,7 +32,7 @@ class WebUiStack(cdk.Stack):
         api_origin = origins.HttpOrigin(
             load_balancer.load_balancer_dns_name,
             protocol_policy=cloudfront.OriginProtocolPolicy.HTTP_ONLY,
-            read_timeout=cdk.Duration.seconds(180),
+            read_timeout=cdk.Duration.seconds(60),
         )
 
         # CloudFront distribution with OAC to the S3 bucket + API proxy
