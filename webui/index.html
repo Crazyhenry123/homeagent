@@ -50,10 +50,18 @@
         </div>
         <div id="conversation-list" class="conversation-list"></div>
         <div class="sidebar-footer">
-          <div id="user-info" class="user-info"></div>
-          <button class="btn btn-icon" onclick="openSettings()" title="Settings">
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 13a3 3 0 100-6 3 3 0 000 6z" stroke="currentColor" stroke-width="1.5"/><path d="M17.4 12.3l-1.5-.9c.1-.5.1-.9.1-1.4s0-.9-.1-1.4l1.5-.9c.2-.1.3-.4.2-.6l-1.5-2.6c-.1-.2-.4-.3-.6-.2l-1.5.9c-.7-.5-1.4-.9-2.2-1.1V2.6c0-.2-.2-.4-.5-.4h-3c-.2 0-.4.2-.4.4v1.5c-.8.2-1.6.6-2.2 1.1l-1.5-.9c-.2-.1-.5 0-.6.2L2.1 7.1c-.1.2-.1.5.2.6l1.5.9c-.1.5-.1.9-.1 1.4s0 .9.1 1.4l-1.5.9c-.2.1-.3.4-.2.6l1.5 2.6c.1.2.4.3.6.2l1.5-.9c.7.5 1.4.9 2.2 1.1v1.5c0 .2.2.4.5.4h3c.2 0 .4-.2.4-.4v-1.5c.8-.2 1.6-.6 2.2-1.1l1.5.9c.2.1.5 0 .6-.2l1.5-2.6c.2-.2.1-.5-.1-.6z" stroke="currentColor" stroke-width="1.5"/></svg>
-          </button>
+          <div class="sidebar-footer-top">
+            <div id="api-endpoint-display" class="api-endpoint-display"></div>
+          </div>
+          <div class="sidebar-footer-bottom">
+            <div id="user-info" class="user-info"></div>
+            <div class="sidebar-footer-actions">
+              <button class="btn btn-sm btn-secondary hidden" id="generate-invite-btn" onclick="generateInviteCode()" title="Generate Invite Code">Invite</button>
+              <button class="btn btn-icon" onclick="openSettings()" title="Settings">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 13a3 3 0 100-6 3 3 0 000 6z" stroke="currentColor" stroke-width="1.5"/><path d="M17.4 12.3l-1.5-.9c.1-.5.1-.9.1-1.4s0-.9-.1-1.4l1.5-.9c.2-.1.3-.4.2-.6l-1.5-2.6c-.1-.2-.4-.3-.6-.2l-1.5.9c-.7-.5-1.4-.9-2.2-1.1V2.6c0-.2-.2-.4-.5-.4h-3c-.2 0-.4.2-.4.4v1.5c-.8.2-1.6.6-2.2 1.1l-1.5-.9c-.2-.1-.5 0-.6.2L2.1 7.1c-.1.2-.1.5.2.6l1.5.9c-.1.5-.1.9-.1 1.4s0 .9.1 1.4l-1.5.9c-.2.1-.3.4-.2.6l1.5 2.6c.1.2.4.3.6.2l1.5-.9c.7.5 1.4.9 2.2 1.1v1.5c0 .2.2.4.5.4h3c.2 0 .4-.2.4-.4v-1.5c.8-.2 1.6-.6 2.2-1.1l1.5.9c.2.1.5 0 .6-.2l1.5-2.6c.2-.2.1-.5-.1-.6z" stroke="currentColor" stroke-width="1.5"/></svg>
+              </button>
+            </div>
+          </div>
         </div>
       </aside>
 
