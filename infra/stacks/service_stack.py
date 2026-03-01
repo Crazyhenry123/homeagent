@@ -103,6 +103,9 @@ class ServiceStack(cdk.Stack):
             "CpuScaling", target_utilization_percent=70
         )
 
+        # Expose ALB for CloudFront origin
+        self.load_balancer = service.load_balancer
+
         cdk.CfnOutput(
             self,
             "ServiceUrl",

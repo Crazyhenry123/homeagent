@@ -25,4 +25,8 @@ class HomeAgentStage(cdk.Stage):
             ecr_repo=security.ecr_repo,
             tables=data.tables,
         )
-        self.webui_stack = WebUiStack(self, "WebUi")
+        self.webui_stack = WebUiStack(
+            self,
+            "WebUi",
+            load_balancer=self.service_stack.load_balancer,
+        )

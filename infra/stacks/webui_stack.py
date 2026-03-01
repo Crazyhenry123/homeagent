@@ -1,14 +1,21 @@
 import aws_cdk as cdk
 from aws_cdk import aws_cloudfront as cloudfront
 from aws_cdk import aws_cloudfront_origins as origins
+from aws_cdk import aws_elasticloadbalancingv2 as elbv2
 from aws_cdk import aws_s3 as s3
 from constructs import Construct
 
 
 class WebUiStack(cdk.Stack):
-    """S3 + CloudFront stack for the debug web UI."""
+    """S3 + CloudFront stack for the debug web UI, with API proxy to ALB."""
 
-    def __init__(self, scope: Construct, id: str, **kwargs) -> None:
+    def __init__(
+        self,
+        scope: Construct,
+        id: str,
+        load_balancer: elbv2.ApplicationLoadBalancer,
+        **kwargs,
+    ) -> None:
         super().__init__(scope, id, **kwargs)
 
         # S3 bucket for static web assets (private, accessed via CloudFront OAC)
@@ -21,7 +28,14 @@ class WebUiStack(cdk.Stack):
             encryption=s3.BucketEncryption.S3_MANAGED,
         )
 
-        # CloudFront distribution with OAC to the S3 bucket
+        # ALB origin for API requests (HTTP, no caching, long timeout for SSE)
+        api_origin = origins.HttpOrigin(
+            load_balancer.load_balancer_dns_name,
+            protocol_policy=cloudfront.OriginProtocolPolicy.HTTP_ONLY,
+            read_timeout=cdk.Duration.seconds(180),
+        )
+
+        # CloudFront distribution with OAC to the S3 bucket + API proxy
         self.distribution = cloudfront.Distribution(
             self,
             "WebUiDistribution",
@@ -30,6 +44,21 @@ class WebUiStack(cdk.Stack):
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
             ),
+            additional_behaviors={
+                "/api/*": cloudfront.BehaviorOptions(
+                    origin=api_origin,
+                    viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                    allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
+                    cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
+                    origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER,
+                ),
+                "/health": cloudfront.BehaviorOptions(
+                    origin=api_origin,
+                    viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                    cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
+                    origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER,
+                ),
+            },
             default_root_object="index.html",
             error_responses=[
                 cloudfront.ErrorResponse(

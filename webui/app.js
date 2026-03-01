@@ -29,7 +29,13 @@ const apiEndpointDisplay = $('#api-endpoint-display');
 
 // ── Init ──
 function init() {
-  if (state.token && state.apiUrl) {
+  // Default to same origin (API proxied through CloudFront)
+  if (!state.apiUrl) {
+    state.apiUrl = window.location.origin;
+    localStorage.setItem('ha_api_url', state.apiUrl);
+  }
+
+  if (state.token) {
     showChatView();
   } else {
     showRegisterView();
