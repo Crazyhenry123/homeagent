@@ -6,6 +6,7 @@ from aws_cdk import aws_ecs as ecs
 from aws_cdk import aws_ecs_patterns as ecs_patterns
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_logs as logs
+from aws_cdk import aws_ssm as ssm
 from constructs import Construct
 
 
@@ -103,6 +104,9 @@ class ServiceStack(cdk.Stack):
             "CpuScaling", target_utilization_percent=70
         )
 
+        # Expose ALB for CloudFront origin
+        self.load_balancer = service.load_balancer
+
         cdk.CfnOutput(
             self,
             "ServiceUrl",
@@ -113,4 +117,18 @@ class ServiceStack(cdk.Stack):
         )
         self.service_name_output = cdk.CfnOutput(
             self, "ServiceName", value=service.service.service_name
+        )
+
+        # SSM parameters so the fast backend pipeline can look up cluster/service
+        ssm.StringParameter(
+            self,
+            "BackendClusterNameParam",
+            parameter_name="/homeagent/backend/cluster-name",
+            string_value=cluster.cluster_name,
+        )
+        ssm.StringParameter(
+            self,
+            "BackendServiceNameParam",
+            parameter_name="/homeagent/backend/service-name",
+            string_value=service.service.service_name,
         )

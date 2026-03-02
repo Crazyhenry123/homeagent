@@ -2,6 +2,7 @@
 const state = {
   token: localStorage.getItem('ha_token') || '',
   userName: localStorage.getItem('ha_user_name') || '',
+  userRole: localStorage.getItem('ha_user_role') || '',
   apiUrl: localStorage.getItem('ha_api_url') || '',
   conversations: [],
   currentConversationId: null,
@@ -23,10 +24,19 @@ const streamingIndicator = $('#streaming-indicator');
 const conversationList = $('#conversation-list');
 const userInfo = $('#user-info');
 const deleteConvBtn = $('#delete-conv-btn');
+const generateInviteBtn = $('#generate-invite-btn');
+const apiEndpointDisplay = $('#api-endpoint-display');
 
 // ── Init ──
 function init() {
-  if (state.token && state.apiUrl) {
+  // Default to same origin (API proxied through CloudFront).
+  // Also fix stale HTTP URLs when page is served over HTTPS.
+  if (!state.apiUrl || (window.location.protocol === 'https:' && state.apiUrl.startsWith('http://'))) {
+    state.apiUrl = window.location.origin;
+    localStorage.setItem('ha_api_url', state.apiUrl);
+  }
+
+  if (state.token) {
     showChatView();
   } else {
     showRegisterView();
@@ -45,6 +55,8 @@ function showChatView() {
   registerView.classList.add('hidden');
   chatView.classList.remove('hidden');
   userInfo.textContent = state.userName;
+  updateApiEndpointDisplay();
+  verifyAndUpdateRole();
   loadConversations();
   messageInput.focus();
 }
@@ -64,10 +76,91 @@ function saveSettings() {
   if (!url) { alert('API URL is required'); return; }
   state.apiUrl = url;
   localStorage.setItem('ha_api_url', url);
+  updateApiEndpointDisplay();
   closeSettings();
 }
 
-// ── Auth ──
+// ── Auth Tab Switching ──
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((el, i) => {
+    el.classList.toggle('active', (tab === 'register') === (i === 0));
+  });
+  $('#register-form').classList.toggle('hidden', tab !== 'register');
+  $('#login-form').classList.toggle('hidden', tab !== 'login');
+}
+
+// ── Auth: Token Login ──
+async function handleTokenLogin(e) {
+  e.preventDefault();
+  const errEl = $('#login-error');
+  errEl.classList.add('hidden');
+
+  const token = $('#login-token').value.trim();
+  if (!token) return;
+
+  try {
+    const res = await fetch(`${state.apiUrl}/api/auth/verify`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.valid) {
+      errEl.textContent = data.error || 'Invalid token';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    state.token = token;
+    state.userName = data.name || 'User';
+    state.userRole = data.role || '';
+    localStorage.setItem('ha_token', token);
+    localStorage.setItem('ha_user_name', state.userName);
+    localStorage.setItem('ha_user_role', state.userRole);
+    showChatView();
+  } catch (err) {
+    errEl.textContent = `Connection failed: ${err.message}`;
+    errEl.classList.remove('hidden');
+  }
+}
+
+// ── Register Page: Generate Invite Code ──
+async function generateInviteCodeFromRegister() {
+  const btn = $('#register-invite-btn');
+  const token = prompt('Enter your admin device token to generate an invite code:');
+  if (!token) return;
+
+  btn.disabled = true;
+  btn.textContent = '...';
+
+  try {
+    const res = await fetch(`${state.apiUrl}/api/admin/invite-codes`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || 'Failed to generate invite code');
+      return;
+    }
+
+    prompt('New invite code (share with family member):', data.code);
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Generate Invite Code';
+  }
+}
+
+// ── Auth: Register ──
 async function handleRegister(e) {
   e.preventDefault();
   const errEl = $('#register-error');
@@ -143,8 +236,10 @@ async function apiDelete(path) {
 function logout() {
   localStorage.removeItem('ha_token');
   localStorage.removeItem('ha_user_name');
+  localStorage.removeItem('ha_user_role');
   state.token = '';
   state.userName = '';
+  state.userRole = '';
   showRegisterView();
 }
 
@@ -522,6 +617,62 @@ function formatTime(isoStr) {
     return d.toLocaleDateString();
   } catch {
     return '';
+  }
+}
+
+// ── API Endpoint Display ──
+function updateApiEndpointDisplay() {
+  if (state.apiUrl) {
+    apiEndpointDisplay.textContent = state.apiUrl;
+    apiEndpointDisplay.title = state.apiUrl;
+  } else {
+    apiEndpointDisplay.textContent = '';
+  }
+}
+
+// ── Admin: Verify Role ──
+async function verifyAndUpdateRole() {
+  try {
+    const data = await apiGet('/api/auth/verify');
+    state.userRole = data.role || '';
+    localStorage.setItem('ha_user_role', state.userRole);
+    if (state.userRole === 'admin') {
+      generateInviteBtn.classList.remove('hidden');
+    } else {
+      generateInviteBtn.classList.add('hidden');
+    }
+  } catch {
+    // If verify fails, hide the button
+    generateInviteBtn.classList.add('hidden');
+  }
+}
+
+// ── Admin: Generate Invite Code ──
+async function generateInviteCode() {
+  generateInviteBtn.disabled = true;
+  generateInviteBtn.textContent = '...';
+
+  try {
+    const res = await fetch(`${state.apiUrl}/api/admin/invite-codes`, {
+      method: 'POST',
+      headers: apiHeaders(),
+    });
+
+    if (res.status === 401) { logout(); return; }
+    if (res.status === 403) { alert('Admin access required'); return; }
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || 'Failed to generate invite code');
+      return;
+    }
+
+    prompt('New invite code (share with family member):', data.code);
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  } finally {
+    generateInviteBtn.disabled = false;
+    generateInviteBtn.textContent = 'Invite';
   }
 }
 
