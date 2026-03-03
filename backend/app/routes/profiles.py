@@ -1,19 +1,29 @@
 from flask import Blueprint, g, jsonify, request
 
 from app.auth import require_admin, require_auth
-from app.services.profile import get_profile, list_profiles, update_profile
+from app.services.profile import (
+    create_profile,
+    get_profile,
+    list_profiles,
+    update_profile,
+)
 
 profiles_bp = Blueprint("profiles", __name__)
 admin_profiles_bp = Blueprint("admin_profiles", __name__)
 
 
+def _ensure_profile() -> dict:
+    """Get the current user's profile, auto-creating if missing (for pre-existing users)."""
+    profile = get_profile(g.user_id)
+    if not profile:
+        profile = create_profile(g.user_id, g.user_name, g.user_role)
+    return profile
+
+
 @profiles_bp.route("/profiles/me", methods=["GET"])
 @require_auth
 def get_my_profile():
-    profile = get_profile(g.user_id)
-    if not profile:
-        return jsonify({"error": "Profile not found"}), 404
-    return jsonify(profile)
+    return jsonify(_ensure_profile())
 
 
 @profiles_bp.route("/profiles/me", methods=["PUT"])
@@ -23,9 +33,8 @@ def update_my_profile():
     if not data:
         return jsonify({"error": "Request body required"}), 400
 
+    _ensure_profile()
     profile = update_profile(g.user_id, data)
-    if not profile:
-        return jsonify({"error": "Profile not found"}), 404
     return jsonify(profile)
 
 
