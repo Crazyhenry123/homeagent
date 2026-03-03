@@ -130,13 +130,9 @@ class DataStack(cdk.Stack):
             removal_policy=cdk.RemovalPolicy.RETAIN,
         )
 
-        # Devices: GSI to look up devices by user_id (for cascade delete)
-        self.tables["Devices"].add_global_secondary_index(
-            index_name="user_id-index",
-            partition_key=dynamodb.Attribute(
-                name="user_id", type=dynamodb.AttributeType.STRING
-            ),
-        )
+        # NOTE: Devices user_id-index GSI already exists on the physical table
+        # but is not tracked by CloudFormation. Do NOT add it here or CFN will
+        # fail with "index already exists". The GSI was created out-of-band.
 
         # HealthAuditLog table
         self.tables["HealthAuditLog"] = dynamodb.Table(
