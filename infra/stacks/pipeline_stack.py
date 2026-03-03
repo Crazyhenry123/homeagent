@@ -28,7 +28,7 @@ class PipelineStack(cdk.Stack):
 
         source = pipelines.CodePipelineSource.connection(
             "Crazyhenry123/homeagent",
-            "master",
+            "main",
             connection_arn=connection_arn,
         )
 
@@ -223,7 +223,7 @@ class PipelineStack(cdk.Stack):
             action_name="GitHub",
             owner="Crazyhenry123",
             repo="homeagent",
-            branch="master",
+            branch="main",
             connection_arn=connection_arn,
             output=source_output,
             trigger_on_push=False,  # V2 trigger handles push filtering
@@ -311,7 +311,7 @@ class PipelineStack(cdk.Stack):
                         source_action=fast_source_action,
                         push_filter=[
                             codepipeline.GitPushFilter(
-                                branches_includes=["master"],
+                                branches_includes=["main"],
                                 file_paths_includes=["webui/**"],
                             ),
                         ],
@@ -330,7 +330,7 @@ class PipelineStack(cdk.Stack):
             action_name="GitHub",
             owner="Crazyhenry123",
             repo="homeagent",
-            branch="master",
+            branch="main",
             connection_arn=connection_arn,
             output=backend_source_output,
             trigger_on_push=False,  # V2 trigger handles push filtering
@@ -512,7 +512,7 @@ class PipelineStack(cdk.Stack):
                         source_action=backend_fast_source_action,
                         push_filter=[
                             codepipeline.GitPushFilter(
-                                branches_includes=["master"],
+                                branches_includes=["main"],
                                 file_paths_includes=["backend/**"],
                             ),
                         ],
@@ -531,7 +531,7 @@ class PipelineStack(cdk.Stack):
             action_name="GitHub",
             owner="Crazyhenry123",
             repo="homeagent",
-            branch="master",
+            branch="main",
             connection_arn=connection_arn,
             output=infra_source_output,
             trigger_on_push=False,
@@ -601,7 +601,7 @@ class PipelineStack(cdk.Stack):
                         source_action=infra_fast_source_action,
                         push_filter=[
                             codepipeline.GitPushFilter(
-                                branches_includes=["master"],
+                                branches_includes=["main"],
                                 file_paths_includes=["infra/**"],
                             ),
                         ],
@@ -620,7 +620,7 @@ class PipelineStack(cdk.Stack):
             action_name="GitHub",
             owner="Crazyhenry123",
             repo="homeagent",
-            branch="master",
+            branch="main",
             connection_arn=connection_arn,
             output=mobile_source_output,
             trigger_on_push=False,
@@ -681,7 +681,7 @@ class PipelineStack(cdk.Stack):
                         source_action=mobile_fast_source_action,
                         push_filter=[
                             codepipeline.GitPushFilter(
-                                branches_includes=["master"],
+                                branches_includes=["main"],
                                 file_paths_includes=["mobile/**"],
                             ),
                         ],

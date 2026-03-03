@@ -44,7 +44,7 @@ Family AI agent app — family members chat with Claude (via Amazon Bedrock) thr
 
 ## CI/CD Pipeline (AWS CodePipeline)
 ```
-GitHub (master) → Synth CDK → Run Tests → Deploy Infra → Docker Build+Push → Update ECS → Deploy Web UI
+GitHub (main) → Synth CDK → Run Tests → Deploy Infra → Docker Build+Push → Update ECS → Deploy Web UI
 ```
 - **Source**: GitHub `Crazyhenry123/homeagent` repo via CodeStar Connection
 - **Test**: CodeBuild runs pytest with DynamoDB Local in Docker
@@ -68,7 +68,7 @@ cdk deploy HomeAgentPipeline \
   -c github_connection_arn=arn:aws:codeconnections:us-east-1:ACCOUNT_ID:connection/UUID
 
 # 4. Push to GitHub to trigger the pipeline
-git push origin master
+git push origin main
 ```
 
 ## Local Development
