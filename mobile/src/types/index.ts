@@ -12,6 +12,11 @@ export interface Conversation {
   updated_at: string;
 }
 
+export interface MediaInfo {
+  media_id: string;
+  content_type: string;
+}
+
 export interface Message {
   conversation_id: string;
   sort_key: string;
@@ -21,6 +26,16 @@ export interface Message {
   created_at: string;
   model?: string;
   tokens_used?: number;
+  media?: MediaInfo[];
+}
+
+export interface ChatMediaUpload {
+  localId: string;
+  uri: string;
+  contentType: string;
+  fileSize: number;
+  mediaId?: string;
+  status: 'pending' | 'uploading' | 'uploaded' | 'error';
 }
 
 export interface RegisterRequest {
@@ -40,6 +55,13 @@ export interface SSEEvent {
   content?: string;
   conversation_id?: string;
   message_id?: string;
+}
+
+export interface VoiceEvent {
+  type: 'audio_chunk' | 'transcript' | 'session_end' | 'error';
+  data?: string;
+  role?: string;
+  content?: string;
 }
 
 export interface ConversationListResponse {

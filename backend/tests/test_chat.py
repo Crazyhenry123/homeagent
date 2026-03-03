@@ -16,7 +16,7 @@ def _register(client):
     return resp.get_json()["device_token"]
 
 
-def _mock_stream_chat(messages, system_prompt=None):
+def _mock_stream_chat(messages, system_prompt=None, images=None):
     """Fake Bedrock streaming: yields one text_delta then message_done."""
     yield {"type": "text_delta", "content": "Hello"}
     yield {

@@ -13,6 +13,7 @@ from flask import (
 
 from app.auth import require_auth
 from app.services.bedrock import stream_chat
+from app.services.chat_media import resolve_media_for_message
 from app.services.conversation import (
     add_message,
     create_conversation,
@@ -24,16 +25,22 @@ chat_bp = Blueprint("chat", __name__)
 
 
 def _get_chat_stream(
-    messages: list[dict], user_id: str, conversation_id: str | None = None
+    messages: list[dict],
+    user_id: str,
+    conversation_id: str | None = None,
+    images: list[dict] | None = None,
 ):
     """Return the appropriate chat stream based on feature flag."""
     if current_app.config.get("USE_AGENT_ORCHESTRATOR"):
         from app.services.agent_orchestrator import stream_agent_chat
 
         return stream_agent_chat(
-            messages, user_id=user_id, conversation_id=conversation_id
+            messages,
+            user_id=user_id,
+            conversation_id=conversation_id,
+            images=images,
         )
-    return stream_chat(messages)
+    return stream_chat(messages, images=images)
 
 
 @chat_bp.route("/chat", methods=["POST"])
@@ -45,6 +52,20 @@ def chat():
 
     user_message = data["message"]
     conversation_id = data.get("conversation_id")
+    media_ids = data.get("media", [])
+
+    # Resolve media attachments to S3 URIs
+    images = None
+    media_metadata = None
+    if media_ids:
+        try:
+            images = resolve_media_for_message(media_ids, g.user_id)
+            media_metadata = [
+                {"media_id": mid, "content_type": img["content_type"]}
+                for mid, img in zip(media_ids, images)
+            ]
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
 
     # Create or validate conversation
     if conversation_id:
@@ -60,7 +81,12 @@ def chat():
         conversation_id = conv["conversation_id"]
 
     # Store user message
-    add_message(conversation_id=conversation_id, role="user", content=user_message)
+    add_message(
+        conversation_id=conversation_id,
+        role="user",
+        content=user_message,
+        media=media_metadata,
+    )
 
     # Build message history for Bedrock
     history = get_messages(conversation_id, limit=50)
@@ -72,7 +98,7 @@ def chat():
         full_content = ""
         total_tokens = 0
 
-        for chunk in _get_chat_stream(messages, g.user_id, conversation_id):
+        for chunk in _get_chat_stream(messages, g.user_id, conversation_id, images):
             if chunk["type"] == "text_delta":
                 event_data = json.dumps(
                     {

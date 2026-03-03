@@ -257,6 +257,18 @@ export async function disableMyAgent(agentType: string): Promise<void> {
   await request(`/api/agents/my/${agentType}`, {method: 'DELETE'});
 }
 
+// --- Chat Media APIs ---
+
+export async function uploadChatImage(
+  contentType: string,
+  fileSize: number,
+): Promise<{media_id: string; upload_url: string}> {
+  return request('/api/chat/upload-image', {
+    method: 'POST',
+    body: JSON.stringify({content_type: contentType, file_size: fileSize}),
+  });
+}
+
 // --- Admin Delete Member ---
 
 export async function deleteMember(userId: string): Promise<void> {

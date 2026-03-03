@@ -50,11 +50,35 @@ def _build_system_prompt(user_id: str, base_prompt: str) -> str:
     return " ".join(parts)
 
 
-def _format_messages_for_agent(messages: list[dict]) -> list[dict]:
-    """Convert simple {role, content} messages to Bedrock converse format."""
-    return [
-        {"role": m["role"], "content": [{"text": m["content"]}]} for m in messages
-    ]
+def _format_messages_for_agent(
+    messages: list[dict], images: list[dict] | None = None
+) -> list[dict]:
+    """Convert simple {role, content} messages to Bedrock converse format.
+
+    If images are provided, they are attached to the last user message.
+    """
+    result = []
+    last_idx = len(messages) - 1
+    for i, m in enumerate(messages):
+        content: list[dict] = []
+        is_last_user = i == last_idx and m["role"] == "user"
+        if is_last_user and images:
+            for img in images:
+                content.append(
+                    {
+                        "image": {
+                            "format": img["format"],
+                            "source": {
+                                "s3Location": {
+                                    "uri": img["s3_uri"],
+                                }
+                            },
+                        }
+                    }
+                )
+        content.append({"text": m["content"]})
+        result.append({"role": m["role"], "content": content})
+    return result
 
 
 def stream_agent_chat(
@@ -63,6 +87,7 @@ def stream_agent_chat(
     conversation_id: str | None = None,
     system_prompt: str | None = None,
     tools: list | None = None,
+    images: list[dict] | None = None,
 ) -> Generator[dict, None, None]:
     """Stream a chat response using Strands Agent with personalized prompt.
 
@@ -73,6 +98,8 @@ def stream_agent_chat(
         conversation_id: Conversation ID for memory session tracking.
         system_prompt: Optional base system prompt override.
         tools: Optional list of Strands tool functions for sub-agents.
+        images: Optional list of {"s3_uri", "content_type", "format"} for images
+                attached to the last user message.
 
     Yields:
         Dicts with type "text_delta", "message_done", or "error".
@@ -93,7 +120,25 @@ def stream_agent_chat(
         return
 
     history = _format_messages_for_agent(messages[:-1])
+    # For the user message, if images are attached, build multimodal content
     user_message = messages[-1]["content"]
+    if images:
+        user_content: list[dict] = []
+        for img in images:
+            user_content.append(
+                {
+                    "image": {
+                        "format": img["format"],
+                        "source": {
+                            "s3Location": {
+                                "uri": img["s3_uri"],
+                            }
+                        },
+                    }
+                }
+            )
+        user_content.append({"text": user_message})
+        user_message = user_content
 
     # Create Strands Agent with BedrockModel
     model = BedrockModel(

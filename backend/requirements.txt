@@ -6,3 +6,4 @@ boto3==1.36.14
 python-ulid==3.0.0
 strands-agents>=0.1.0
 strands-agents-tools>=0.1.0
+flask-sock>=0.7.0

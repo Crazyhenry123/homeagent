@@ -90,6 +90,7 @@ def add_message(
     content: str,
     model: str | None = None,
     tokens_used: int | None = None,
+    media: list[dict] | None = None,
 ) -> dict:
     """Add a message to a conversation. Returns the message item."""
     table = get_table("Messages")
@@ -109,6 +110,8 @@ def add_message(
         item["model"] = model
     if tokens_used is not None:
         item["tokens_used"] = tokens_used
+    if media:
+        item["media"] = media
 
     table.put_item(Item=item)
 

@@ -19,14 +19,41 @@ def _get_client():
     return _client
 
 
+def _build_content_blocks(
+    text: str, images: list[dict] | None = None, is_last_user: bool = False
+) -> list[dict]:
+    """Build Bedrock content blocks, optionally with images on the last user message."""
+    blocks: list[dict] = []
+    if is_last_user and images:
+        for img in images:
+            blocks.append(
+                {
+                    "image": {
+                        "format": img["format"],
+                        "source": {
+                            "s3Location": {
+                                "uri": img["s3_uri"],
+                            }
+                        },
+                    }
+                }
+            )
+    blocks.append({"text": text})
+    return blocks
+
+
 def stream_chat(
-    messages: list[dict], system_prompt: str | None = None
+    messages: list[dict],
+    system_prompt: str | None = None,
+    images: list[dict] | None = None,
 ) -> Generator[dict, None, None]:
     """Stream a chat completion from Bedrock Claude.
 
     Args:
         messages: List of {"role": "user"|"assistant", "content": str}
         system_prompt: Optional system prompt override.
+        images: Optional list of {"s3_uri", "content_type", "format"} for the
+                last user message.
 
     Yields:
         Dicts with type "text_delta" (partial text) or "message_done" (final metadata).
@@ -39,11 +66,15 @@ def stream_chat(
 
     # Build converse API messages
     converse_messages = []
-    for msg in messages:
+    last_idx = len(messages) - 1
+    for i, msg in enumerate(messages):
+        is_last_user = i == last_idx and msg["role"] == "user"
         converse_messages.append(
             {
                 "role": msg["role"],
-                "content": [{"text": msg["content"]}],
+                "content": _build_content_blocks(
+                    msg["content"], images, is_last_user
+                ),
             }
         )
 

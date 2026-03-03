@@ -11,16 +11,23 @@ import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {ChatInput} from '../components/ChatInput';
 import {MessageBubble} from '../components/MessageBubble';
 import {getMessages} from '../services/api';
+import {uploadImage} from '../services/chatMedia';
 import {streamChat} from '../services/sse';
-import type {SSEEvent} from '../types';
+import type {ChatMediaUpload, SSEEvent} from '../types';
 import type {RootStackParamList} from '../navigation/AppNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
+
+interface DisplayMedia {
+  uri: string;
+  media_id?: string;
+}
 
 interface DisplayMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  localImages?: DisplayMedia[];
 }
 
 export function ChatScreen({route, navigation}: Props) {
@@ -66,16 +73,45 @@ export function ChatScreen({route, navigation}: Props) {
   }, []);
 
   const handleSend = useCallback(
-    (text: string) => {
+    async (text: string, attachments: ChatMediaUpload[]) => {
+      // Build local images for display
+      const localImages: DisplayMedia[] = attachments.map(a => ({
+        uri: a.uri,
+      }));
+
       // Add user message locally
       const userMsg: DisplayMessage = {
         id: `user-${Date.now()}`,
         role: 'user',
         content: text,
+        localImages: localImages.length > 0 ? localImages : undefined,
       };
       setMessages(prev => [...prev, userMsg]);
       setStreaming(true);
       scrollToEnd();
+
+      // Upload images if any
+      const mediaIds: string[] = [];
+      if (attachments.length > 0) {
+        try {
+          const uploadPromises = attachments.map(a =>
+            uploadImage(a.uri, a.contentType, a.fileSize),
+          );
+          const ids = await Promise.all(uploadPromises);
+          mediaIds.push(...ids);
+        } catch {
+          setMessages(prev => [
+            ...prev,
+            {
+              id: `error-${Date.now()}`,
+              role: 'assistant',
+              content: 'Failed to upload image. Please try again.',
+            },
+          ]);
+          setStreaming(false);
+          return;
+        }
+      }
 
       // Prepare streaming assistant message
       const assistantId = `assistant-${Date.now()}`;
@@ -120,6 +156,7 @@ export function ChatScreen({route, navigation}: Props) {
           setStreaming(false);
         },
         controller.signal,
+        mediaIds.length > 0 ? mediaIds : undefined,
       );
     },
     [currentConversationId, scrollToEnd],

@@ -239,6 +239,19 @@ class DataStack(cdk.Stack):
             ),
         )
 
+        # ChatMedia table (for image uploads with TTL)
+        self.tables["ChatMedia"] = dynamodb.Table(
+            self,
+            "ChatMediaTable",
+            table_name="ChatMedia",
+            partition_key=dynamodb.Attribute(
+                name="media_id", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.DESTROY,
+            time_to_live_attribute="expires_at",
+        )
+
         # S3 bucket for health documents
         self.documents_bucket = s3.Bucket(
             self,

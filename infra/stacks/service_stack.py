@@ -62,6 +62,9 @@ class ServiceStack(cdk.Stack):
                 "USE_AGENT_ORCHESTRATOR": "true",
                 "HEALTH_EXTRACTION_ENABLED": "true",
                 "HEALTH_EXTRACTION_MODEL_ID": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                "CHAT_MEDIA_MAX_SIZE": str(5 * 1024 * 1024),
+                "VOICE_ENABLED": "true",
+                "VOICE_MODEL_ID": "amazon.nova-sonic-v1:0",
                 **({"S3_HEALTH_DOCUMENTS_BUCKET": documents_bucket_name} if documents_bucket_name else {}),
             },
             health_check=ecs.HealthCheck(

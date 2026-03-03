@@ -1,13 +1,22 @@
 import React from 'react';
-import {StyleSheet, Text, View} from 'react-native';
-import type {Message} from '../types';
+import {Image, StyleSheet, Text, View} from 'react-native';
+import type {MediaInfo, Message} from '../types';
+
+interface DisplayMedia {
+  uri: string;
+  media_id?: string;
+}
 
 interface Props {
-  message: Pick<Message, 'role' | 'content'>;
+  message: Pick<Message, 'role' | 'content'> & {
+    media?: MediaInfo[];
+    localImages?: DisplayMedia[];
+  };
 }
 
 export function MessageBubble({message}: Props) {
   const isUser = message.role === 'user';
+  const images = message.localImages || [];
 
   return (
     <View
@@ -20,14 +29,28 @@ export function MessageBubble({message}: Props) {
           styles.bubble,
           isUser ? styles.userBubble : styles.assistantBubble,
         ]}>
-        <Text
-          style={[
-            styles.text,
-            isUser ? styles.userText : styles.assistantText,
-          ]}
-          selectable>
-          {message.content}
-        </Text>
+        {images.length > 0 && (
+          <View style={styles.imageRow}>
+            {images.map((img, idx) => (
+              <Image
+                key={img.media_id || `img-${idx}`}
+                source={{uri: img.uri}}
+                style={styles.messageImage}
+                resizeMode="cover"
+              />
+            ))}
+          </View>
+        )}
+        {message.content ? (
+          <Text
+            style={[
+              styles.text,
+              isUser ? styles.userText : styles.assistantText,
+            ]}
+            selectable>
+            {message.content}
+          </Text>
+        ) : null}
       </View>
     </View>
   );
@@ -67,5 +90,16 @@ const styles = StyleSheet.create({
   },
   assistantText: {
     color: '#000000',
+  },
+  imageRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginBottom: 6,
+  },
+  messageImage: {
+    width: 150,
+    height: 150,
+    borderRadius: 10,
   },
 });

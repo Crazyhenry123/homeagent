@@ -15,6 +15,7 @@ import {AdminMemberDetailScreen} from '../screens/AdminMemberDetailScreen';
 import {FamilyTreeScreen} from '../screens/FamilyTreeScreen';
 import {AdminAgentTemplatesScreen} from '../screens/AdminAgentTemplatesScreen';
 import {MyAgentsScreen} from '../screens/MyAgentsScreen';
+import {VoiceModeScreen} from '../screens/VoiceModeScreen';
 
 export type RootStackParamList = {
   Register: undefined;
@@ -27,6 +28,7 @@ export type RootStackParamList = {
   FamilyTree: undefined;
   AdminAgentTemplates: undefined;
   MyAgents: undefined;
+  VoiceMode: {conversationId?: string};
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -119,6 +121,11 @@ export function AppNavigator() {
           name="MyAgents"
           component={MyAgentsScreen}
           options={{title: 'My Agents'}}
+        />
+        <Stack.Screen
+          name="VoiceMode"
+          component={VoiceModeScreen}
+          options={{title: 'Voice Mode', headerShown: false}}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -1,5 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
+from flask_sock import Sock
 
 from app.config import Config
 from app.models.dynamo import init_tables
@@ -8,6 +9,8 @@ from app.routes.agent_template_routes import agent_template_bp
 from app.routes.health import health_bp
 from app.routes.auth_routes import admin_bp, auth_bp
 from app.routes.chat import chat_bp
+from app.routes.chat_media import chat_media_bp
+from app.routes.voice import sock as voice_sock, voice_bp
 from app.routes.conversations import conversations_bp
 from app.routes.family_tree import family_tree_bp
 from app.routes.health_records import admin_health_records_bp, health_records_bp
@@ -44,5 +47,11 @@ def create_app(config: Config | None = None) -> Flask:
     app.register_blueprint(admin_health_records_bp, url_prefix="/api/admin")
     app.register_blueprint(health_reports_bp, url_prefix="/api/admin")
     app.register_blueprint(admin_health_documents_bp, url_prefix="/api/admin")
+    app.register_blueprint(chat_media_bp, url_prefix="/api")
+
+    # Voice WebSocket
+    if app.config.get("VOICE_ENABLED"):
+        voice_sock.init_app(app)
+        app.register_blueprint(voice_bp, url_prefix="/api")
 
     return app
