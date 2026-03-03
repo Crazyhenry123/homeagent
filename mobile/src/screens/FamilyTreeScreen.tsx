@@ -3,12 +3,13 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import {Picker} from '@react-native-picker/picker';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {
   createRelationship,
@@ -28,11 +29,21 @@ const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {
   sibling_of: 'is sibling of',
 };
 
+const RELATIONSHIP_TYPES: RelationshipType[] = [
+  'parent_of',
+  'child_of',
+  'spouse_of',
+  'sibling_of',
+];
+
+type PickerField = 'user' | 'related' | 'type' | null;
+
 export function FamilyTreeScreen(_props: Props) {
   const [relationships, setRelationships] = useState<FamilyRelationship[]>([]);
   const [members, setMembers] = useState<MemberProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [activePicker, setActivePicker] = useState<PickerField>(null);
 
   const [selectedUser, setSelectedUser] = useState('');
   const [selectedRelated, setSelectedRelated] = useState('');
@@ -49,7 +60,10 @@ export function FamilyTreeScreen(_props: Props) {
       if (profileData.profiles.length > 0) {
         if (!selectedUser) setSelectedUser(profileData.profiles[0].user_id);
         if (!selectedRelated) {
-          const second = profileData.profiles.length > 1 ? profileData.profiles[1] : profileData.profiles[0];
+          const second =
+            profileData.profiles.length > 1
+              ? profileData.profiles[1]
+              : profileData.profiles[0];
           setSelectedRelated(second.user_id);
         }
       }
@@ -67,9 +81,11 @@ export function FamilyTreeScreen(_props: Props) {
     loadData();
   }, [loadData]);
 
-  // Deduplicate: for symmetric types (spouse_of, sibling_of) only show one direction
   const deduped = relationships.filter(rel => {
-    if (rel.relationship_type === 'spouse_of' || rel.relationship_type === 'sibling_of') {
+    if (
+      rel.relationship_type === 'spouse_of' ||
+      rel.relationship_type === 'sibling_of'
+    ) {
       return rel.user_id < rel.related_user_id;
     }
     return true;
@@ -119,6 +135,11 @@ export function FamilyTreeScreen(_props: Props) {
     );
   };
 
+  const getMemberName = (userId: string): string => {
+    const m = members.find(p => p.user_id === userId);
+    return m?.display_name ?? userId;
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -132,7 +153,7 @@ export function FamilyTreeScreen(_props: Props) {
       <View style={styles.relationshipInfo}>
         <Text style={styles.relationshipText}>
           {item.user_name ?? item.user_id}{' '}
-          <Text style={styles.relationshipType}>
+          <Text style={styles.relationshipTypeText}>
             {RELATIONSHIP_LABELS[item.relationship_type] ?? item.relationship_type}
           </Text>{' '}
           {item.related_user_name ?? item.related_user_id}
@@ -148,87 +169,132 @@ export function FamilyTreeScreen(_props: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionHeaderText}>ADD RELATIONSHIP</Text>
-      </View>
-
-      <View style={styles.formCard}>
-        <Text style={styles.pickerLabel}>Person</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={selectedUser}
-            onValueChange={setSelectedUser}
-            style={styles.picker}>
-            {members.map(m => (
-              <Picker.Item
-                key={m.user_id}
-                label={m.display_name}
-                value={m.user_id}
-              />
-            ))}
-          </Picker>
+      <ScrollView>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionHeaderText}>ADD RELATIONSHIP</Text>
         </View>
 
-        <Text style={styles.pickerLabel}>Relationship</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={selectedType}
-            onValueChange={val => setSelectedType(val as RelationshipType)}
-            style={styles.picker}>
-            {(Object.keys(RELATIONSHIP_LABELS) as RelationshipType[]).map(
-              type => (
-                <Picker.Item
-                  key={type}
-                  label={RELATIONSHIP_LABELS[type]}
-                  value={type}
-                />
-              ),
-            )}
-          </Picker>
+        <View style={styles.formCard}>
+          <Text style={styles.fieldLabel}>Person</Text>
+          <TouchableOpacity
+            style={styles.selectorButton}
+            onPress={() => setActivePicker('user')}>
+            <Text style={styles.selectorText}>{getMemberName(selectedUser)}</Text>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.fieldLabel}>Relationship</Text>
+          <TouchableOpacity
+            style={styles.selectorButton}
+            onPress={() => setActivePicker('type')}>
+            <Text style={styles.selectorText}>
+              {RELATIONSHIP_LABELS[selectedType]}
+            </Text>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.fieldLabel}>Related Person</Text>
+          <TouchableOpacity
+            style={styles.selectorButton}
+            onPress={() => setActivePicker('related')}>
+            <Text style={styles.selectorText}>
+              {getMemberName(selectedRelated)}
+            </Text>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.addButton, adding && styles.addButtonDisabled]}
+            onPress={handleAdd}
+            disabled={adding}>
+            <Text style={styles.addButtonText}>
+              {adding ? 'Adding...' : 'Add Relationship'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        <Text style={styles.pickerLabel}>Related Person</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={selectedRelated}
-            onValueChange={setSelectedRelated}
-            style={styles.picker}>
-            {members.map(m => (
-              <Picker.Item
-                key={m.user_id}
-                label={m.display_name}
-                value={m.user_id}
-              />
-            ))}
-          </Picker>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionHeaderText}>EXISTING RELATIONSHIPS</Text>
         </View>
 
+        {deduped.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No relationships defined yet.</Text>
+          </View>
+        ) : (
+          deduped.map(item => (
+            <View key={`${item.user_id}-${item.related_user_id}`}>
+              {renderRelationship({item})}
+            </View>
+          ))
+        )}
+      </ScrollView>
+
+      {/* Selection Modal */}
+      <Modal
+        visible={activePicker !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setActivePicker(null)}>
         <TouchableOpacity
-          style={[styles.addButton, adding && styles.addButtonDisabled]}
-          onPress={handleAdd}
-          disabled={adding}>
-          <Text style={styles.addButtonText}>
-            {adding ? 'Adding...' : 'Add Relationship'}
-          </Text>
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setActivePicker(null)}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {activePicker === 'user'
+                  ? 'Select Person'
+                  : activePicker === 'related'
+                    ? 'Select Related Person'
+                    : 'Select Relationship'}
+              </Text>
+              <TouchableOpacity onPress={() => setActivePicker(null)}>
+                <Text style={styles.modalDone}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={
+                activePicker === 'type'
+                  ? RELATIONSHIP_TYPES.map(t => ({id: t, label: RELATIONSHIP_LABELS[t]}))
+                  : members.map(m => ({id: m.user_id, label: m.display_name}))
+              }
+              keyExtractor={item => item.id}
+              renderItem={({item}) => {
+                const isSelected =
+                  activePicker === 'user'
+                    ? item.id === selectedUser
+                    : activePicker === 'related'
+                      ? item.id === selectedRelated
+                      : item.id === selectedType;
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.modalOption,
+                      isSelected && styles.modalOptionSelected,
+                    ]}
+                    onPress={() => {
+                      if (activePicker === 'user') setSelectedUser(item.id);
+                      else if (activePicker === 'related') setSelectedRelated(item.id);
+                      else if (activePicker === 'type')
+                        setSelectedType(item.id as RelationshipType);
+                      setActivePicker(null);
+                    }}>
+                    <Text
+                      style={[
+                        styles.modalOptionText,
+                        isSelected && styles.modalOptionTextSelected,
+                      ]}>
+                      {item.label}
+                    </Text>
+                    {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
         </TouchableOpacity>
-      </View>
-
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionHeaderText}>EXISTING RELATIONSHIPS</Text>
-      </View>
-
-      {deduped.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>No relationships defined yet.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={deduped}
-          keyExtractor={item => `${item.user_id}-${item.related_user_id}`}
-          renderItem={renderRelationship}
-          style={styles.list}
-        />
-      )}
+      </Modal>
     </View>
   );
 }
@@ -259,20 +325,29 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 16,
   },
-  pickerLabel: {
+  fieldLabel: {
     fontSize: 13,
     color: '#8E8E93',
     marginBottom: 4,
-    marginTop: 8,
+    marginTop: 12,
   },
-  pickerContainer: {
+  selectorButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#E5E5EA',
     borderRadius: 8,
-    overflow: 'hidden',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
   },
-  picker: {
-    height: 50,
+  selectorText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#000000',
+  },
+  chevron: {
+    fontSize: 20,
+    color: '#C7C7CC',
   },
   addButton: {
     marginTop: 16,
@@ -290,9 +365,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  list: {
-    flex: 1,
-  },
   relationshipRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -309,7 +381,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000000',
   },
-  relationshipType: {
+  relationshipTypeText: {
     color: '#8E8E93',
     fontStyle: 'italic',
   },
@@ -334,5 +406,60 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 15,
     color: '#8E8E93',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    maxHeight: '50%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E5E5EA',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  modalDone: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E5E5EA',
+  },
+  modalOptionSelected: {
+    backgroundColor: '#F2F2F7',
+  },
+  modalOptionText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#000000',
+  },
+  modalOptionTextSelected: {
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  checkmark: {
+    fontSize: 17,
+    color: '#007AFF',
+    fontWeight: '600',
   },
 });
