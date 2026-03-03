@@ -1,6 +1,15 @@
 import json
+import threading
 
-from flask import Blueprint, Response, current_app, g, jsonify, request, stream_with_context
+from flask import (
+    Blueprint,
+    Response,
+    current_app,
+    g,
+    jsonify,
+    request,
+    stream_with_context,
+)
 
 from app.auth import require_auth
 from app.services.bedrock import stream_chat
@@ -89,6 +98,31 @@ def chat():
                     tokens_used=total_tokens,
                 )
 
+                # Fire-and-forget health extraction
+                if current_app.config.get("HEALTH_EXTRACTION_ENABLED"):
+                    from app.services.health_extraction import (
+                        extract_health_observations,
+                    )
+
+                    t = threading.Thread(
+                        target=extract_health_observations,
+                        kwargs={
+                            "user_id": g.user_id,
+                            "conversation_id": conversation_id,
+                            "user_message": user_message,
+                            "assistant_response": full_content,
+                            "region": current_app.config["AWS_REGION"],
+                            "model_id": current_app.config[
+                                "HEALTH_EXTRACTION_MODEL_ID"
+                            ],
+                            "dynamodb_endpoint": current_app.config.get(
+                                "DYNAMODB_ENDPOINT"
+                            ),
+                        },
+                        daemon=True,
+                    )
+                    t.start()
+
                 event_data = json.dumps(
                     {
                         "type": "message_done",
@@ -99,9 +133,7 @@ def chat():
                 yield f"data: {event_data}\n\n"
 
             elif chunk["type"] == "error":
-                event_data = json.dumps(
-                    {"type": "error", "content": chunk["content"]}
-                )
+                event_data = json.dumps({"type": "error", "content": chunk["content"]})
                 yield f"data: {event_data}\n\n"
 
     return Response(

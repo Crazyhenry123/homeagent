@@ -16,7 +16,12 @@ class HomeAgentStage(cdk.Stage):
 
         network = NetworkStack(self, "Network")
         data = DataStack(self, "Data")
-        security = SecurityStack(self, "Security", tables=data.tables)
+        security = SecurityStack(
+            self,
+            "Security",
+            tables=data.tables,
+            documents_bucket=data.documents_bucket,
+        )
         self.service_stack = ServiceStack(
             self,
             "Service",
@@ -24,6 +29,7 @@ class HomeAgentStage(cdk.Stage):
             task_role=security.task_role,
             ecr_repo=security.ecr_repo,
             tables=data.tables,
+            documents_bucket_name=data.documents_bucket.bucket_name,
         )
         self.webui_stack = WebUiStack(
             self,

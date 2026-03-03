@@ -6,10 +6,17 @@ from app.models.dynamo import get_table
 AGENT_TYPES = {
     "health_advisor": {
         "name": "Health Advisor",
-        "description": "Health and wellness guidance with safety disclaimers",
+        "description": (
+            "Comprehensive family health companion with access to medical records, "
+            "health observations, and conversation history. Provides age-specific "
+            "guidance for pediatric and geriatric care, tracks health patterns, "
+            "and generates personalized wellness recommendations."
+        ),
         "default_config": {
             "safety_disclaimers": True,
-            "web_search_enabled": True,
+            "web_search_enabled": False,
+            "conversation_mining_enabled": True,
+            "observation_tracking_enabled": True,
         },
     },
     "logistics_assistant": {

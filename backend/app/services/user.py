@@ -151,6 +151,15 @@ def delete_member(user_id: str) -> None:
     # 5. Delete FamilyRelationships (both directions)
     delete_all_relationships(user_id)
 
+    # 5b. Delete HealthRecords, HealthObservations, and HealthDocuments
+    from app.services.health_documents import delete_all_documents
+    from app.services.health_observations import delete_all_observations
+    from app.services.health_records import delete_all_health_records
+
+    delete_all_health_records(user_id)
+    delete_all_observations(user_id)
+    delete_all_documents(user_id)
+
     # 6. Delete MemberProfile
     profiles_table = get_table("MemberProfiles")
     profiles_table.delete_item(Key={"user_id": user_id})

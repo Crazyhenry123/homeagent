@@ -19,6 +19,7 @@ class ServiceStack(cdk.Stack):
         task_role: iam.Role,
         ecr_repo: ecr.Repository,
         tables: dict[str, dynamodb.Table],
+        documents_bucket_name: str | None = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, id, **kwargs)
@@ -59,6 +60,9 @@ class ServiceStack(cdk.Stack):
                 ),
                 "ADMIN_INVITE_CODE": "FAMILY",
                 "USE_AGENT_ORCHESTRATOR": "true",
+                "HEALTH_EXTRACTION_ENABLED": "true",
+                "HEALTH_EXTRACTION_MODEL_ID": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                **({"S3_HEALTH_DOCUMENTS_BUCKET": documents_bucket_name} if documents_bucket_name else {}),
             },
             health_check=ecs.HealthCheck(
                 command=[

@@ -2,6 +2,7 @@ import aws_cdk as cdk
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_ecr as ecr
 from aws_cdk import aws_iam as iam
+from aws_cdk import aws_s3 as s3
 from constructs import Construct
 
 
@@ -11,6 +12,7 @@ class SecurityStack(cdk.Stack):
         scope: Construct,
         id: str,
         tables: dict[str, dynamodb.Table],
+        documents_bucket: s3.Bucket | None = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, id, **kwargs)
@@ -65,6 +67,10 @@ class SecurityStack(cdk.Stack):
                 resources=["*"],
             )
         )
+
+        # S3 documents bucket permissions
+        if documents_bucket:
+            documents_bucket.grant_read_write(self.task_role)
 
         # ECR pull for ECS tasks
         self.ecr_repo.grant_pull(self.task_role)
