@@ -5,11 +5,14 @@ import type {
   AgentConfigsResponse,
   AgentTypesResponse,
   ConversationListResponse,
+  FamilyRelationship,
+  FamilyRelationshipsResponse,
   MemberProfile,
   MessageListResponse,
   ProfileListResponse,
   RegisterRequest,
   RegisterResponse,
+  RelationshipType,
 } from '../types';
 import {getToken} from './auth';
 import {emitAuthExpired} from './authEvents';
@@ -193,4 +196,51 @@ export async function deleteAgentConfig(
   await request(`/api/admin/agents/${userId}/${agentType}`, {
     method: 'DELETE',
   });
+}
+
+// --- Admin Delete Member ---
+
+export async function deleteMember(userId: string): Promise<void> {
+  await request(`/api/admin/profiles/${userId}`, {method: 'DELETE'});
+}
+
+// --- Family Tree APIs ---
+
+export async function getFamilyRelationships(): Promise<FamilyRelationshipsResponse> {
+  return request<FamilyRelationshipsResponse>(
+    '/api/admin/family/relationships',
+  );
+}
+
+export async function getUserRelationships(
+  userId: string,
+): Promise<FamilyRelationshipsResponse> {
+  return request<FamilyRelationshipsResponse>(
+    `/api/admin/family/relationships/${userId}`,
+  );
+}
+
+export async function createRelationship(
+  userId: string,
+  relatedUserId: string,
+  relationshipType: RelationshipType,
+): Promise<FamilyRelationship> {
+  return request<FamilyRelationship>('/api/admin/family/relationships', {
+    method: 'POST',
+    body: JSON.stringify({
+      user_id: userId,
+      related_user_id: relatedUserId,
+      relationship_type: relationshipType,
+    }),
+  });
+}
+
+export async function deleteRelationship(
+  userId: string,
+  relatedUserId: string,
+): Promise<void> {
+  await request(
+    `/api/admin/family/relationships/${userId}/${relatedUserId}`,
+    {method: 'DELETE'},
+  );
 }

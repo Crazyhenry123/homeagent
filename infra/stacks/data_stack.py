@@ -113,3 +113,26 @@ class DataStack(cdk.Stack):
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=cdk.RemovalPolicy.RETAIN,
         )
+
+        # FamilyRelationships table
+        self.tables["FamilyRelationships"] = dynamodb.Table(
+            self,
+            "FamilyRelationshipsTable",
+            table_name="FamilyRelationships",
+            partition_key=dynamodb.Attribute(
+                name="user_id", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="related_user_id", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+        )
+
+        # Devices: GSI to look up devices by user_id (for cascade delete)
+        self.tables["Devices"].add_global_secondary_index(
+            index_name="user_id-index",
+            partition_key=dynamodb.Attribute(
+                name="user_id", type=dynamodb.AttributeType.STRING
+            ),
+        )

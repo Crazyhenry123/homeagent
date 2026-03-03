@@ -13,6 +13,7 @@ import {
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {
   deleteAgentConfig,
+  deleteMember,
   getAgentConfigs,
   getAgentTypes,
   getProfile,
@@ -24,7 +25,7 @@ import type {AgentConfig, AgentTypeInfo, MemberProfile} from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AdminMemberDetail'>;
 
-export function AdminMemberDetailScreen({route}: Props) {
+export function AdminMemberDetailScreen({route, navigation}: Props) {
   const {userId} = route.params;
   const [profile, setProfile] = useState<MemberProfile | null>(null);
   const [agentConfigs, setAgentConfigs] = useState<AgentConfig[]>([]);
@@ -33,6 +34,7 @@ export function AdminMemberDetailScreen({route}: Props) {
   );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [familyRole, setFamilyRole] = useState('');
   const [healthNotes, setHealthNotes] = useState('');
 
@@ -97,6 +99,36 @@ export function AdminMemberDetailScreen({route}: Props) {
         err instanceof Error ? err.message : 'Failed to update agent',
       );
     }
+  };
+
+  const handleDeleteMember = () => {
+    Alert.alert(
+      'Remove Member',
+      `Are you sure you want to remove ${profile?.display_name ?? 'this member'}? This will permanently delete all their data including conversations, messages, and device registrations. This action cannot be undone.`,
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteMember(userId);
+              Alert.alert('Removed', 'Member has been removed.', [
+                {text: 'OK', onPress: () => navigation.goBack()},
+              ]);
+            } catch (err) {
+              Alert.alert(
+                'Error',
+                err instanceof Error ? err.message : 'Failed to remove member',
+              );
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const isAgentEnabled = (agentType: string): boolean => {
@@ -181,6 +213,22 @@ export function AdminMemberDetailScreen({route}: Props) {
           />
         </View>
       ))}
+
+      {profile?.role !== 'admin' && (
+        <>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionHeaderText}>DANGER ZONE</Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.deleteButton, deleting && styles.deleteButtonDisabled]}
+            onPress={handleDeleteMember}
+            disabled={deleting}>
+            <Text style={styles.deleteButtonText}>
+              {deleting ? 'Removing...' : 'Remove Member'}
+            </Text>
+          </TouchableOpacity>
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -282,5 +330,23 @@ const styles = StyleSheet.create({
     color: '#FF9500',
     marginTop: 2,
     fontStyle: 'italic',
+  },
+  deleteButton: {
+    marginTop: 16,
+    marginHorizontal: 16,
+    marginBottom: 32,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: '#FF3B30',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteButtonDisabled: {
+    opacity: 0.6,
+  },
+  deleteButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '600',
   },
 });

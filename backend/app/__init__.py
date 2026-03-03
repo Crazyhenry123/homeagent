@@ -8,6 +8,7 @@ from app.routes.health import health_bp
 from app.routes.auth_routes import admin_bp, auth_bp
 from app.routes.chat import chat_bp
 from app.routes.conversations import conversations_bp
+from app.routes.family_tree import family_tree_bp
 from app.routes.profiles import admin_profiles_bp, profiles_bp
 
 
@@ -29,5 +30,6 @@ def create_app(config: Config | None = None) -> Flask:
     app.register_blueprint(profiles_bp, url_prefix="/api")
     app.register_blueprint(admin_profiles_bp, url_prefix="/api/admin")
     app.register_blueprint(agent_config_bp, url_prefix="/api/admin")
+    app.register_blueprint(family_tree_bp, url_prefix="/api/admin")
 
     return app

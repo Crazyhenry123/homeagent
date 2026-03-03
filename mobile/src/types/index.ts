@@ -90,3 +90,18 @@ export interface AgentConfigsResponse {
 export interface ProfileListResponse {
   profiles: MemberProfile[];
 }
+
+export type RelationshipType = 'parent_of' | 'child_of' | 'spouse_of' | 'sibling_of';
+
+export interface FamilyRelationship {
+  user_id: string;
+  related_user_id: string;
+  relationship_type: RelationshipType;
+  user_name?: string;
+  related_user_name?: string;
+  created_at: string;
+}
+
+export interface FamilyRelationshipsResponse {
+  relationships: FamilyRelationship[];
+}

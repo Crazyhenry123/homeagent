@@ -119,6 +119,11 @@ export function SettingsScreen({navigation}: Props) {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionRow}
+            onPress={() => navigation.navigate('FamilyTree')}>
+            <Text style={styles.actionText}>Manage Family Tree</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionRow}
             onPress={handleGenerateInviteCode}
             disabled={generatingCode}>
             <Text style={styles.actionText}>

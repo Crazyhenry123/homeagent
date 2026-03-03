@@ -6,6 +6,7 @@ from typing import Generator
 
 from flask import current_app
 
+from app.services.family_tree import build_family_context
 from app.services.profile import get_profile
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,10 @@ def _build_system_prompt(user_id: str, base_prompt: str) -> str:
     if preferences:
         pref_str = ", ".join(f"{k}: {v}" for k, v in preferences.items())
         parts.append(f"Preferences: {pref_str}.")
+
+    family_ctx = build_family_context(user_id)
+    if family_ctx:
+        parts.append(family_ctx)
 
     return " ".join(parts)
 

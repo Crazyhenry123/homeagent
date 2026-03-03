@@ -2,6 +2,7 @@ import secrets
 import uuid
 from datetime import datetime, timezone
 
+from boto3.dynamodb.conditions import Key
 from ulid import ULID
 
 from app.models.dynamo import get_table
@@ -96,3 +97,63 @@ def generate_invite_code(created_by: str) -> dict:
     )
 
     return {"code": code, "expires_at": expires_at}
+
+
+def delete_member(user_id: str) -> None:
+    """Delete a member and all associated data across tables.
+
+    Raises ValueError if user not found or user is an admin.
+    """
+    from app.services.conversation import delete_conversation
+    from app.services.family_tree import delete_all_relationships
+
+    # 1. Fetch user — reject if admin
+    users_table = get_table("Users")
+    user = users_table.get_item(Key={"user_id": user_id}).get("Item")
+    if not user:
+        raise ValueError("User not found")
+    if user.get("role") == "admin":
+        raise ValueError("Cannot delete an admin user")
+
+    # 2. Delete Devices (query user_id-index GSI)
+    devices_table = get_table("Devices")
+    result = devices_table.query(
+        IndexName="user_id-index",
+        KeyConditionExpression=Key("user_id").eq(user_id),
+        ProjectionExpression="device_id",
+    )
+    with devices_table.batch_writer() as batch:
+        for item in result.get("Items", []):
+            batch.delete_item(Key={"device_id": item["device_id"]})
+
+    # 3. Delete Conversations + Messages
+    convos_table = get_table("Conversations")
+    result = convos_table.query(
+        IndexName="user_conversations-index",
+        KeyConditionExpression=Key("user_id").eq(user_id),
+        ProjectionExpression="conversation_id",
+    )
+    for item in result.get("Items", []):
+        delete_conversation(item["conversation_id"])
+
+    # 4. Delete AgentConfigs
+    configs_table = get_table("AgentConfigs")
+    result = configs_table.query(
+        KeyConditionExpression=Key("user_id").eq(user_id),
+        ProjectionExpression="user_id, agent_type",
+    )
+    with configs_table.batch_writer() as batch:
+        for item in result.get("Items", []):
+            batch.delete_item(
+                Key={"user_id": item["user_id"], "agent_type": item["agent_type"]}
+            )
+
+    # 5. Delete FamilyRelationships (both directions)
+    delete_all_relationships(user_id)
+
+    # 6. Delete MemberProfile
+    profiles_table = get_table("MemberProfiles")
+    profiles_table.delete_item(Key={"user_id": user_id})
+
+    # 7. Delete User record
+    users_table.delete_item(Key={"user_id": user_id})

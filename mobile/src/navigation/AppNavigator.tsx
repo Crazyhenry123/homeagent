@@ -12,6 +12,7 @@ import {SettingsScreen} from '../screens/SettingsScreen';
 import {ProfileScreen} from '../screens/ProfileScreen';
 import {AdminMembersScreen} from '../screens/AdminMembersScreen';
 import {AdminMemberDetailScreen} from '../screens/AdminMemberDetailScreen';
+import {FamilyTreeScreen} from '../screens/FamilyTreeScreen';
 
 export type RootStackParamList = {
   Register: undefined;
@@ -21,6 +22,7 @@ export type RootStackParamList = {
   Profile: undefined;
   AdminMembers: undefined;
   AdminMemberDetail: {userId: string};
+  FamilyTree: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -98,6 +100,11 @@ export function AppNavigator() {
           name="AdminMemberDetail"
           component={AdminMemberDetailScreen}
           options={{title: 'Member Settings'}}
+        />
+        <Stack.Screen
+          name="FamilyTree"
+          component={FamilyTreeScreen}
+          options={{title: 'Family Tree'}}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -11,6 +11,7 @@ TABLE_DEFINITIONS = {
         "AttributeDefinitions": [
             {"AttributeName": "device_id", "AttributeType": "S"},
             {"AttributeName": "device_token", "AttributeType": "S"},
+            {"AttributeName": "user_id", "AttributeType": "S"},
         ],
         "GlobalSecondaryIndexes": [
             {
@@ -19,7 +20,14 @@ TABLE_DEFINITIONS = {
                     {"AttributeName": "device_token", "KeyType": "HASH"},
                 ],
                 "Projection": {"ProjectionType": "ALL"},
-            }
+            },
+            {
+                "IndexName": "user_id-index",
+                "KeySchema": [
+                    {"AttributeName": "user_id", "KeyType": "HASH"},
+                ],
+                "Projection": {"ProjectionType": "ALL"},
+            },
         ],
     },
     "InviteCodes": {
@@ -66,6 +74,16 @@ TABLE_DEFINITIONS = {
         "AttributeDefinitions": [
             {"AttributeName": "user_id", "AttributeType": "S"},
             {"AttributeName": "agent_type", "AttributeType": "S"},
+        ],
+    },
+    "FamilyRelationships": {
+        "KeySchema": [
+            {"AttributeName": "user_id", "KeyType": "HASH"},
+            {"AttributeName": "related_user_id", "KeyType": "RANGE"},
+        ],
+        "AttributeDefinitions": [
+            {"AttributeName": "user_id", "AttributeType": "S"},
+            {"AttributeName": "related_user_id", "AttributeType": "S"},
         ],
     },
 }

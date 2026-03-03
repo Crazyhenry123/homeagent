@@ -7,6 +7,7 @@ from app.services.profile import (
     list_profiles,
     update_profile,
 )
+from app.services.user import delete_member
 
 profiles_bp = Blueprint("profiles", __name__)
 admin_profiles_bp = Blueprint("admin_profiles", __name__)
@@ -60,6 +61,24 @@ def admin_update_profile(user_id: str):
     if not profile:
         return jsonify({"error": "Profile not found"}), 404
     return jsonify(profile)
+
+
+@admin_profiles_bp.route("/profiles/<user_id>", methods=["DELETE"])
+@require_auth
+@require_admin
+def admin_delete_profile(user_id: str):
+    if user_id == g.user_id:
+        return jsonify({"error": "Cannot delete yourself"}), 400
+
+    try:
+        delete_member(user_id)
+    except ValueError as e:
+        msg = str(e)
+        if "not found" in msg.lower():
+            return jsonify({"error": msg}), 404
+        return jsonify({"error": msg}), 400
+
+    return jsonify({"success": True})
 
 
 @admin_profiles_bp.route("/profiles", methods=["GET"])
