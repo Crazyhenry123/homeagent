@@ -4,8 +4,9 @@ import {BASE_URL} from './api';
 import {emitAuthExpired} from './authEvents';
 
 /**
- * Custom SSE client using fetch (React Native lacks native EventSource).
- * Reads the stream line by line and parses SSE events.
+ * SSE client using XMLHttpRequest for real-time streaming in React Native.
+ * React Native's fetch does not reliably support ReadableStream,
+ * so we use XHR's onprogress which fires as chunks arrive.
  */
 export async function streamChat(
   message: string,
@@ -21,51 +22,27 @@ export async function streamChat(
     body.conversation_id = conversationId;
   }
 
-  let response: Response;
-  try {
-    response = await fetch(`${BASE_URL}/api/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-      signal,
-    });
-  } catch (err) {
-    onError(err instanceof Error ? err : new Error(String(err)));
-    return;
-  }
+  return new Promise<void>(resolve => {
+    const xhr = new XMLHttpRequest();
+    let lastIndex = 0;
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      emitAuthExpired();
+    xhr.open('POST', `${BASE_URL}/api/chat`);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.setRequestHeader('Accept', 'text/event-stream');
+
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        xhr.abort();
+        resolve();
+      });
     }
-    const text = await response.text().catch(() => 'Unknown error');
-    onError(new Error(`Chat failed: ${response.status} ${text}`));
-    return;
-  }
 
-  if (!response.body) {
-    onError(new Error('No response body'));
-    return;
-  }
+    xhr.onprogress = () => {
+      const newData = xhr.responseText.substring(lastIndex);
+      lastIndex = xhr.responseText.length;
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  try {
-    while (true) {
-      const {done, value} = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, {stream: true});
-
-      // Process complete SSE lines
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
+      const lines = newData.split('\n');
       for (const line of lines) {
         const trimmed = line.trim();
         if (trimmed.startsWith('data: ')) {
@@ -78,9 +55,23 @@ export async function streamChat(
           }
         }
       }
-    }
-  } catch (err) {
-    if (signal?.aborted) return;
-    onError(err instanceof Error ? err : new Error(String(err)));
-  }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status === 401) {
+        emitAuthExpired();
+      }
+      if (xhr.status >= 400) {
+        onError(new Error(`Chat failed: ${xhr.status} ${xhr.responseText}`));
+      }
+      resolve();
+    };
+
+    xhr.onerror = () => {
+      onError(new Error('Network error during chat stream'));
+      resolve();
+    };
+
+    xhr.send(JSON.stringify(body));
+  });
 }
