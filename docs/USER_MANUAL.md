@@ -2,7 +2,7 @@
 
 ## What is HomeAgent?
 
-HomeAgent is a family AI assistant app. Each family member has their own account and can chat with an AI assistant powered by Claude. Conversations are private — each person can only see their own chats.
+HomeAgent is a family AI assistant app. Each family member has their own account and can chat with an AI assistant powered by Claude. Conversations are private — each person can only see their own chats. The assistant can be extended with specialized agents (health advisor, meal planner, etc.) that members can enable for themselves.
 
 ---
 
@@ -48,16 +48,55 @@ The assistant remembers the context of your conversation (up to the last 50 mess
 
 ### Deleting a Chat
 
-1. From the conversation list, swipe left on a conversation (or long-press, depending on your device)
+1. From the conversation list, long-press on a conversation
 2. Confirm deletion
 
 Deleted conversations cannot be recovered.
 
-### Settings
+---
+
+## My Profile
+
+Tap **Settings** > **Edit My Profile** to update your information:
+
+- **Display Name** — How the assistant addresses you
+- **Family Role** — Your role in the family (parent, child, grandparent, etc.)
+- **Health Notes** — Any health information relevant to you
+- **Interests** — Topics you're interested in
+
+Your profile helps the assistant give personalized advice.
+
+---
+
+## My Agents
+
+Agents are specialized AI assistants that extend your personal assistant's capabilities. Go to **Settings** > **My Agents** to browse and enable agents.
+
+### How Agents Work
+
+1. Your family admin creates and configures agent templates
+2. Available agents appear in **My Agents** with a description of what they do
+3. Toggle an agent **on** to enable it — the assistant will now use it when relevant
+4. Toggle it **off** to disable it
+
+### Built-in Agents
+
+- **Health Advisor** — Comprehensive health guidance with access to your family's health records, observations, and conversation history
+
+### Custom Agents
+
+Your admin may create additional agents (e.g., Meal Planner, Homework Helper) that appear in your **My Agents** list.
+
+---
+
+## Settings
 
 Tap the gear icon to access settings:
-- **Your Name** — The name you registered with
-- **Logout** — Signs you out and clears your device token. You'll need a new invite code to register again.
+
+- **Account** — Your name, user ID, and role
+- **Edit My Profile** — Update your profile information
+- **My Agents** — Browse and toggle available AI agents
+- **Log Out** — Signs you out (you'll need a new invite code to register again)
 
 ---
 
@@ -65,7 +104,8 @@ Tap the gear icon to access settings:
 
 - **Be specific** — The more context you give the assistant, the better the response.
 - **Conversations are private** — No one else can see your chats, not even the admin.
-- **New conversations for new topics** — Start a new chat when switching subjects. This gives the assistant a clean context.
+- **New conversations for new topics** — Start a new chat when switching subjects.
+- **Enable relevant agents** — Turn on agents in My Agents to get specialized help.
 - **The assistant is streaming** — You'll see the response appear word by word. Wait for it to finish before sending your next message.
 
 ---
@@ -74,81 +114,58 @@ Tap the gear icon to access settings:
 
 ### What is an Admin?
 
-The first person to register with the pre-configured invite code (default: `FAMILY`) becomes the admin. Admins can create invite codes for other family members.
+The first person to register with the pre-configured invite code (default: `FAMILY`) becomes the admin. Admins have additional capabilities.
 
-### Creating Invite Codes
+### Admin Capabilities
 
-As an admin, you can generate invite codes for family members. Currently this is done via the API:
+From **Settings**, admins see additional options:
 
-```bash
-# Get your device token (saved during registration)
-TOKEN="your-device-token-here"
+#### Manage Family Members
+View all family members, edit their profiles, configure agents for them, or remove members.
 
-# Create a new invite code
-curl -X POST http://<BACKEND-URL>/api/admin/invite-codes \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json"
-```
+#### Manage Family Tree
+Define relationships between family members (parent/child, spouse, sibling). This helps the health advisor understand family context.
 
-Response:
-```json
-{
-  "code": "AB12CD",
-  "expires_at": "2099-12-31T00:00:00+00:00"
-}
-```
+#### Manage Agent Templates
+Create, edit, and delete custom AI agent types:
 
-Share this 6-character code with the family member. Each code can only be used once.
+1. Tap **Manage Agent Templates**
+2. Tap **Add New Agent** to create a new agent type
+3. Fill in:
+   - **Name** — Display name (e.g., "Meal Planner")
+   - **Agent Type** — Unique slug (e.g., `meal_planner`)
+   - **Description** — What the agent does
+   - **System Prompt** — Instructions that define the agent's behavior
+   - **Availability** — Toggle whether all members can see it, or restrict to specific members
+4. Built-in agents (Health Advisor, etc.) can be edited but not deleted
 
-### Managing the Backend
-
-The backend URL is:
-```
-http://Deploy-Servi-XjO6myh4gADc-1702122244.us-east-1.elb.amazonaws.com
-```
-
-Useful commands:
-
-```bash
-# Check backend health
-curl http://<BACKEND-URL>/health
-
-# Register a new user manually
-curl -X POST http://<BACKEND-URL>/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "invite_code": "AB12CD",
-    "device_name": "Mom iPhone",
-    "platform": "ios",
-    "display_name": "Mom"
-  }'
-```
+#### Generate Invite Code
+Create single-use invite codes to give to family members for registration.
 
 ---
 
 ## Troubleshooting
 
 ### "Invite code already used or expired"
-
 Each invite code can only be used once. Ask the admin to generate a new one.
 
 ### App shows "Network Error"
-
 - Check that your phone has internet access
 - The backend may be temporarily unavailable — try again in a few minutes
 - If using the development build, ensure your phone and computer are on the same WiFi network
 
 ### Slow Responses
-
-The AI assistant is a large language model that generates responses in real-time. Response speed depends on:
+The AI assistant generates responses in real-time. Response speed depends on:
 - Message complexity and length
 - Current server load
 - Network conditions
 
 Typical response time: 2–10 seconds for the first tokens to appear.
 
-### Lost Access
+### "No Agents Available"
+Your admin hasn't made any agents available to you yet. Ask them to check agent template availability settings.
 
+### Lost Access
 If you log out or lose your device, you'll need a new invite code from the admin to register again. Your previous conversations are not recoverable from a new device.
 
 ---
@@ -158,6 +175,7 @@ If you log out or lose your device, you'll need a new invite code from the admin
 - All conversations are stored in Amazon DynamoDB (encrypted at rest)
 - Conversations are private to each user
 - Messages are sent to Amazon Bedrock (Claude) for AI responses
+- Health documents are stored in Amazon S3 (encrypted)
 - No data is shared with third parties
 - The admin cannot read other users' conversations
 - Deleting a conversation permanently removes all its messages

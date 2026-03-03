@@ -69,7 +69,7 @@ cdk deploy HomeAgentPipeline
 
 This creates the CodePipeline and all application stacks:
 - **NetworkStack** — VPC with public/private subnets
-- **DataStack** — 5 DynamoDB tables
+- **DataStack** — 13 DynamoDB tables + S3 bucket
 - **SecurityStack** — ECR repository + IAM task role
 - **ServiceStack** — ECS Fargate cluster, task, ALB
 
@@ -99,7 +99,7 @@ docker push $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/homeagent-backend:latest
 Push to GitHub to trigger the pipeline:
 
 ```bash
-git push origin master
+git push origin main
 ```
 
 Monitor progress in the [CodePipeline console](https://console.aws.amazon.com/codesuite/codepipeline/pipelines/homeagent-pipeline/).
@@ -187,7 +187,7 @@ The pipeline deploys these stacks in order:
 | Stack | Resources | Dependencies |
 |-------|-----------|-------------|
 | `Deploy-Network` | VPC, subnets, NAT Gateway | — |
-| `Deploy-Data` | 5 DynamoDB tables | — |
+| `Deploy-Data` | 13 DynamoDB tables, S3 bucket | — |
 | `Deploy-Security` | ECR repo, IAM task role | Data (table ARNs) |
 | `Deploy-Service` | ECS cluster, task, ALB, auto-scaling | Network, Security |
 
@@ -332,9 +332,9 @@ cdk destroy Deploy-Service Deploy-Security Deploy-Data Deploy-Network
 **Note:** DynamoDB tables have `RETAIN` removal policy — they won't be deleted with the stack. Delete them manually if needed:
 
 ```bash
-aws dynamodb delete-table --table-name Users
-aws dynamodb delete-table --table-name Devices
-aws dynamodb delete-table --table-name InviteCodes
-aws dynamodb delete-table --table-name Conversations
-aws dynamodb delete-table --table-name Messages
+for t in Users Devices InviteCodes Conversations Messages MemberProfiles \
+       AgentConfigs AgentTemplates FamilyRelationships HealthRecords \
+       HealthObservations HealthAuditLog HealthDocuments; do
+  aws dynamodb delete-table --table-name $t
+done
 ```

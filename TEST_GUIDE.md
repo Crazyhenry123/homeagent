@@ -12,17 +12,7 @@
 
 ## How to Connect
 
-Open your iPhone camera and scan the QR code shown in the Expo terminal, or manually open this URL in Safari:
-
-```
-exp://6dkxhze-anonymous-8081.exp.direct
-```
-
-The app will load inside Expo Go.
-
-> **API endpoint**: The app is configured to hit the deployed backend at
-> `http://Deploy-Servi-XjO6myh4gADc-1702122244.us-east-1.elb.amazonaws.com`.
-> No manual configuration is needed.
+Open your iPhone camera and scan the QR code shown in the Expo terminal. The app will load inside Expo Go.
 
 ---
 
@@ -74,127 +64,171 @@ The app will load inside Expo Go.
 
 | # | Step | Expected Result |
 |---|------|-----------------|
-| 3.7 | Tap the message input field | Keyboard slides up, input area stays visible above the keyboard (not hidden behind it) |
+| 3.7 | Tap the message input field | Keyboard slides up, input area stays visible above the keyboard |
 | 3.8 | Type a long message that wraps | Input area grows vertically to fit the text |
 | 3.9 | Dismiss keyboard (tap outside or swipe down) | Input area returns to normal position |
 
 ---
 
-### 4. Loading States
-
-| # | Step | Expected Result |
-|---|------|-----------------|
-| 4.1 | Tap an existing conversation | Loading spinner appears while messages are fetched, then messages render |
-| 4.2 | Open Settings screen | Loading spinner appears briefly while user info is verified with the server |
-
----
-
-### 5. Delete Conversation
+### 4. Delete Conversation
 
 **Screen**: Conversation List
 
 | # | Step | Expected Result |
 |---|------|-----------------|
-| 5.1 | Long-press on a conversation item | Alert appears: "Delete Conversation" / "Are you sure?" with Cancel and Delete buttons |
-| 5.2 | Tap **Cancel** | Alert dismisses, conversation is still there |
-| 5.3 | Long-press again and tap **Delete** | Conversation removed from the list immediately |
-| 5.4 | Pull to refresh | Deleted conversation does not reappear (server-side deletion confirmed) |
+| 4.1 | Long-press on a conversation item | Alert appears: "Delete Conversation" with Cancel and Delete buttons |
+| 4.2 | Tap **Cancel** | Alert dismisses, conversation is still there |
+| 4.3 | Long-press again and tap **Delete** | Conversation removed from the list immediately |
+| 4.4 | Pull to refresh | Deleted conversation does not reappear |
+
+---
+
+### 5. Profile Screen
+
+**Screen**: Settings > Edit My Profile
+
+| # | Step | Expected Result |
+|---|------|-----------------|
+| 5.1 | Tap "Edit My Profile" in Settings | Navigates to Profile screen with editable fields |
+| 5.2 | Edit display name and save | Profile updates successfully |
+| 5.3 | Edit family role, health notes, interests | All fields persist after save |
 
 ---
 
 ### 6. Settings Screen
 
-**Screen**: Settings (tap "Settings" in the header of Conversation List)
+**Screen**: Settings (tap "Settings" in the Chats header)
 
 | # | Step | Expected Result |
 |---|------|-----------------|
-| 6.1 | Tap "Settings" in the Chats header | Navigates to Settings screen with loading spinner |
+| 6.1 | Tap "Settings" in the Chats header | Navigates to Settings screen |
 | 6.2 | After loading | Displays ACCOUNT section with Name, User ID, and Role fields |
-| 6.3 | Verify Name | Shows the display name you entered during registration |
-| 6.4 | Verify Role | Shows "admin" (since you registered with the `FAMILY` admin invite code) |
+| 6.3 | Verify PROFILE section | "Edit My Profile" and "My Agents" buttons visible |
+| 6.4 | (Admin only) Verify ADMIN section | "Manage Family Members", "Manage Family Tree", "Manage Agent Templates", "Generate Invite Code" visible |
 | 6.5 | Verify version | "HomeAgent v0.1.0" shown at the bottom |
 
 ---
 
-### 7. Admin: Generate Invite Code
+### 7. My Agents Screen (Member Self-Service)
 
-**Screen**: Settings (only visible for admin users)
-
-| # | Step | Expected Result |
-|---|------|-----------------|
-| 7.1 | Verify ADMIN section is visible | "ADMIN" section header with "Generate Invite Code" button appears below the account info |
-| 7.2 | Tap "Generate Invite Code" | Button text changes to "Generating...", then alert shows: "Invite Code Created" with a 6-character code |
-| 7.3 | Note the generated code | You'll use this to test multi-user registration (step 8) |
-| 7.4 | Tap "OK" | Alert dismisses |
-
----
-
-### 8. Multi-User Registration (with generated invite code)
+**Screen**: Settings > My Agents
 
 | # | Step | Expected Result |
 |---|------|-----------------|
-| 8.1 | Log out (see section 9) | Returns to Register screen |
-| 8.2 | Enter the invite code from step 7.3 and a different name | Registration succeeds, navigates to Conversation List |
-| 8.3 | Go to Settings | Role shows "member" (not admin) |
-| 8.4 | Verify ADMIN section is NOT visible | Only ACCOUNT section, Log Out button, and version are shown |
-| 8.5 | Try the same invite code again (log out and re-register) | Registration fails — invite codes are single-use |
+| 7.1 | Tap "My Agents" | Navigates to My Agents screen |
+| 7.2 | View list of available agents | Health Advisor, Logistics Assistant, Shopping Assistant shown with descriptions and toggle switches |
+| 7.3 | Toggle Health Advisor ON | Switch turns green, agent is now enabled |
+| 7.4 | Toggle Health Advisor OFF | Switch turns gray, agent is now disabled |
+| 7.5 | Start a chat and ask a health question (with Health Advisor enabled) | The assistant uses the Health Advisor sub-agent to provide detailed health guidance |
 
 ---
 
-### 9. Log Out
+### 8. Admin: Manage Agent Templates
+
+**Screen**: Settings > Manage Agent Templates (admin only)
+
+| # | Step | Expected Result |
+|---|------|-----------------|
+| 8.1 | Tap "Manage Agent Templates" | Navigates to Agent Templates screen |
+| 8.2 | View template list | Built-in agents shown with "Built-in" badge |
+| 8.3 | Tap "Add New Agent" | Modal form opens with Name, Agent Type, Description, System Prompt, Availability fields |
+| 8.4 | Fill in all fields and tap Save | New template appears in the list |
+| 8.5 | Tap an existing template | Edit modal opens with fields pre-filled |
+| 8.6 | Edit name/description and save | Template updates |
+| 8.7 | Try to delete a built-in template | Error alert: "Cannot delete built-in agent templates" |
+| 8.8 | Delete a custom template | Template removed from list after confirmation |
+
+---
+
+### 9. Admin: Family Members
+
+**Screen**: Settings > Manage Family Members (admin only)
+
+| # | Step | Expected Result |
+|---|------|-----------------|
+| 9.1 | Tap "Manage Family Members" | Navigates to members list with all registered users |
+| 9.2 | Tap a member | Navigates to member detail with profile info and agent configuration |
+| 9.3 | Toggle agents for the member | Agent config saved |
+
+---
+
+### 10. Admin: Family Tree
+
+**Screen**: Settings > Manage Family Tree (admin only)
+
+| # | Step | Expected Result |
+|---|------|-----------------|
+| 10.1 | Tap "Manage Family Tree" | Navigates to Family Tree screen |
+| 10.2 | Add a relationship between two members | Relationship created (bidirectional) |
+| 10.3 | Delete a relationship | Relationship removed |
+
+---
+
+### 11. Admin: Generate Invite Code
+
+**Screen**: Settings (admin only)
+
+| # | Step | Expected Result |
+|---|------|-----------------|
+| 11.1 | Tap "Generate Invite Code" | Button text changes to "Generating...", then alert shows: "Invite Code Created" with a 6-character code |
+| 11.2 | Note the generated code | Use this for multi-user registration |
+
+---
+
+### 12. Multi-User Registration
+
+| # | Step | Expected Result |
+|---|------|-----------------|
+| 12.1 | Log out (see section 14) | Returns to Register screen |
+| 12.2 | Enter the generated invite code and a different name | Registration succeeds |
+| 12.3 | Go to Settings | Role shows "member" (not admin) |
+| 12.4 | Verify ADMIN section is NOT visible | Only ACCOUNT, PROFILE sections visible |
+| 12.5 | Go to My Agents | Available agents listed with toggles |
+| 12.6 | Try the same invite code again (log out and re-register) | Registration fails — invite codes are single-use |
+
+---
+
+### 13. Error Handling
+
+| # | Step | Expected Result |
+|---|------|-----------------|
+| 13.1 | Stop the backend, then try to send a message | Error message appears |
+| 13.2 | Stop backend, pull to refresh conversation list | Error alert |
+| 13.3 | Stop backend, try to register | Alert: "Registration Failed" with connection error |
+
+---
+
+### 14. Log Out
 
 **Screen**: Settings
 
 | # | Step | Expected Result |
 |---|------|-----------------|
-| 9.1 | Tap the red "Log Out" button | Alert: "Log Out" / "You will need an invite code to log back in." with Cancel and Log Out |
-| 9.2 | Tap **Cancel** | Alert dismisses, stays on Settings |
-| 9.3 | Tap **Log Out** | Token cleared, navigates to Register screen |
-| 9.4 | Kill and reopen the app | Opens to Register screen (token was cleared) |
+| 14.1 | Tap the red "Log Out" button | Alert: "Log Out" / "You will need an invite code to log back in." |
+| 14.2 | Tap **Cancel** | Alert dismisses, stays on Settings |
+| 14.3 | Tap **Log Out** | Token cleared, navigates to Register screen |
+| 14.4 | Kill and reopen the app | Opens to Register screen (token was cleared) |
 
 ---
 
-### 10. Auth Expiry (401 Handling)
-
-This tests the automatic session expiry detection.
+### 15. Auth Expiry (401 Handling)
 
 | # | Step | Expected Result |
 |---|------|-----------------|
-| 10.1 | Register and start using the app normally | App works, conversations load |
-| 10.2 | Simulate token expiry: stop the backend, clear the Devices DynamoDB table, restart backend | Next API call from the app will return 401 |
-| 10.3 | Trigger an API call (e.g. pull to refresh conversation list) | Alert: "Session Expired" / "Please register again with an invite code." |
-| 10.4 | Tap OK | Navigates to Register screen |
-| 10.5 | Verify no duplicate alerts | Only one "Session Expired" alert should appear, even if multiple requests fail at the same time (debounce guard) |
-
----
-
-### 11. Error Handling
-
-| # | Step | Expected Result |
-|---|------|-----------------|
-| 11.1 | Stop the backend (`docker compose down`), then try to send a message | Error message appears in the chat bubble (red text) |
-| 11.2 | Stop backend, pull to refresh conversation list | Alert: "Error" / "Failed to load conversations" |
-| 11.3 | Stop backend, try to register | Alert: "Registration Failed" with connection error message |
-
----
-
-### 12. Navigation Edge Cases
-
-| # | Step | Expected Result |
-|---|------|-----------------|
-| 12.1 | Rapidly tap the + button multiple times | Only one Chat screen opens (no double-navigation) |
-| 12.2 | Tap back while a response is streaming | Navigates back to Conversation List; stream is aborted (no crash) |
-| 12.3 | Open Settings, go back, open a chat, go back | Navigation stack works correctly with no stale state |
+| 15.1 | Register and start using the app normally | App works |
+| 15.2 | Simulate token expiry: stop backend, clear Devices table, restart backend | Next API call returns 401 |
+| 15.3 | Trigger an API call (e.g. pull to refresh) | Alert: "Session Expired" |
+| 15.4 | Tap OK | Navigates to Register screen |
 
 ---
 
 ## Quick Smoke Test (5 minutes)
 
-If you're short on time, run through these steps for a quick confidence check:
-
 1. Open app -> Register with code `FAMILY` and your name
 2. Tap **+** -> Send "Hello, what can you help me with?" -> Verify streaming response
-3. Tap back -> Verify conversation appears in list with a title
-4. Long-press conversation -> Delete -> Verify it disappears
-5. Tap Settings -> Verify name/role/admin section -> Generate an invite code
-6. Log Out -> Verify you're back at Register screen
+3. Tap back -> Verify conversation appears in list
+4. Go to Settings -> My Agents -> Toggle Health Advisor ON
+5. New chat -> Ask a health question -> Verify the health advisor sub-agent is used
+6. Settings -> Manage Agent Templates -> Verify built-in templates listed
+7. Long-press conversation -> Delete -> Verify it disappears
+8. Generate an invite code -> Log Out -> Verify Register screen

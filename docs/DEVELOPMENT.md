@@ -5,12 +5,25 @@
 ```
 homeagent/
 ├── backend/          Flask API (Python 3.12)
+│   ├── app/
+│   │   ├── agents/       Agent factories (health_advisor, custom_agent, registry)
+│   │   ├── models/       DynamoDB table definitions and helpers
+│   │   ├── routes/       Flask route blueprints
+│   │   └── services/     Business logic (agent_config, agent_template, health, etc.)
+│   └── tests/            pytest integration tests
 ├── mobile/           Expo React Native app (TypeScript)
+│   └── src/
+│       ├── navigation/   Stack navigator
+│       ├── screens/      All app screens
+│       ├── services/     API client, auth, events
+│       └── types/        TypeScript interfaces
 ├── infra/            AWS CDK stacks (Python)
+│   └── stacks/       network, data, security, service, webui, pipeline
+├── webui/            Debug web console (static HTML/CSS/JS, S3+CloudFront)
 ├── docs/             Documentation
 ├── docker-compose.yml
 ├── CLAUDE.md         AI assistant context file
-└── .gitignore
+└── TEST_GUIDE.md     iOS manual test cases
 ```
 
 ---
@@ -91,7 +104,19 @@ python -m pytest tests/ -v
 |------|-------|--------------|
 | `test_auth.py` | 9 | Registration, token verification, invite codes, admin creation |
 | `test_chat.py` | 5 | SSE streaming, conversation creation, auth checks |
-| `test_conversations.py` | 5 | List, get messages, delete, pagination |
+| `test_conversations.py` | 4 | List, get messages, delete, auth |
+| `test_profiles.py` | 10 | Self-access, admin CRUD, list, registration auto-create |
+| `test_agent_config.py` | 9 | Agent type listing, enable/disable, custom config, auth checks |
+| `test_agent_templates.py` | 16 | Template CRUD, seed built-ins, duplicate rejection, cascade delete, availability, member self-service |
+| `test_agent_orchestrator.py` | 4 | Chat with/without orchestrator, system prompt personalization |
+| `test_family_tree.py` | 11 | Relationship CRUD, bidirectional, validation, cascade delete |
+| `test_health_records.py` | 17 | Health record CRUD, filtering, summary, self-access, audit, reports |
+| `test_health_observations.py` | 10 | Observation CRUD, category filter, confidence, source conversation |
+| `test_health_audit.py` | 6 | Audit log entries for create/update/delete |
+| `test_health_documents.py` | 9 | Document upload/download/delete, validation |
+| `test_health_extraction.py` | 6 | Health observation extraction from conversations |
+| `test_member_delete.py` | 7 | Cascade delete across all tables |
+| `test_health.py` | 1 | Health check endpoint |
 
 ### Linting
 
@@ -171,12 +196,18 @@ app.register_blueprint(my_feature_bp, url_prefix="/api")
 3. Add type to the navigation param list
 4. Create any needed components in `mobile/src/components/`
 
+### New Agent Type
+
+1. **Built-in (with custom Python tools):** Create a factory in `backend/app/agents/`, decorate with `@register_agent("my_type")`, import in `personal.py`
+2. **Custom (admin-created):** Use the admin API to create an AgentTemplate with a system prompt — no code needed
+3. Both approaches are registered as templates in the AgentTemplates table
+
 ### New DynamoDB Table
 
 1. Add table definition in `infra/stacks/data_stack.py`
 2. Add table to the `tables` dict exposed by `DataStack`
 3. Grant permissions in `infra/stacks/security_stack.py`
-4. Add initialization in `backend/app/models/dynamo.py`
+4. Add matching entry in `backend/app/models/dynamo.py` TABLE_DEFINITIONS
 5. Push to deploy via pipeline
 
 ---

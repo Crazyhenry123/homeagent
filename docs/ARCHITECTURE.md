@@ -2,7 +2,7 @@
 
 ## Overview
 
-HomeAgent is a family AI chat application. Family members interact with Claude (via Amazon Bedrock) through a mobile app. The system is composed of three layers:
+HomeAgent is a family AI chat application. Family members interact with Claude (via Amazon Bedrock) through a mobile app. The system supports a pluggable agent architecture — an admin can create custom AI agent types, and members can self-service enable agents for their personal assistant.
 
 ```
 +-----------------+       +-------------------+       +------------------+
@@ -12,8 +12,9 @@ HomeAgent is a family AI chat application. Family members interact with Claude (
 ```
 
 - **Mobile** — Expo React Native app (TypeScript). Runs on iOS/Android via Expo Go.
-- **Backend** — Python Flask API on ECS Fargate behind an ALB. Handles auth, chat, conversations.
-- **Infrastructure** — AWS CDK (Python). VPC, DynamoDB, ECR, ECS, ALB, CodePipeline.
+- **Backend** — Python Flask API on ECS Fargate behind an ALB. Handles auth, chat, conversations, profiles, agents, health records.
+- **Web UI** — Static debug console (HTML/CSS/JS) hosted on S3 + CloudFront.
+- **Infrastructure** — AWS CDK (Python). VPC, DynamoDB, ECR, ECS, ALB, S3, CloudFront, CodePipeline.
 
 ---
 
@@ -25,8 +26,8 @@ HomeAgent is a family AI chat application. Family members interact with Claude (
                         │                                             │
 ┌──────────┐            │  ┌──────────────────────────────────────┐   │
 │  GitHub  │──webhook──►│  │       CodePipeline (CI/CD)           │   │
-│  (master)│            │  │  Source → Synth → Test → Deploy →    │   │
-└──────────┘            │  │  DockerBuild → ECS Update            │   │
+│  (main)  │            │  │  Source → Synth → Test → Deploy →    │   │
+└──────────┘            │  │  DockerBuild → ECS Update → WebUI    │   │
                         │  └──────────────────────────────────────┘   │
                         │                                             │
                         │  ┌────────────────────────────┐             │
@@ -42,20 +43,25 @@ HomeAgent is a family AI chat application. Family members interact with Claude (
                         │  │             │                │             │
                         │  │  ┌──────────▼──────────┐    │             │
                         │  │  │  Private Subnets     │    │             │
-                        │  │  │  ┌────────────────┐  │    │             │
-                        │  │  │  │  ECS Fargate    │  │    │  ┌───────┐ │
-                        │  │  │  │  (1–4 tasks)    │──┼────┼─►│Bedrock│ │
-                        │  │  │  │  Flask + gunicorn│ │    │  │Claude │ │
-                        │  │  │  └────────────────┘  │    │  └───────┘ │
+                        │  │  │  ┌────────────────┐  │    │  ┌───────┐ │
+                        │  │  │  │  ECS Fargate    │  │    │  │Bedrock│ │
+                        │  │  │  │  (1–4 tasks)    │──┼────┼─►│Claude │ │
+                        │  │  │  │  Flask + gunicorn│ │    │  └───────┘ │
+                        │  │  │  └────────────────┘  │    │             │
                         │  │  └──────────────────────┘    │             │
                         │  │         │  NAT GW            │             │
                         │  └─────────┼────────────────────┘             │
                         │            │                                  │
                         │  ┌─────────▼──────────┐  ┌──────────┐        │
                         │  │     DynamoDB        │  │   ECR    │        │
-                        │  │  (5 tables,         │  │ homeagent│        │
+                        │  │  (13 tables,        │  │ homeagent│        │
                         │  │   on-demand)        │  │ -backend │        │
                         │  └────────────────────┘  └──────────┘        │
+                        │                                              │
+                        │  ┌────────────┐  ┌─────────────────┐         │
+                        │  │     S3      │  │   CloudFront    │         │
+                        │  │ health-docs │  │   (Web UI)      │         │
+                        │  └────────────┘  └─────────────────┘         │
                         └─────────────────────────────────────────────┘
 ```
 
@@ -85,12 +91,27 @@ HomeAgent is a family AI chat application. Family members interact with Claude (
 | Table | Key Schema | GSI | Purpose |
 |-------|-----------|-----|---------|
 | Users | PK: `user_id` | — | User accounts |
-| Devices | PK: `device_id` | `device_token-index` | Device registration, token lookup |
+| Devices | PK: `device_id` | `device_token-index`, `user_id-index` | Device registration, token lookup |
 | InviteCodes | PK: `code` | — | One-time invite codes |
 | Conversations | PK: `conversation_id` | `user_conversations-index` (user_id + updated_at) | Chat threads |
 | Messages | PK: `conversation_id`, SK: `sort_key` | — | Chat messages, sorted by time |
+| MemberProfiles | PK: `user_id` | — | Member display names, roles, preferences |
+| AgentConfigs | PK: `user_id`, SK: `agent_type` | — | Per-member agent enable/disable + config |
+| AgentTemplates | PK: `template_id` | `agent_type-index` | Dynamic agent type definitions (admin-managed) |
+| FamilyRelationships | PK: `user_id`, SK: `related_user_id` | — | Family tree relationships |
+| HealthRecords | PK: `user_id`, SK: `record_id` | `record_type-index` | Structured medical records |
+| HealthObservations | PK: `user_id`, SK: `observation_id` | `category-index` | AI-extracted health observations |
+| HealthAuditLog | PK: `record_id`, SK: `audit_sk` | `user-audit-index` | Health record change audit trail |
+| HealthDocuments | PK: `user_id`, SK: `document_id` | — | Health document metadata (files in S3) |
 
 All tables use on-demand billing (PAY_PER_REQUEST).
+
+### Storage Layer
+
+| Resource | Details |
+|----------|---------|
+| S3 Bucket | `homeagent-health-documents-{ACCOUNT_ID}` — encrypted, private, lifecycle to IA at 90 days |
+| S3 Bucket | Web UI static hosting (CloudFront distribution) |
 
 ### AI Layer
 
@@ -99,6 +120,7 @@ All tables use on-demand billing (PAY_PER_REQUEST).
 | Service | Amazon Bedrock |
 | Model | Claude Opus 4.6 (`us.anthropic.claude-opus-4-6-v1`) |
 | API | `converse_stream` (streaming) |
+| Agent Framework | Strands Agents SDK (sub-agent orchestration) |
 | Max Tokens | 4096 |
 | Temperature | 0.7 |
 | System Prompt | Configurable (default: family assistant persona) |
@@ -113,15 +135,52 @@ All tables use on-demand billing (PAY_PER_REQUEST).
 | Invite Codes | Single-use, required for registration |
 | Container | Non-root user (`appuser`) |
 | Network | Tasks in private subnets, ALB in public |
-| IAM | Task role scoped to DynamoDB tables + Bedrock invoke |
+| IAM | Task role scoped to DynamoDB tables + Bedrock invoke + S3 bucket |
 | ECR | Lifecycle policy: keep last 10 images |
+
+---
+
+## Agent System Architecture
+
+HomeAgent uses a pluggable sub-agent architecture powered by the Strands Agents SDK.
+
+### How It Works
+
+```
+User Message
+     │
+     ▼
+Personal Agent (orchestrator)
+     │
+     ├─► ask_health_advisor  (built-in, registered factory)
+     ├─► ask_meal_planner    (custom, template-based)
+     └─► ask_shopping_assistant (custom, template-based)
+```
+
+1. **AgentTemplates table** stores all agent type definitions (name, description, system prompt, default config, availability).
+2. **Built-in agents** (e.g. `health_advisor`) have Python factories registered via `@register_agent` and are seeded as templates on startup with `is_builtin=True`.
+3. **Custom agents** are created by admin via API. They use a generic factory that creates a Strands sub-agent from the template's `system_prompt`.
+4. **AgentConfigs table** stores per-member enable/disable state. Admin can toggle agents for members; members can self-service toggle available agents.
+5. **Personal agent** (`build_sub_agent_tools()`) assembles the user's enabled sub-agents at chat time — tries the registered factory first, falls back to the generic custom agent factory.
+
+### Agent Access Control
+
+```
+Admin creates template → sets available_to ("all" or [user_ids])
+     │
+     ▼
+Member sees agent in "My Agents" → toggles on/off (PUT/DELETE /api/agents/my/<type>)
+     │
+     ▼
+Chat time → personal agent includes enabled sub-agents as @tool functions
+```
 
 ---
 
 ## CI/CD Pipeline
 
 ```
-GitHub Push (master)
+GitHub Push (main)
        │
        ▼
 ┌──────────────┐
@@ -142,7 +201,7 @@ GitHub Push (master)
 └──────┬───────┘
        ▼
 ┌──────────────┐
-│   Deploy      │  CDK deploys: Network → Data → Security → Service
+│   Deploy      │  CDK deploys: Network → Data → Security → Service → WebUI
 └──────┬───────┘
        ▼
 ┌──────────────┐
@@ -169,7 +228,8 @@ The pipeline is self-mutating: changes to `infra/stacks/pipeline_stack.py` autom
    a. Create or validate conversation
    b. Store user message in Messages table
    c. Load last 50 messages as context
-   d. Call Bedrock converse_stream API
+   d. Build personal agent with user's enabled sub-agent tools
+   e. Call Bedrock converse_stream API (or agent orchestrator)
 5. SSE streaming response:
    a. Yield text_delta events as tokens arrive
    b. Yield message_done with token counts
@@ -193,10 +253,13 @@ The pipeline is self-mutating: changes to `infra/stacks/pipeline_stack.py` autom
 | Backend | Flask | 3.1 |
 | WSGI Server | gunicorn + gevent | 23.0 / 24.11 |
 | AI | Amazon Bedrock | Claude Opus 4.6 |
-| Database | Amazon DynamoDB | On-demand |
+| Agent Framework | Strands Agents SDK | — |
+| Database | Amazon DynamoDB | On-demand (13 tables) |
+| Object Storage | Amazon S3 | Health documents |
 | Container | Docker | python:3.12-slim |
 | Orchestration | ECS Fargate | — |
 | Load Balancer | Application LB | — |
+| CDN | Amazon CloudFront | Web UI |
 | Infrastructure | AWS CDK | 2.177 |
 | CI/CD | AWS CodePipeline | CDK Pipelines |
 | Source Control | GitHub | CodeStar Connection |
