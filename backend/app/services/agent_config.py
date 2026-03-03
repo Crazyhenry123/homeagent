@@ -1,42 +1,24 @@
 from datetime import datetime, timezone
 
 from app.models.dynamo import get_table
-
-# Default available agent types and their metadata
-AGENT_TYPES = {
-    "health_advisor": {
-        "name": "Health Advisor",
-        "description": (
-            "Comprehensive family health companion with access to medical records, "
-            "health observations, and conversation history. Provides age-specific "
-            "guidance for pediatric and geriatric care, tracks health patterns, "
-            "and generates personalized wellness recommendations."
-        ),
-        "default_config": {
-            "safety_disclaimers": True,
-            "web_search_enabled": False,
-            "conversation_mining_enabled": True,
-            "observation_tracking_enabled": True,
-        },
-    },
-    "logistics_assistant": {
-        "name": "Logistics Assistant",
-        "description": "Email drafting and scheduling assistance",
-        "default_config": {
-            "draft_only": True,
-        },
-    },
-    "shopping_assistant": {
-        "name": "Shopping Assistant",
-        "description": "Product search and recommendations",
-        "default_config": {},
-    },
-}
+from app.services.agent_template import get_template_by_type, list_templates
 
 
 def get_available_agent_types() -> dict:
-    """Return all available agent types with their metadata."""
-    return AGENT_TYPES
+    """Return all available agent types with their metadata.
+
+    Queries the AgentTemplates table and returns a dict keyed by agent_type
+    for backward compatibility with the existing admin UI.
+    """
+    templates = list_templates()
+    result = {}
+    for t in templates:
+        result[t["agent_type"]] = {
+            "name": t["name"],
+            "description": t["description"],
+            "default_config": t.get("default_config", {}),
+        }
+    return result
 
 
 def get_agent_configs(user_id: str) -> list[dict]:
@@ -66,15 +48,16 @@ def put_agent_config(
 ) -> dict:
     """Create or update an agent config for a user.
 
-    Raises ValueError if agent_type is not recognized.
+    Raises ValueError if agent_type is not recognized in AgentTemplates.
     """
-    if agent_type not in AGENT_TYPES:
+    template = get_template_by_type(agent_type)
+    if not template:
         raise ValueError(f"Unknown agent type: {agent_type}")
 
     table = get_table("AgentConfigs")
     now = datetime.now(timezone.utc).isoformat()
 
-    default_config = AGENT_TYPES[agent_type]["default_config"]
+    default_config = template.get("default_config", {})
     merged_config = {**default_config, **(config or {})}
 
     item = {

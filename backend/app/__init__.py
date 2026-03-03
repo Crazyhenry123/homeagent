@@ -4,6 +4,7 @@ from flask_cors import CORS
 from app.config import Config
 from app.models.dynamo import init_tables
 from app.routes.agent_config_routes import agent_config_bp
+from app.routes.agent_template_routes import agent_template_bp
 from app.routes.health import health_bp
 from app.routes.auth_routes import admin_bp, auth_bp
 from app.routes.chat import chat_bp
@@ -12,7 +13,9 @@ from app.routes.family_tree import family_tree_bp
 from app.routes.health_records import admin_health_records_bp, health_records_bp
 from app.routes.health_reports import health_reports_bp
 from app.routes.health_documents import admin_health_documents_bp
+from app.routes.member_agent_routes import member_agent_bp
 from app.routes.profiles import admin_profiles_bp, profiles_bp
+from app.services.agent_template import seed_builtin_templates
 
 
 def create_app(config: Config | None = None) -> Flask:
@@ -24,6 +27,7 @@ def create_app(config: Config | None = None) -> Flask:
     CORS(app)
 
     init_tables(app)
+    seed_builtin_templates(app)
 
     app.register_blueprint(health_bp)
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
@@ -33,6 +37,8 @@ def create_app(config: Config | None = None) -> Flask:
     app.register_blueprint(profiles_bp, url_prefix="/api")
     app.register_blueprint(admin_profiles_bp, url_prefix="/api/admin")
     app.register_blueprint(agent_config_bp, url_prefix="/api/admin")
+    app.register_blueprint(agent_template_bp, url_prefix="/api/admin")
+    app.register_blueprint(member_agent_bp, url_prefix="/api")
     app.register_blueprint(family_tree_bp, url_prefix="/api/admin")
     app.register_blueprint(health_records_bp, url_prefix="/api")
     app.register_blueprint(admin_health_records_bp, url_prefix="/api/admin")

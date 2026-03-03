@@ -3,7 +3,10 @@ import {Platform} from 'react-native';
 import type {
   AgentConfig,
   AgentConfigsResponse,
+  AgentTemplate,
+  AgentTemplatesResponse,
   AgentTypesResponse,
+  AvailableAgentsResponse,
   ConversationListResponse,
   FamilyRelationship,
   FamilyRelationshipsResponse,
@@ -196,6 +199,62 @@ export async function deleteAgentConfig(
   await request(`/api/admin/agents/${userId}/${agentType}`, {
     method: 'DELETE',
   });
+}
+
+// --- Agent Template APIs (Admin) ---
+
+export async function listAgentTemplates(): Promise<AgentTemplatesResponse> {
+  return request<AgentTemplatesResponse>('/api/admin/agent-templates');
+}
+
+export async function createAgentTemplate(data: {
+  name: string;
+  agent_type: string;
+  description: string;
+  system_prompt: string;
+  default_config?: Record<string, unknown>;
+  available_to?: 'all' | string[];
+}): Promise<AgentTemplate> {
+  return request<AgentTemplate>('/api/admin/agent-templates', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateAgentTemplate(
+  templateId: string,
+  data: Partial<Pick<AgentTemplate, 'name' | 'description' | 'system_prompt' | 'default_config' | 'available_to'>>,
+): Promise<AgentTemplate> {
+  return request<AgentTemplate>(`/api/admin/agent-templates/${templateId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAgentTemplate(templateId: string): Promise<void> {
+  await request(`/api/admin/agent-templates/${templateId}`, {
+    method: 'DELETE',
+  });
+}
+
+// --- Member Agent Self-Service APIs ---
+
+export async function getAvailableAgents(): Promise<AvailableAgentsResponse> {
+  return request<AvailableAgentsResponse>('/api/agents/available');
+}
+
+export async function getMyAgents(): Promise<AgentConfigsResponse> {
+  return request<AgentConfigsResponse>('/api/agents/my');
+}
+
+export async function enableMyAgent(agentType: string): Promise<AgentConfig> {
+  return request<AgentConfig>(`/api/agents/my/${agentType}`, {
+    method: 'PUT',
+  });
+}
+
+export async function disableMyAgent(agentType: string): Promise<void> {
+  await request(`/api/agents/my/${agentType}`, {method: 'DELETE'});
 }
 
 // --- Admin Delete Member ---

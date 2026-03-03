@@ -106,6 +106,11 @@ export function SettingsScreen({navigation}: Props) {
         onPress={() => navigation.navigate('Profile')}>
         <Text style={styles.actionText}>Edit My Profile</Text>
       </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.actionRow}
+        onPress={() => navigation.navigate('MyAgents')}>
+        <Text style={styles.actionText}>My Agents</Text>
+      </TouchableOpacity>
 
       {role === 'admin' && (
         <>
@@ -121,6 +126,11 @@ export function SettingsScreen({navigation}: Props) {
             style={styles.actionRow}
             onPress={() => navigation.navigate('FamilyTree')}>
             <Text style={styles.actionText}>Manage Family Tree</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={() => navigation.navigate('AdminAgentTemplates')}>
+            <Text style={styles.actionText}>Manage Agent Templates</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionRow}

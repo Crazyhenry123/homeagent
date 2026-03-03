@@ -9,6 +9,7 @@ from typing import Callable
 
 from app.agents.registry import create_agent_tool
 from app.services.agent_config import get_agent_configs
+from app.services.agent_template import get_template_by_type
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,9 @@ def build_sub_agent_tools(
     """Build the list of sub-agent tools for a user based on their agent configs.
 
     Looks up the user's enabled agent configurations and creates a
-    @tool function for each one.
+    @tool function for each one. Tries the registry first (built-in agents
+    with custom Python factories), then falls back to the generic custom
+    agent factory for template-defined agents.
     """
     configs = get_agent_configs(user_id)
     tools = []
@@ -35,12 +38,27 @@ def build_sub_agent_tools(
         agent_type = agent_cfg["agent_type"]
         config = agent_cfg.get("config", {})
 
+        # Try registered factory first (built-in agents like health_advisor)
         tool_fn = create_agent_tool(
             agent_type=agent_type,
             config=config,
             user_id=user_id,
             model_id=model_id,
         )
+
+        # Fall back to generic custom agent factory
+        if tool_fn is None:
+            template = get_template_by_type(agent_type)
+            if template and template.get("system_prompt"):
+                from app.agents.custom_agent import create_custom_agent_tool
+
+                tool_fn = create_custom_agent_tool(
+                    template=template,
+                    config=config,
+                    user_id=user_id,
+                    model_id=model_id,
+                )
+
         if tool_fn is not None:
             tools.append(tool_fn)
             logger.info(

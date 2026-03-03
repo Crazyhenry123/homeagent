@@ -13,6 +13,8 @@ import {ProfileScreen} from '../screens/ProfileScreen';
 import {AdminMembersScreen} from '../screens/AdminMembersScreen';
 import {AdminMemberDetailScreen} from '../screens/AdminMemberDetailScreen';
 import {FamilyTreeScreen} from '../screens/FamilyTreeScreen';
+import {AdminAgentTemplatesScreen} from '../screens/AdminAgentTemplatesScreen';
+import {MyAgentsScreen} from '../screens/MyAgentsScreen';
 
 export type RootStackParamList = {
   Register: undefined;
@@ -23,6 +25,8 @@ export type RootStackParamList = {
   AdminMembers: undefined;
   AdminMemberDetail: {userId: string};
   FamilyTree: undefined;
+  AdminAgentTemplates: undefined;
+  MyAgents: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -105,6 +109,16 @@ export function AppNavigator() {
           name="FamilyTree"
           component={FamilyTreeScreen}
           options={{title: 'Family Tree'}}
+        />
+        <Stack.Screen
+          name="AdminAgentTemplates"
+          component={AdminAgentTemplatesScreen}
+          options={{title: 'Agent Templates'}}
+        />
+        <Stack.Screen
+          name="MyAgents"
+          component={MyAgentsScreen}
+          options={{title: 'My Agents'}}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -150,6 +150,22 @@ TABLE_DEFINITIONS = {
             },
         ],
     },
+    "AgentTemplates": {
+        "KeySchema": [{"AttributeName": "template_id", "KeyType": "HASH"}],
+        "AttributeDefinitions": [
+            {"AttributeName": "template_id", "AttributeType": "S"},
+            {"AttributeName": "agent_type", "AttributeType": "S"},
+        ],
+        "GlobalSecondaryIndexes": [
+            {
+                "IndexName": "agent_type-index",
+                "KeySchema": [
+                    {"AttributeName": "agent_type", "KeyType": "HASH"},
+                ],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+        ],
+    },
     "HealthDocuments": {
         "KeySchema": [
             {"AttributeName": "user_id", "KeyType": "HASH"},

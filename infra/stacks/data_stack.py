@@ -225,6 +225,24 @@ class DataStack(cdk.Stack):
             removal_policy=cdk.RemovalPolicy.RETAIN,
         )
 
+        # AgentTemplates table
+        self.tables["AgentTemplates"] = dynamodb.Table(
+            self,
+            "AgentTemplatesTable",
+            table_name="AgentTemplates",
+            partition_key=dynamodb.Attribute(
+                name="template_id", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+        )
+        self.tables["AgentTemplates"].add_global_secondary_index(
+            index_name="agent_type-index",
+            partition_key=dynamodb.Attribute(
+                name="agent_type", type=dynamodb.AttributeType.STRING
+            ),
+        )
+
         # S3 bucket for health documents
         self.documents_bucket = s3.Bucket(
             self,

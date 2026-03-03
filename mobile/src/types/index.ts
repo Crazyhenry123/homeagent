@@ -105,3 +105,29 @@ export interface FamilyRelationship {
 export interface FamilyRelationshipsResponse {
   relationships: FamilyRelationship[];
 }
+
+export interface AgentTemplate {
+  template_id: string;
+  agent_type: string;
+  name: string;
+  description: string;
+  system_prompt: string;
+  default_config: Record<string, unknown>;
+  is_builtin: boolean;
+  available_to: 'all' | string[];
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentTemplatesResponse {
+  templates: AgentTemplate[];
+}
+
+export interface AvailableAgent extends AgentTemplate {
+  enabled: boolean;
+}
+
+export interface AvailableAgentsResponse {
+  agents: AvailableAgent[];
+}
