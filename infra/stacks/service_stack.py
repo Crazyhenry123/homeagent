@@ -58,7 +58,7 @@ class ServiceStack(cdk.Stack):
                     "Be warm, friendly, and supportive."
                 ),
                 "ADMIN_INVITE_CODE": "FAMILY",
-                "USE_AGENT_ORCHESTRATOR": "false",
+                "USE_AGENT_ORCHESTRATOR": "true",
             },
             health_check=ecs.HealthCheck(
                 command=[
