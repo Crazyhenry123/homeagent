@@ -39,12 +39,28 @@ class SecurityStack(cdk.Stack):
         for table in tables.values():
             table.grant_read_write_data(self.task_role)
 
-        # Bedrock permissions
+        # Bedrock permissions (model invocation)
         self.task_role.add_to_policy(
             iam.PolicyStatement(
                 actions=[
                     "bedrock:InvokeModel",
                     "bedrock:InvokeModelWithResponseStream",
+                ],
+                resources=["*"],
+            )
+        )
+
+        # Bedrock AgentCore Memory + Tools permissions
+        self.task_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "bedrock:CreateMemory",
+                    "bedrock:GetMemory",
+                    "bedrock:ListMemories",
+                    "bedrock:DeleteMemory",
+                    "bedrock:RetrieveMemoryRecords",
+                    "bedrock:CreateMemoryRecords",
+                    "bedrock:DeleteMemoryRecords",
                 ],
                 resources=["*"],
             )

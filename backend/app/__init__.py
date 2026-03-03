@@ -3,10 +3,12 @@ from flask_cors import CORS
 
 from app.config import Config
 from app.models.dynamo import init_tables
+from app.routes.agent_config_routes import agent_config_bp
 from app.routes.health import health_bp
 from app.routes.auth_routes import admin_bp, auth_bp
 from app.routes.chat import chat_bp
 from app.routes.conversations import conversations_bp
+from app.routes.profiles import admin_profiles_bp, profiles_bp
 
 
 def create_app(config: Config | None = None) -> Flask:
@@ -24,5 +26,8 @@ def create_app(config: Config | None = None) -> Flask:
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
     app.register_blueprint(chat_bp, url_prefix="/api")
     app.register_blueprint(conversations_bp, url_prefix="/api")
+    app.register_blueprint(profiles_bp, url_prefix="/api")
+    app.register_blueprint(admin_profiles_bp, url_prefix="/api/admin")
+    app.register_blueprint(agent_config_bp, url_prefix="/api/admin")
 
     return app

@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from ulid import ULID
 
 from app.models.dynamo import get_table
+from app.services.profile import create_profile
 
 
 def register_device(
@@ -58,6 +59,13 @@ def register_device(
             "device_name": device_name,
             "registered_at": now,
         }
+    )
+
+    # Create default member profile
+    create_profile(
+        user_id=user_id,
+        display_name=display_name,
+        role="admin" if is_admin else "member",
     )
 
     # Mark invite code as used

@@ -54,6 +54,20 @@ TABLE_DEFINITIONS = {
             {"AttributeName": "sort_key", "AttributeType": "S"},
         ],
     },
+    "MemberProfiles": {
+        "KeySchema": [{"AttributeName": "user_id", "KeyType": "HASH"}],
+        "AttributeDefinitions": [{"AttributeName": "user_id", "AttributeType": "S"}],
+    },
+    "AgentConfigs": {
+        "KeySchema": [
+            {"AttributeName": "user_id", "KeyType": "HASH"},
+            {"AttributeName": "agent_type", "KeyType": "RANGE"},
+        ],
+        "AttributeDefinitions": [
+            {"AttributeName": "user_id", "AttributeType": "S"},
+            {"AttributeName": "agent_type", "AttributeType": "S"},
+        ],
+    },
 }
 
 

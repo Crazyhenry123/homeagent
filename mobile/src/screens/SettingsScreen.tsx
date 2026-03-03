@@ -98,11 +98,25 @@ export function SettingsScreen({navigation}: Props) {
         <Text style={styles.value}>{role}</Text>
       </View>
 
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionHeaderText}>PROFILE</Text>
+      </View>
+      <TouchableOpacity
+        style={styles.actionRow}
+        onPress={() => navigation.navigate('Profile')}>
+        <Text style={styles.actionText}>Edit My Profile</Text>
+      </TouchableOpacity>
+
       {role === 'admin' && (
         <>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionHeaderText}>ADMIN</Text>
           </View>
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={() => navigation.navigate('AdminMembers')}>
+            <Text style={styles.actionText}>Manage Family Members</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionRow}
             onPress={handleGenerateInviteCode}

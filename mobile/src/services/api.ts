@@ -1,8 +1,13 @@
 import Constants from 'expo-constants';
 import {Platform} from 'react-native';
 import type {
+  AgentConfig,
+  AgentConfigsResponse,
+  AgentTypesResponse,
   ConversationListResponse,
+  MemberProfile,
   MessageListResponse,
+  ProfileListResponse,
   RegisterRequest,
   RegisterResponse,
 } from '../types';
@@ -114,4 +119,78 @@ export async function deleteConversation(
   conversationId: string,
 ): Promise<void> {
   await request(`/api/conversations/${conversationId}`, {method: 'DELETE'});
+}
+
+// --- Profile APIs ---
+
+export async function getMyProfile(): Promise<MemberProfile> {
+  return request<MemberProfile>('/api/profiles/me');
+}
+
+export async function updateMyProfile(
+  updates: Partial<
+    Pick<
+      MemberProfile,
+      'display_name' | 'family_role' | 'preferences' | 'health_notes' | 'interests'
+    >
+  >,
+): Promise<MemberProfile> {
+  return request<MemberProfile>('/api/profiles/me', {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
+}
+
+// --- Admin Profile APIs ---
+
+export async function listProfiles(): Promise<ProfileListResponse> {
+  return request<ProfileListResponse>('/api/admin/profiles');
+}
+
+export async function getProfile(
+  userId: string,
+): Promise<MemberProfile> {
+  return request<MemberProfile>(`/api/admin/profiles/${userId}`);
+}
+
+export async function updateProfile(
+  userId: string,
+  updates: Partial<MemberProfile>,
+): Promise<MemberProfile> {
+  return request<MemberProfile>(`/api/admin/profiles/${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
+}
+
+// --- Agent Config APIs ---
+
+export async function getAgentTypes(): Promise<AgentTypesResponse> {
+  return request<AgentTypesResponse>('/api/admin/agents/types');
+}
+
+export async function getAgentConfigs(
+  userId: string,
+): Promise<AgentConfigsResponse> {
+  return request<AgentConfigsResponse>(`/api/admin/agents/${userId}`);
+}
+
+export async function putAgentConfig(
+  userId: string,
+  agentType: string,
+  data: {enabled: boolean; config?: Record<string, unknown>},
+): Promise<AgentConfig> {
+  return request<AgentConfig>(`/api/admin/agents/${userId}/${agentType}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAgentConfig(
+  userId: string,
+  agentType: string,
+): Promise<void> {
+  await request(`/api/admin/agents/${userId}/${agentType}`, {
+    method: 'DELETE',
+  });
 }

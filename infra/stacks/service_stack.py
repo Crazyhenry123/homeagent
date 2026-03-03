@@ -35,12 +35,12 @@ class ServiceStack(cdk.Stack):
         # ECS cluster
         cluster = ecs.Cluster(self, "Cluster", vpc=vpc)
 
-        # Fargate task definition
+        # Fargate task definition (bumped for agent orchestration workload)
         task_def = ecs.FargateTaskDefinition(
             self,
             "TaskDef",
-            cpu=512,
-            memory_limit_mib=1024,
+            cpu=1024,
+            memory_limit_mib=2048,
             task_role=task_role,
         )
 
@@ -58,6 +58,7 @@ class ServiceStack(cdk.Stack):
                     "Be warm, friendly, and supportive."
                 ),
                 "ADMIN_INVITE_CODE": "FAMILY",
+                "USE_AGENT_ORCHESTRATOR": "false",
             },
             health_check=ecs.HealthCheck(
                 command=[

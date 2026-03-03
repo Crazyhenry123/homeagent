@@ -80,7 +80,7 @@ class PipelineStack(cdk.Stack):
             "BackendTests",
             input=source,
             install_commands=[
-                "pip install -r backend/requirements.txt pytest",
+                "pip install -r backend/requirements.txt pytest strands-agents strands-agents-tools",
             ],
             commands=[
                 "docker run -d --name dynamodb-test -p 8000:8000 "
@@ -351,7 +351,7 @@ class PipelineStack(cdk.Stack):
                 "phases": {
                     "install": {
                         "commands": [
-                            "pip install -r backend/requirements.txt pytest",
+                            "pip install -r backend/requirements.txt pytest strands-agents strands-agents-tools",
                         ],
                     },
                     "pre_build": {
@@ -514,6 +514,175 @@ class PipelineStack(cdk.Stack):
                             codepipeline.GitPushFilter(
                                 branches_includes=["master"],
                                 file_paths_includes=["backend/**"],
+                            ),
+                        ],
+                    ),
+                ),
+            ],
+        )
+
+        # ==================================================================
+        # Infra Pipeline: CDK synth + deploy (~5 min)
+        # Triggered only when infra/ files change on master.
+        # ==================================================================
+        infra_source_output = codepipeline.Artifact("InfraFastSource")
+
+        infra_fast_source_action = codepipeline_actions.CodeStarConnectionsSourceAction(
+            action_name="GitHub",
+            owner="Crazyhenry123",
+            repo="homeagent",
+            branch="master",
+            connection_arn=connection_arn,
+            output=infra_source_output,
+            trigger_on_push=False,
+        )
+
+        infra_fast_deploy_project = codebuild.PipelineProject(
+            self,
+            "InfraFastDeploy",
+            project_name="homeagent-infra-deploy",
+            environment=codebuild.BuildEnvironment(
+                build_image=codebuild.LinuxBuildImage.STANDARD_7_0,
+                compute_type=codebuild.ComputeType.MEDIUM,
+                privileged=True,
+            ),
+            build_spec=codebuild.BuildSpec.from_object({
+                "version": "0.2",
+                "phases": {
+                    "install": {
+                        "commands": [
+                            "pip install -r infra/requirements.txt",
+                            "npm install -g aws-cdk",
+                        ],
+                    },
+                    "build": {
+                        "commands": [
+                            "cd infra",
+                            "cdk synth",
+                            "cdk deploy --all --require-approval never",
+                        ],
+                    },
+                },
+            }),
+        )
+
+        infra_fast_deploy_project.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["sts:AssumeRole"],
+                resources=[f"arn:aws:iam::{self.account}:role/cdk-*"],
+            )
+        )
+
+        infra_fast_deploy_action = codepipeline_actions.CodeBuildAction(
+            action_name="Deploy",
+            project=infra_fast_deploy_project,
+            input=infra_source_output,
+        )
+
+        codepipeline.Pipeline(
+            self,
+            "InfraFastPipeline",
+            pipeline_name="homeagent-infra",
+            pipeline_type=codepipeline.PipelineType.V2,
+            stages=[
+                codepipeline.StageProps(
+                    stage_name="Source",
+                    actions=[infra_fast_source_action],
+                ),
+                codepipeline.StageProps(
+                    stage_name="Deploy",
+                    actions=[infra_fast_deploy_action],
+                ),
+            ],
+            triggers=[
+                codepipeline.TriggerProps(
+                    provider_type=codepipeline.ProviderType.CODE_STAR_SOURCE_CONNECTION,
+                    git_configuration=codepipeline.GitConfiguration(
+                        source_action=infra_fast_source_action,
+                        push_filter=[
+                            codepipeline.GitPushFilter(
+                                branches_includes=["master"],
+                                file_paths_includes=["infra/**"],
+                            ),
+                        ],
+                    ),
+                ),
+            ],
+        )
+
+        # ==================================================================
+        # Mobile Pipeline: Lint + TypeCheck (~2 min)
+        # Triggered only when mobile/ files change on master.
+        # ==================================================================
+        mobile_source_output = codepipeline.Artifact("MobileFastSource")
+
+        mobile_fast_source_action = codepipeline_actions.CodeStarConnectionsSourceAction(
+            action_name="GitHub",
+            owner="Crazyhenry123",
+            repo="homeagent",
+            branch="master",
+            connection_arn=connection_arn,
+            output=mobile_source_output,
+            trigger_on_push=False,
+        )
+
+        mobile_fast_validate_project = codebuild.PipelineProject(
+            self,
+            "MobileFastValidate",
+            project_name="homeagent-mobile-validate",
+            environment=codebuild.BuildEnvironment(
+                build_image=codebuild.LinuxBuildImage.STANDARD_7_0,
+                compute_type=codebuild.ComputeType.MEDIUM,
+            ),
+            build_spec=codebuild.BuildSpec.from_object({
+                "version": "0.2",
+                "phases": {
+                    "install": {
+                        "commands": [
+                            "cd mobile",
+                            "npm ci",
+                        ],
+                    },
+                    "build": {
+                        "commands": [
+                            "cd mobile",
+                            "npx tsc --noEmit",
+                        ],
+                    },
+                },
+            }),
+        )
+
+        mobile_fast_validate_action = codepipeline_actions.CodeBuildAction(
+            action_name="Validate",
+            project=mobile_fast_validate_project,
+            input=mobile_source_output,
+        )
+
+        codepipeline.Pipeline(
+            self,
+            "MobileFastPipeline",
+            pipeline_name="homeagent-mobile",
+            pipeline_type=codepipeline.PipelineType.V2,
+            stages=[
+                codepipeline.StageProps(
+                    stage_name="Source",
+                    actions=[mobile_fast_source_action],
+                ),
+                codepipeline.StageProps(
+                    stage_name="Validate",
+                    actions=[mobile_fast_validate_action],
+                ),
+            ],
+            triggers=[
+                codepipeline.TriggerProps(
+                    provider_type=codepipeline.ProviderType.CODE_STAR_SOURCE_CONNECTION,
+                    git_configuration=codepipeline.GitConfiguration(
+                        source_action=mobile_fast_source_action,
+                        push_filter=[
+                            codepipeline.GitPushFilter(
+                                branches_includes=["master"],
+                                file_paths_includes=["mobile/**"],
                             ),
                         ],
                     ),

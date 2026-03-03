@@ -1,6 +1,6 @@
 import json
 
-from flask import Blueprint, Response, g, jsonify, request, stream_with_context
+from flask import Blueprint, Response, current_app, g, jsonify, request, stream_with_context
 
 from app.auth import require_auth
 from app.services.bedrock import stream_chat
@@ -12,6 +12,19 @@ from app.services.conversation import (
 )
 
 chat_bp = Blueprint("chat", __name__)
+
+
+def _get_chat_stream(
+    messages: list[dict], user_id: str, conversation_id: str | None = None
+):
+    """Return the appropriate chat stream based on feature flag."""
+    if current_app.config.get("USE_AGENT_ORCHESTRATOR"):
+        from app.services.agent_orchestrator import stream_agent_chat
+
+        return stream_agent_chat(
+            messages, user_id=user_id, conversation_id=conversation_id
+        )
+    return stream_chat(messages)
 
 
 @chat_bp.route("/chat", methods=["POST"])
@@ -50,7 +63,7 @@ def chat():
         full_content = ""
         total_tokens = 0
 
-        for chunk in stream_chat(messages):
+        for chunk in _get_chat_stream(messages, g.user_id, conversation_id):
             if chunk["type"] == "text_delta":
                 event_data = json.dumps(
                     {

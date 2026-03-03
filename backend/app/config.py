@@ -13,3 +13,7 @@ class Config:
         "You are a helpful family assistant. Be warm, friendly, and supportive.",
     )
     ADMIN_INVITE_CODE: str | None = os.environ.get("ADMIN_INVITE_CODE")
+    USE_AGENT_ORCHESTRATOR: bool = (
+        os.environ.get("USE_AGENT_ORCHESTRATOR", "false").lower() == "true"
+    )
+    AGENTCORE_MEMORY_ID: str | None = os.environ.get("AGENTCORE_MEMORY_ID")

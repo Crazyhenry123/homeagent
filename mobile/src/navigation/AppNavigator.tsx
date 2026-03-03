@@ -9,12 +9,18 @@ import {RegisterScreen} from '../screens/RegisterScreen';
 import {ConversationListScreen} from '../screens/ConversationListScreen';
 import {ChatScreen} from '../screens/ChatScreen';
 import {SettingsScreen} from '../screens/SettingsScreen';
+import {ProfileScreen} from '../screens/ProfileScreen';
+import {AdminMembersScreen} from '../screens/AdminMembersScreen';
+import {AdminMemberDetailScreen} from '../screens/AdminMemberDetailScreen';
 
 export type RootStackParamList = {
   Register: undefined;
   ConversationList: undefined;
   Chat: {conversationId?: string; title?: string};
   Settings: undefined;
+  Profile: undefined;
+  AdminMembers: undefined;
+  AdminMemberDetail: {userId: string};
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -77,6 +83,21 @@ export function AppNavigator() {
           name="Settings"
           component={SettingsScreen}
           options={{title: 'Settings'}}
+        />
+        <Stack.Screen
+          name="Profile"
+          component={ProfileScreen}
+          options={{title: 'My Profile'}}
+        />
+        <Stack.Screen
+          name="AdminMembers"
+          component={AdminMembersScreen}
+          options={{title: 'Family Members'}}
+        />
+        <Stack.Screen
+          name="AdminMemberDetail"
+          component={AdminMemberDetailScreen}
+          options={{title: 'Member Settings'}}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -51,3 +51,42 @@ export interface MessageListResponse {
   messages: Message[];
   next_cursor?: string;
 }
+
+export interface MemberProfile {
+  user_id: string;
+  display_name: string;
+  family_role: string;
+  preferences: Record<string, string>;
+  health_notes: string;
+  interests: string[];
+  role: 'admin' | 'member';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentConfig {
+  user_id: string;
+  agent_type: string;
+  enabled: boolean;
+  config: Record<string, unknown>;
+  updated_at: string;
+}
+
+export interface AgentTypeInfo {
+  name: string;
+  description: string;
+  default_config: Record<string, unknown>;
+  implemented: boolean;
+}
+
+export interface AgentTypesResponse {
+  agent_types: Record<string, AgentTypeInfo>;
+}
+
+export interface AgentConfigsResponse {
+  agent_configs: AgentConfig[];
+}
+
+export interface ProfileListResponse {
+  profiles: MemberProfile[];
+}

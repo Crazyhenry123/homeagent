@@ -86,3 +86,30 @@ class DataStack(cdk.Stack):
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=cdk.RemovalPolicy.RETAIN,
         )
+
+        # MemberProfiles table
+        self.tables["MemberProfiles"] = dynamodb.Table(
+            self,
+            "MemberProfilesTable",
+            table_name="MemberProfiles",
+            partition_key=dynamodb.Attribute(
+                name="user_id", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+        )
+
+        # AgentConfigs table
+        self.tables["AgentConfigs"] = dynamodb.Table(
+            self,
+            "AgentConfigsTable",
+            table_name="AgentConfigs",
+            partition_key=dynamodb.Attribute(
+                name="user_id", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="agent_type", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+        )
