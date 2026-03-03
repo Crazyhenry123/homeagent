@@ -17,7 +17,11 @@ agent_config_bp = Blueprint("agent_config", __name__)
 def list_agent_types():
     types = get_available_agent_types()
 
-    # Also note which types have registered implementations
+    # Ensure agent modules are imported so registry is populated
+    try:
+        import app.agents.health_advisor  # noqa: F401
+    except ImportError:
+        pass  # strands not installed (e.g., in test environment)
     from app.agents.registry import get_registered_types
 
     registered = get_registered_types()
