@@ -114,6 +114,9 @@ def voice_ws(ws: "simple_websocket.Server") -> None:
                 data = msg.get("data", "")
                 if data:
                     pcm = base64.b64decode(data)
+                    # Strip WAV header if present (iOS LINEARPCM wraps in WAV container)
+                    if pcm[:4] == b"RIFF" and len(pcm) > 44:
+                        pcm = pcm[44:]
                     session.send_audio(pcm)
 
             elif msg_type == "audio_end":
