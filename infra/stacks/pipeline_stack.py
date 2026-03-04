@@ -80,6 +80,7 @@ class PipelineStack(cdk.Stack):
             "BackendTests",
             input=source,
             install_commands=[
+                "pyenv install 3.12 -s && pyenv global 3.12",
                 "pip install -r backend/requirements.txt pytest strands-agents strands-agents-tools",
             ],
             commands=[
@@ -350,6 +351,9 @@ class PipelineStack(cdk.Stack):
                 "version": "0.2",
                 "phases": {
                     "install": {
+                        "runtime-versions": {
+                            "python": "3.12",
+                        },
                         "commands": [
                             "pip install -r backend/requirements.txt pytest strands-agents strands-agents-tools",
                         ],
@@ -560,6 +564,10 @@ class PipelineStack(cdk.Stack):
                             "cd infra",
                             "cdk synth",
                             "cdk deploy --all --require-approval never",
+                            # Trigger the main pipeline to deploy app stacks
+                            # (Security, Service, etc.) which are defined in
+                            # HomeAgentStage, not in the top-level CDK app.
+                            "aws codepipeline start-pipeline-execution --name homeagent-pipeline --region $AWS_DEFAULT_REGION",
                         ],
                     },
                 },
@@ -570,6 +578,14 @@ class PipelineStack(cdk.Stack):
             iam.PolicyStatement(
                 actions=["sts:AssumeRole"],
                 resources=[f"arn:aws:iam::{self.account}:role/cdk-*"],
+            )
+        )
+        infra_fast_deploy_project.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["codepipeline:StartPipelineExecution"],
+                resources=[
+                    f"arn:aws:codepipeline:{self.region}:{self.account}:homeagent-pipeline"
+                ],
             )
         )
 
