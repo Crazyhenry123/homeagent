@@ -27,3 +27,15 @@ class Config:
         "S3_HEALTH_DOCUMENTS_BUCKET"
     )
     S3_ENDPOINT: str | None = os.environ.get("S3_ENDPOINT")
+    CHAT_MEDIA_ALLOWED_TYPES: set = {
+        "image/jpeg", "image/png", "image/gif", "image/webp"
+    }
+    CHAT_MEDIA_MAX_SIZE: int = int(
+        os.environ.get("CHAT_MEDIA_MAX_SIZE", str(5 * 1024 * 1024))
+    )
+    VOICE_ENABLED: bool = (
+        os.environ.get("VOICE_ENABLED", "false").lower() == "true"
+    )
+    VOICE_MODEL_ID: str = os.environ.get(
+        "VOICE_MODEL_ID", "amazon.nova-sonic-v1:0"
+    )

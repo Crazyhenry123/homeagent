@@ -16,7 +16,7 @@ def _register(client):
     return resp.get_json()["device_token"]
 
 
-def _mock_stream_chat(messages, system_prompt=None):
+def _mock_stream_chat(messages, system_prompt=None, images=None):
     """Fake Bedrock streaming: yields one text_delta then message_done."""
     yield {"type": "text_delta", "content": "Hello"}
     yield {
@@ -54,7 +54,7 @@ def test_chat_default_uses_bedrock(mock_bedrock, client):
 
 
 def _mock_stream_agent_chat(
-    messages, user_id, conversation_id=None, system_prompt=None, tools=None
+    messages, user_id, conversation_id=None, system_prompt=None, tools=None, images=None
 ):
     """Fake agent orchestrator streaming."""
     yield {"type": "text_delta", "content": "Agent "}

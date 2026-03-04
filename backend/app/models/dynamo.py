@@ -176,6 +176,14 @@ TABLE_DEFINITIONS = {
             {"AttributeName": "document_id", "AttributeType": "S"},
         ],
     },
+    "ChatMedia": {
+        "KeySchema": [{"AttributeName": "media_id", "KeyType": "HASH"}],
+        "AttributeDefinitions": [{"AttributeName": "media_id", "AttributeType": "S"}],
+        "TimeToLiveSpecification": {
+            "AttributeName": "expires_at",
+            "Enabled": True,
+        },
+    },
 }
 
 
@@ -229,6 +237,19 @@ def _create_local_tables(app: Flask) -> None:
             params["GlobalSecondaryIndexes"] = schema["GlobalSecondaryIndexes"]
         try:
             dynamodb.create_table(**params)
+            # Enable TTL if specified
+            ttl_spec = schema.get("TimeToLiveSpecification")
+            if ttl_spec and ttl_spec.get("Enabled"):
+                try:
+                    client.update_time_to_live(
+                        TableName=table_name,
+                        TimeToLiveSpecification={
+                            "Enabled": True,
+                            "AttributeName": ttl_spec["AttributeName"],
+                        },
+                    )
+                except Exception:
+                    pass  # TTL may not be supported in DynamoDB Local
         except client.exceptions.ResourceInUseException:
             pass  # Another worker already created it
 

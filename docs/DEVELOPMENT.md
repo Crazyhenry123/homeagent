@@ -73,6 +73,30 @@ This starts the Expo dev server and displays a QR code. Scan it with Expo Go on 
 
 **Note:** Local chat requires valid AWS credentials with Bedrock access. Set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in `docker-compose.yml` or use `~/.aws/credentials`.
 
+### Voice Mode (Local Testing)
+
+Voice mode requires `VOICE_ENABLED=true` (set by default in docker-compose.yml) and AWS credentials with Bedrock access for Nova Sonic.
+
+```bash
+# Voice is enabled by default in docker-compose.yml:
+#   VOICE_ENABLED=true
+#   VOICE_MODEL_ID=amazon.nova-sonic-v1:0
+
+# Test via wscat (install: npm install -g wscat)
+wscat -c "ws://localhost:5000/api/voice?token=<device_token>"
+
+# Send audio start
+> {"type":"audio_start","config":{"sample_rate":16000}}
+
+# Send audio data (base64 PCM)
+> {"type":"audio_chunk","data":"<base64-pcm-data>"}
+
+# End audio
+> {"type":"audio_end"}
+```
+
+The mobile app provides a voice mode UI accessible via the microphone button in the chat input.
+
 ---
 
 ## Running Tests
@@ -116,6 +140,8 @@ python -m pytest tests/ -v
 | `test_health_documents.py` | 9 | Document upload/download/delete, validation |
 | `test_health_extraction.py` | 6 | Health observation extraction from conversations |
 | `test_member_delete.py` | 7 | Cascade delete across all tables |
+| `test_chat_media.py` | 10 | Image upload presigned URL, content type validation, size limits, chat with media IDs |
+| `test_voice.py` | 19 | WebSocket auth, VoiceSession lifecycle, Nova Sonic event parsing, route registration |
 | `test_health.py` | 1 | Health check endpoint |
 
 ### Linting

@@ -62,6 +62,9 @@ class ServiceStack(cdk.Stack):
                 "USE_AGENT_ORCHESTRATOR": "true",
                 "HEALTH_EXTRACTION_ENABLED": "true",
                 "HEALTH_EXTRACTION_MODEL_ID": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                "CHAT_MEDIA_MAX_SIZE": str(5 * 1024 * 1024),
+                "VOICE_ENABLED": "true",
+                "VOICE_MODEL_ID": "amazon.nova-sonic-v1:0",
                 **({"S3_HEALTH_DOCUMENTS_BUCKET": documents_bucket_name} if documents_bucket_name else {}),
             },
             health_check=ecs.HealthCheck(
@@ -89,9 +92,20 @@ class ServiceStack(cdk.Stack):
             min_healthy_percent=100,
         )
 
-        # SSE requires long idle timeout
+        # SSE and WebSocket connections require long idle timeout
         service.load_balancer.set_attribute(
             "idle_timeout.timeout_seconds", "300"
+        )
+
+        # Enable stickiness so WebSocket connections stay on the same target
+        service.target_group.set_attribute(
+            "stickiness.enabled", "true"
+        )
+        service.target_group.set_attribute(
+            "stickiness.type", "lb_cookie"
+        )
+        service.target_group.set_attribute(
+            "stickiness.lb_cookie.duration_seconds", "3600"
         )
 
         # ALB health check

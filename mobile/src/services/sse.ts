@@ -14,12 +14,16 @@ export async function streamChat(
   onEvent: (event: SSEEvent) => void,
   onError: (error: Error) => void,
   signal?: AbortSignal,
+  media?: string[],
 ): Promise<void> {
   const token = await getToken();
 
-  const body: Record<string, string> = {message};
+  const body: Record<string, unknown> = {message};
   if (conversationId) {
     body.conversation_id = conversationId;
+  }
+  if (media && media.length > 0) {
+    body.media = media;
   }
 
   return new Promise<void>(resolve => {
