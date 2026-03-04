@@ -9,7 +9,7 @@ import {
   Text,
 } from 'react-native';
 import {Audio} from 'expo-av';
-import * as FileSystem from 'expo-file-system';
+import {getInfoAsync} from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import {ImageAttachment} from './ImageAttachment';
 import {VoiceButton} from './VoiceButton';
@@ -81,7 +81,7 @@ export function ChatInput({onSend, disabled}: Props) {
         }
 
         // Get file info for size
-        const fileInfo = await FileSystem.getInfoAsync(uri);
+        const fileInfo = await getInfoAsync(uri);
         const fileSize = fileInfo.exists ? (fileInfo.size ?? 0) : 0;
 
         // Upload audio via presigned URL and send as attachment
@@ -98,9 +98,10 @@ export function ChatInput({onSend, disabled}: Props) {
         setText('');
         setAttachments([]);
       } catch (error) {
+        console.error('[Voice] Failed to process recording:', error);
         setRecording(false);
         recordingRef.current = null;
-        Alert.alert('Error', 'Failed to process recording. Please try again.');
+        Alert.alert('Error', `Failed to process recording: ${error instanceof Error ? error.message : String(error)}`);
       }
     } else {
       // Start recording

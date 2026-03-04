@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import {uploadAsync, FileSystemUploadType} from 'expo-file-system/legacy';
 import {uploadChatImage} from './api';
 
 /**
@@ -14,12 +14,12 @@ export async function uploadImage(
   const {media_id, upload_url} = await uploadChatImage(contentType, fileSize);
 
   // Step 2: Upload file directly to S3 via presigned URL
-  await FileSystem.uploadAsync(upload_url, uri, {
+  await uploadAsync(upload_url, uri, {
     httpMethod: 'PUT',
     headers: {
       'Content-Type': contentType,
     },
-    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+    uploadType: FileSystemUploadType.BINARY_CONTENT,
   });
 
   return media_id;
@@ -36,12 +36,12 @@ export async function uploadAudio(
   const contentType = 'audio/wav';
   const {media_id, upload_url} = await uploadChatImage(contentType, fileSize);
 
-  await FileSystem.uploadAsync(upload_url, uri, {
+  await uploadAsync(upload_url, uri, {
     httpMethod: 'PUT',
     headers: {
       'Content-Type': contentType,
     },
-    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+    uploadType: FileSystemUploadType.BINARY_CONTENT,
   });
 
   return media_id;
