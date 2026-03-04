@@ -3,7 +3,7 @@ flask-cors==5.0.1
 gunicorn==23.0.0
 gevent==24.11.1
 boto3>=1.36.0
-aws-sdk-bedrock-runtime>=1.0.0
+aws-sdk-bedrock-runtime>=0.4.0
 python-ulid==3.0.0
 strands-agents>=0.1.0
 strands-agents-tools>=0.1.0
