@@ -1,4 +1,4 @@
-import React, {useState, useCallback} from 'react';
+import React, {useState, useCallback, useRef} from 'react';
 import {
   Alert,
   ScrollView,
@@ -8,21 +8,24 @@ import {
   View,
   Text,
 } from 'react-native';
+import {Audio} from 'expo-av';
+import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import {ImageAttachment} from './ImageAttachment';
 import {VoiceButton} from './VoiceButton';
-import {getContentType} from '../services/chatMedia';
+import {getContentType, uploadAudio} from '../services/chatMedia';
 import type {ChatMediaUpload} from '../types';
 
 interface Props {
   onSend: (message: string, attachments: ChatMediaUpload[]) => void;
-  onVoicePress?: () => void;
   disabled?: boolean;
 }
 
-export function ChatInput({onSend, onVoicePress, disabled}: Props) {
+export function ChatInput({onSend, disabled}: Props) {
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState<ChatMediaUpload[]>([]);
+  const [recording, setRecording] = useState(false);
+  const recordingRef = useRef<Audio.Recording | null>(null);
 
   const handleSend = () => {
     const trimmed = text.trim();
@@ -62,6 +65,71 @@ export function ChatInput({onSend, onVoicePress, disabled}: Props) {
     setAttachments(prev => prev.filter(a => a.localId !== localId));
   }, []);
 
+  const handleVoicePress = useCallback(async () => {
+    if (recording) {
+      // Stop recording and send
+      if (!recordingRef.current) return;
+      try {
+        await recordingRef.current.stopAndUnloadAsync();
+        const uri = recordingRef.current.getURI();
+        recordingRef.current = null;
+        setRecording(false);
+
+        if (!uri) {
+          Alert.alert('Error', 'Failed to save recording.');
+          return;
+        }
+
+        // Get file info for size
+        const fileInfo = await FileSystem.getInfoAsync(uri);
+        const fileSize = fileInfo.exists ? (fileInfo.size ?? 0) : 0;
+
+        // Upload audio via presigned URL and send as attachment
+        const mediaId = await uploadAudio(uri, fileSize);
+        const audioAttachment: ChatMediaUpload = {
+          localId: `audio-${Date.now()}`,
+          uri,
+          contentType: 'audio/wav',
+          fileSize,
+          mediaId,
+          status: 'uploaded',
+        };
+        onSend(text.trim(), [audioAttachment]);
+        setText('');
+        setAttachments([]);
+      } catch (error) {
+        setRecording(false);
+        recordingRef.current = null;
+        Alert.alert('Error', 'Failed to process recording. Please try again.');
+      }
+    } else {
+      // Start recording
+      try {
+        const permission = await Audio.requestPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert(
+            'Permission required',
+            'Microphone access is needed to record voice messages.',
+          );
+          return;
+        }
+
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+        });
+
+        const {recording: newRecording} = await Audio.Recording.createAsync(
+          Audio.RecordingOptionsPresets.HIGH_QUALITY,
+        );
+        recordingRef.current = newRecording;
+        setRecording(true);
+      } catch (error) {
+        Alert.alert('Error', 'Failed to start recording. Please try again.');
+      }
+    }
+  }, [recording, text, onSend]);
+
   const canSend = (text.trim().length > 0 || attachments.length > 0) && !disabled;
 
   return (
@@ -81,12 +149,18 @@ export function ChatInput({onSend, onVoicePress, disabled}: Props) {
           ))}
         </ScrollView>
       )}
+      {recording && (
+        <View style={styles.recordingIndicator}>
+          <Text style={styles.recordingDot}>●</Text>
+          <Text style={styles.recordingText}>Recording... Tap mic to stop</Text>
+        </View>
+      )}
       <View style={styles.container}>
         <TouchableOpacity
           style={styles.attachButton}
           onPress={handlePickImage}
-          disabled={disabled}>
-          <Text style={[styles.attachIcon, disabled && styles.attachIconDisabled]}>
+          disabled={disabled || recording}>
+          <Text style={[styles.attachIcon, (disabled || recording) && styles.attachIconDisabled]}>
             +
           </Text>
         </TouchableOpacity>
@@ -98,19 +172,21 @@ export function ChatInput({onSend, onVoicePress, disabled}: Props) {
           placeholderTextColor="#8E8E93"
           multiline
           maxLength={4000}
-          editable={!disabled}
+          editable={!disabled && !recording}
           onSubmitEditing={handleSend}
           blurOnSubmit={false}
         />
         <TouchableOpacity
           style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
           onPress={handleSend}
-          disabled={!canSend}>
+          disabled={!canSend || recording}>
           <Text style={styles.sendText}>Send</Text>
         </TouchableOpacity>
-        {onVoicePress && (
-          <VoiceButton onPress={onVoicePress} disabled={disabled} />
-        )}
+        <VoiceButton
+          onPress={handleVoicePress}
+          disabled={disabled}
+          recording={recording}
+        />
       </View>
     </View>
   );
@@ -129,6 +205,22 @@ const styles = StyleSheet.create({
   },
   attachmentRowContent: {
     alignItems: 'center',
+  },
+  recordingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingTop: 8,
+  },
+  recordingDot: {
+    color: '#FF3B30',
+    fontSize: 12,
+    marginRight: 6,
+  },
+  recordingText: {
+    color: '#FF3B30',
+    fontSize: 13,
+    fontWeight: '500',
   },
   container: {
     flexDirection: 'row',

@@ -104,29 +104,36 @@ export function ChatScreen({route, navigation}: Props) {
 
   const handleSend = useCallback(
     async (text: string, attachments: ChatMediaUpload[]) => {
-      // Build local images for display
-      const localImages: DisplayMedia[] = attachments.map(a => ({
+      // Build local images for display (skip audio attachments)
+      const imageAttachments = attachments.filter(
+        a => !a.contentType.startsWith('audio/'),
+      );
+      const localImages: DisplayMedia[] = imageAttachments.map(a => ({
         uri: a.uri,
       }));
+      const hasAudio = attachments.some(a =>
+        a.contentType.startsWith('audio/'),
+      );
 
       // Add user message locally
       const userMsg: DisplayMessage = {
         id: `user-${Date.now()}`,
         role: 'user',
-        content: text,
+        content: text || (hasAudio ? '🎤 Voice message' : ''),
         localImages: localImages.length > 0 ? localImages : undefined,
       };
       setMessages(prev => [...prev, userMsg]);
       setStreaming(true);
       scrollToEnd();
 
-      // Upload images if any
+      // Upload media if any (audio attachments may already have mediaId)
       const mediaIds: string[] = [];
       if (attachments.length > 0) {
         try {
-          const uploadPromises = attachments.map(a =>
-            uploadImage(a.uri, a.contentType, a.fileSize),
-          );
+          const uploadPromises = attachments.map(a => {
+            if (a.mediaId) return Promise.resolve(a.mediaId);
+            return uploadImage(a.uri, a.contentType, a.fileSize);
+          });
           const ids = await Promise.all(uploadPromises);
           mediaIds.push(...ids);
         } catch {
@@ -135,7 +142,7 @@ export function ChatScreen({route, navigation}: Props) {
             {
               id: `error-${Date.now()}`,
               role: 'assistant',
-              content: 'Failed to upload image. Please try again.',
+              content: 'Failed to upload media. Please try again.',
             },
           ]);
           setStreaming(false);
@@ -219,7 +226,6 @@ export function ChatScreen({route, navigation}: Props) {
       )}
       <ChatInput
         onSend={handleSend}
-        onVoicePress={() => navigation.navigate('VoiceMode', {conversationId: currentConversationId ?? undefined})}
         disabled={streaming || loadingMessages}
       />
     </KeyboardAvoidingView>
