@@ -22,6 +22,14 @@ def _get_client():
     return _client
 
 
+def _get_s3_client():
+    kwargs = {"region_name": current_app.config["AWS_REGION"]}
+    endpoint = current_app.config.get("S3_ENDPOINT")
+    if endpoint:
+        kwargs["endpoint_url"] = endpoint
+    return boto3.client("s3", **kwargs)
+
+
 def transcribe_audio(s3_uri: str) -> str:
     """Transcribe audio from an S3 URI using AWS Transcribe.
 
@@ -35,13 +43,17 @@ def transcribe_audio(s3_uri: str) -> str:
         RuntimeError: If transcription job fails.
     """
     client = _get_client()
+    bucket = current_app.config["S3_HEALTH_DOCUMENTS_BUCKET"]
     job_name = f"homeagent-{uuid.uuid4().hex[:12]}"
+    output_key = f"transcribe-output/{job_name}.json"
 
     client.start_transcription_job(
         TranscriptionJobName=job_name,
         Media={"MediaFileUri": s3_uri},
         IdentifyLanguage=True,
         LanguageOptions=["en-US", "zh-CN"],
+        OutputBucketName=bucket,
+        OutputKey=output_key,
     )
 
     # Poll until complete (short clips typically finish in a few seconds)
@@ -50,9 +62,6 @@ def transcribe_audio(s3_uri: str) -> str:
         status = resp["TranscriptionJob"]["TranscriptionJobStatus"]
 
         if status == "COMPLETED":
-            transcript_uri = resp["TranscriptionJob"]["Transcript"][
-                "TranscriptFileUri"
-            ]
             break
         elif status == "FAILED":
             reason = resp["TranscriptionJob"].get("FailureReason", "Unknown")
@@ -61,27 +70,17 @@ def transcribe_audio(s3_uri: str) -> str:
 
         time.sleep(1)
 
-    # Fetch the transcript JSON from the URI
-    s3 = boto3.client("s3", region_name=current_app.config["AWS_REGION"])
-    # Parse the transcript URI: https://s3.region.amazonaws.com/bucket/key
-    # or s3://bucket/key format
-    import urllib.parse
-
-    parsed = urllib.parse.urlparse(transcript_uri)
-    if parsed.scheme == "s3":
-        bucket = parsed.netloc
-        key = parsed.path.lstrip("/")
-    else:
-        # HTTPS URL: host is s3.region.amazonaws.com, path is /bucket/key
-        path_parts = parsed.path.lstrip("/").split("/", 1)
-        bucket = path_parts[0]
-        key = path_parts[1] if len(path_parts) > 1 else ""
-
-    obj = s3.get_object(Bucket=bucket, Key=key)
+    # Fetch the transcript JSON from our own bucket
+    s3 = _get_s3_client()
+    obj = s3.get_object(Bucket=bucket, Key=output_key)
     transcript_data = json.loads(obj["Body"].read().decode("utf-8"))
     text = transcript_data["results"]["transcripts"][0]["transcript"]
 
-    # Clean up the transcription job
+    # Clean up transcript output and transcription job
+    try:
+        s3.delete_object(Bucket=bucket, Key=output_key)
+    except Exception:
+        logger.warning("Failed to delete transcript output %s", output_key)
     try:
         client.delete_transcription_job(TranscriptionJobName=job_name)
     except Exception:
