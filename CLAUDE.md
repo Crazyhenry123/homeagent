@@ -1,7 +1,7 @@
 # Family AI Agent (homeagent)
 
 ## Project Overview
-Family AI agent app — family members chat with Claude (via Amazon Bedrock) through a mobile app. Supports text chat (SSE streaming), image attachments (S3 presigned uploads), and voice mode (WebSocket with Amazon Nova Sonic). Backend runs on ECS Fargate with Flask, data in DynamoDB (14 tables), infra managed with AWS CDK.
+Family AI agent app — family members chat with Claude (via Amazon Bedrock) through a mobile app. Supports text chat (SSE streaming), image attachments (S3 presigned uploads), voice-to-chat (inline recording with AWS Transcribe), and voice mode (WebSocket with Amazon Nova Sonic). Backend runs on ECS Fargate with Flask, data in DynamoDB (14 tables), infra managed with AWS CDK.
 
 ## Monorepo Structure
 - `backend/` — Flask API (Python 3.12)
@@ -33,7 +33,8 @@ Family AI agent app — family members chat with Claude (via Amazon Bedrock) thr
 - Auth via `Authorization: Bearer <device_token>` header
 - SSE streaming for text chat responses (`text/event-stream`)
 - WebSocket for voice mode (`/api/voice?token=<token>`)
-- Image uploads via S3 presigned PUT URLs (`POST /api/chat/upload-image`)
+- Image/audio uploads via S3 presigned PUT URLs (`POST /api/chat/upload-image`)
+- Audio transcription via AWS Transcribe (auto-detects en-US/zh-CN)
 - Pagination via cursor-based `?limit=N&cursor=X`
 
 ### Infrastructure
@@ -42,7 +43,7 @@ Family AI agent app — family members chat with Claude (via Amazon Bedrock) thr
 - DynamoDB on-demand billing (14 tables), tables created by CDK (cloud) or auto-init (local)
 - ECS Fargate with ALB, 300s idle timeout for SSE and WebSocket
 - ECR repository `homeagent-backend` for Docker images
-- S3 for health documents + chat media images (shared bucket, separate prefixes)
+- S3 for health documents + chat media images + audio uploads + transcribe output (shared bucket, separate prefixes)
 - S3 + CloudFront for debug web UI static hosting
 
 ## CI/CD Pipeline (AWS CodePipeline)
@@ -102,6 +103,7 @@ python -m http.server 8080 -d webui
 - `S3_HEALTH_DOCUMENTS_BUCKET` — S3 bucket for health docs and chat media images
 - `S3_ENDPOINT` — S3 endpoint override (local dev only)
 - `CHAT_MEDIA_MAX_SIZE` — Max image upload size in bytes (default: 5MB)
+- `CHAT_MEDIA_AUDIO_MAX_SIZE` — Max audio upload size in bytes (default: 25MB)
 - `HEALTH_EXTRACTION_ENABLED` — Enable AI health extraction from chats (default: true)
 - `HEALTH_EXTRACTION_MODEL_ID` — Model for health extraction (default: claude-haiku)
 - `VOICE_ENABLED` — Enable voice mode WebSocket endpoint (default: false)
@@ -110,6 +112,7 @@ python -m http.server 8080 -d webui
 ## Key Features
 - **Text Chat** — SSE streaming with Claude via Bedrock `converse_stream`
 - **Image Attachments** — Up to 5 images per message via S3 presigned upload
+- **Voice-to-Chat** — Inline mic recording in chat, transcribed server-side via AWS Transcribe, sent as text to Claude (supports en-US/zh-CN auto-detection)
 - **Voice Mode** — Bidirectional WebSocket audio with Amazon Nova Sonic
 - **Agent System** — Pluggable sub-agents via Strands SDK (built-in + custom)
 - **Health Management** — Records, observations, documents, reports, AI extraction, audit trail
