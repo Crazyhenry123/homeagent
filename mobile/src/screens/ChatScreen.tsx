@@ -5,12 +5,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {ChatInput} from '../components/ChatInput';
 import {MessageBubble} from '../components/MessageBubble';
-import {getMessages} from '../services/api';
+import {getConversations, getMessages} from '../services/api';
 import {uploadImage} from '../services/chatMedia';
 import {streamChat} from '../services/sse';
 import type {ChatMediaUpload, SSEEvent} from '../types';
@@ -35,35 +37,63 @@ export function ChatScreen({route, navigation}: Props) {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId);
   const [streaming, setStreaming] = useState(false);
-  const [loadingMessages, setLoadingMessages] = useState(!!conversationId);
+  const [loadingMessages, setLoadingMessages] = useState(true);
   const flatListRef = useRef<FlatList<DisplayMessage>>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Set header title from conversation title param or default
+  // Set header with title and settings gear icon
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: route.params?.title || (conversationId ? 'Chat' : 'New Chat'),
+      title: route.params?.title || 'HomeAgent',
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Settings')}
+          hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+          <Text style={{fontSize: 22}}>&#9881;</Text>
+        </TouchableOpacity>
+      ),
     });
-  }, [navigation, route.params?.title, conversationId]);
+  }, [navigation, route.params?.title]);
 
-  // Load existing messages
+  // Auto-load the most recent conversation (single channel mode)
   useEffect(() => {
-    if (!conversationId) return;
+    if (conversationId) {
+      // Explicit conversation passed — load it directly
+      setLoadingMessages(true);
+      getMessages(conversationId)
+        .then(result => {
+          setMessages(
+            result.messages.map(m => ({
+              id: m.message_id,
+              role: m.role,
+              content: m.content,
+            })),
+          );
+        })
+        .finally(() => setLoadingMessages(false));
+      return;
+    }
 
+    // No conversationId — fetch the most recent conversation
     setLoadingMessages(true);
-    getMessages(conversationId)
+    getConversations(1)
       .then(result => {
-        setMessages(
-          result.messages.map(m => ({
-            id: m.message_id,
-            role: m.role,
-            content: m.content,
-          })),
-        );
+        const latest = result.conversations[0];
+        if (latest) {
+          setCurrentConversationId(latest.conversation_id);
+          return getMessages(latest.conversation_id).then(msgResult => {
+            setMessages(
+              msgResult.messages.map(m => ({
+                id: m.message_id,
+                role: m.role,
+                content: m.content,
+              })),
+            );
+          });
+        }
+        // No conversations yet — start fresh
       })
-      .finally(() => {
-        setLoadingMessages(false);
-      });
+      .finally(() => setLoadingMessages(false));
   }, [conversationId]);
 
   const scrollToEnd = useCallback(() => {
