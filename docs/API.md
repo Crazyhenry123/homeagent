@@ -639,12 +639,11 @@ POST /api/chat/upload-image
 | `content_type` | string | Yes | MIME type: `image/jpeg`, `image/png`, `image/gif`, `image/webp` |
 | `file_size` | integer | Yes | File size in bytes (1 – 5 MB) |
 
-**Response (200):**
+**Response (201):**
 ```json
 {
   "media_id": "01JXYZ...",
-  "upload_url": "https://s3.amazonaws.com/...?X-Amz-Signature=...",
-  "expires_in": 300
+  "upload_url": "https://s3.amazonaws.com/...?X-Amz-Signature=..."
 }
 ```
 
@@ -652,13 +651,13 @@ Upload the image to `upload_url` via HTTP PUT with the `Content-Type` header mat
 
 ### Send Chat with Images
 
-Include `media_ids` in the chat request to attach uploaded images:
+Include `media` in the chat request to attach uploaded images:
 
 ```json
 {
   "message": "What's in this photo?",
   "conversation_id": "01JXYZ...",
-  "media_ids": ["01JABC..."]
+  "media": ["01JABC..."]
 }
 ```
 

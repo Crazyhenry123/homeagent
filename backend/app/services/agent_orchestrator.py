@@ -6,6 +6,7 @@ from typing import Generator
 
 from flask import current_app
 
+from app.services.bedrock import build_image_content_block
 from app.services.family_tree import build_family_context
 from app.services.profile import get_profile
 
@@ -63,19 +64,7 @@ def _format_messages_for_agent(
         content: list[dict] = []
         is_last_user = i == last_idx and m["role"] == "user"
         if is_last_user and images:
-            for img in images:
-                content.append(
-                    {
-                        "image": {
-                            "format": img["format"],
-                            "source": {
-                                "s3Location": {
-                                    "uri": img["s3_uri"],
-                                }
-                            },
-                        }
-                    }
-                )
+            content.extend(build_image_content_block(img) for img in images)
         content.append({"text": m["content"]})
         result.append({"role": m["role"], "content": content})
     return result
@@ -123,20 +112,9 @@ def stream_agent_chat(
     # For the user message, if images are attached, build multimodal content
     user_message = messages[-1]["content"]
     if images:
-        user_content: list[dict] = []
-        for img in images:
-            user_content.append(
-                {
-                    "image": {
-                        "format": img["format"],
-                        "source": {
-                            "s3Location": {
-                                "uri": img["s3_uri"],
-                            }
-                        },
-                    }
-                }
-            )
+        user_content: list[dict] = [
+            build_image_content_block(img) for img in images
+        ]
         user_content.append({"text": user_message})
         user_message = user_content
 

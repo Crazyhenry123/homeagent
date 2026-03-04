@@ -134,4 +134,7 @@ def voice_ws(ws):
     finally:
         session.end()
         receiver.join(timeout=5)
-        ws.send(json.dumps({"type": "session_end"}))
+        try:
+            ws.send(json.dumps({"type": "session_end"}))
+        except Exception:
+            pass  # Client already disconnected

@@ -9,14 +9,6 @@ from ulid import ULID
 
 from app.models.dynamo import get_table
 
-CHAT_MEDIA_ALLOWED_TYPES = {
-    "image/jpeg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-}
-
-CHAT_MEDIA_MAX_SIZE = 5 * 1024 * 1024  # 5 MB
 CHAT_MEDIA_MAX_PER_MESSAGE = 5
 UPLOAD_TTL_SECONDS = 3600  # 1 hour for orphaned uploads
 
@@ -37,14 +29,16 @@ def create_upload(
 
     Raises ValueError for invalid content type or file size.
     """
-    if content_type not in CHAT_MEDIA_ALLOWED_TYPES:
+    allowed_types = current_app.config["CHAT_MEDIA_ALLOWED_TYPES"]
+    max_size = current_app.config["CHAT_MEDIA_MAX_SIZE"]
+    if content_type not in allowed_types:
         raise ValueError(
             f"Invalid content type: {content_type}. "
-            f"Allowed: {', '.join(sorted(CHAT_MEDIA_ALLOWED_TYPES))}"
+            f"Allowed: {', '.join(sorted(allowed_types))}"
         )
-    if file_size > CHAT_MEDIA_MAX_SIZE:
+    if file_size > max_size:
         raise ValueError(
-            f"File size {file_size} exceeds maximum of {CHAT_MEDIA_MAX_SIZE} bytes"
+            f"File size {file_size} exceeds maximum of {max_size} bytes"
         )
     if file_size <= 0:
         raise ValueError("File size must be positive")
@@ -124,6 +118,7 @@ def resolve_media_for_message(
         )
 
     bucket = current_app.config["S3_HEALTH_DOCUMENTS_BUCKET"]
+    s3 = _get_s3_client()
     results = []
 
     for mid in media_ids:
@@ -132,6 +127,12 @@ def resolve_media_for_message(
             raise ValueError(f"Media not found: {mid}")
         if item["user_id"] != user_id:
             raise ValueError(f"Media not owned by user: {mid}")
+
+        # Verify the file was actually uploaded to S3
+        try:
+            s3.head_object(Bucket=bucket, Key=item["s3_key"])
+        except s3.exceptions.ClientError:
+            raise ValueError(f"Media not yet uploaded: {mid}")
 
         # Map content_type to Bedrock image format
         fmt = item["content_type"].split("/")[-1]

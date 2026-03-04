@@ -1,4 +1,3 @@
-import json
 import logging
 from typing import Generator
 
@@ -19,25 +18,31 @@ def _get_client():
     return _client
 
 
+def build_image_content_block(img: dict) -> dict:
+    """Build a single Bedrock image content block from a media dict.
+
+    Args:
+        img: Dict with "s3_uri" and "format" keys.
+    """
+    return {
+        "image": {
+            "format": img["format"],
+            "source": {
+                "s3Location": {
+                    "uri": img["s3_uri"],
+                }
+            },
+        }
+    }
+
+
 def _build_content_blocks(
     text: str, images: list[dict] | None = None, is_last_user: bool = False
 ) -> list[dict]:
     """Build Bedrock content blocks, optionally with images on the last user message."""
     blocks: list[dict] = []
     if is_last_user and images:
-        for img in images:
-            blocks.append(
-                {
-                    "image": {
-                        "format": img["format"],
-                        "source": {
-                            "s3Location": {
-                                "uri": img["s3_uri"],
-                            }
-                        },
-                    }
-                }
-            )
+        blocks.extend(build_image_content_block(img) for img in images)
     blocks.append({"text": text})
     return blocks
 
