@@ -43,7 +43,7 @@ export function VoiceModeScreen({route, navigation}: Props) {
       const base64Audio = audioQueueRef.current.shift()!;
       try {
         const {sound} = await Audio.Sound.createAsync(
-          {uri: `data:audio/pcm;base64,${base64Audio}`},
+          {uri: `data:audio/wav;base64,${base64Audio}`},
           {shouldPlay: true},
         );
         await new Promise<void>(resolve => {

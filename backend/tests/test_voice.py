@@ -134,6 +134,8 @@ def mock_nova_sonic_sdk(receive_events=None, start_error=None):
 def _cleanup_session(session):
     """Stop a VoiceSession's background thread to prevent test hangs."""
     session._ended = True
+    if session._loop and session._loop.is_running():
+        session._loop.call_soon_threadsafe(session._loop.stop)
     if session._thread:
         session._thread.join(timeout=2)
 
@@ -302,8 +304,9 @@ def test_voice_session_receive_transcript(app):
 
 
 def test_voice_session_receive_audio(app):
-    """receive() yields audio_chunk events from Nova Sonic."""
-    audio_b64 = base64.b64encode(b"\x00" * 480).decode()
+    """receive() yields audio_chunk events with WAV-wrapped audio from Nova Sonic."""
+    raw_pcm = b"\x00" * 480
+    audio_b64 = base64.b64encode(raw_pcm).decode()
     events_from_nova = [
         {"event": {"audioOutput": {"content": audio_b64}}},
         {"event": {"sessionEnd": {}}},
@@ -319,7 +322,10 @@ def test_voice_session_receive_audio(app):
             events = list(session.receive())
 
         assert events[0]["type"] == "audio_chunk"
-        assert events[0]["data"] == audio_b64
+        # Output should be WAV-wrapped (44-byte header + original PCM)
+        wav_data = base64.b64decode(events[0]["data"])
+        assert wav_data[:4] == b"RIFF"
+        assert wav_data[44:] == raw_pcm
 
 
 def test_voice_session_receive_error(app):
