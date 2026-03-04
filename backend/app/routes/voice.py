@@ -62,8 +62,10 @@ def voice_ws(ws: "simple_websocket.Server") -> None:
     user_id = user["user_id"]
     session = VoiceSession(user_id=user_id, conversation_id=conversation_id)
 
+    logger.info("Voice WS connected for user %s, conversation %s", user_id, conversation_id)
     try:
         session.start()
+        logger.info("Voice session started successfully")
     except Exception:
         logger.exception("Failed to start voice session")
         ws.send(json.dumps({"type": "error", "content": "Failed to start voice session"}))
@@ -114,9 +116,11 @@ def voice_ws(ws: "simple_websocket.Server") -> None:
                 data = msg.get("data", "")
                 if data:
                     pcm = base64.b64decode(data)
+                    had_wav = pcm[:4] == b"RIFF" and len(pcm) > 44
                     # Strip WAV header if present (iOS LINEARPCM wraps in WAV container)
-                    if pcm[:4] == b"RIFF" and len(pcm) > 44:
+                    if had_wav:
                         pcm = pcm[44:]
+                    logger.info("audio_chunk received: %d bytes b64, %d bytes pcm, wav_header=%s", len(data), len(pcm), had_wav)
                     session.send_audio(pcm)
 
             elif msg_type == "audio_end":

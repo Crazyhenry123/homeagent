@@ -113,7 +113,7 @@ class VoiceSession:
     async def _async_setup(self) -> None:
         """Create client, open stream, and send all 6 setup events."""
         from aws_sdk_bedrock_runtime.client import BedrockRuntimeClient
-        from aws_sdk_bedrock_runtime.model import (
+        from aws_sdk_bedrock_runtime.models import (
             InvokeModelWithBidirectionalStreamOperationInput,
         )
 
@@ -220,7 +220,7 @@ class VoiceSession:
 
     async def _async_send_event(self, event: dict) -> None:
         """Send an event to the Nova Sonic stream."""
-        from aws_sdk_bedrock_runtime.model import (
+        from aws_sdk_bedrock_runtime.models import (
             BidirectionalInputPayloadPart,
             InvokeModelWithBidirectionalStreamInputChunk,
         )
@@ -250,6 +250,7 @@ class VoiceSession:
                     if result.value and result.value.bytes_:
                         data = json.loads(result.value.bytes_.decode("utf-8"))
                         evt = data.get("event", {})
+                        logger.info("Nova event keys: %s", list(evt.keys()))
 
                         if "audioOutput" in evt:
                             content = evt["audioOutput"].get("content", "")

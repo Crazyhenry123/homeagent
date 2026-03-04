@@ -22,10 +22,17 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.homeagent.app"
+      "package": "com.homeagent.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "extra": {
-      "apiBaseUrl": "http://Deploy-Servi-XjO6myh4gADc-1702122244.us-east-1.elb.amazonaws.com"
+      "apiBaseUrl": "http://Deploy-Servi-XjO6myh4gADc-1702122244.us-east-1.elb.amazonaws.com",
+      "eas": {
+        "projectId": "a975d8e6-c9bb-4bd9-97a7-b5d601d5fd03"
+      }
     },
     "plugins": [
       "expo-asset",
@@ -37,6 +44,7 @@
           "microphonePermission": "HomeAgent needs access to your microphone for voice mode."
         }
       ]
-    ]
+    ],
+    "owner": "crazyhenry123"
   }
 }

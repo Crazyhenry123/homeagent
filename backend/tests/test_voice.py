@@ -125,7 +125,7 @@ def mock_nova_sonic_sdk(receive_events=None, start_error=None):
         {
             "aws_sdk_bedrock_runtime": MagicMock(),
             "aws_sdk_bedrock_runtime.client": mock_client_mod,
-            "aws_sdk_bedrock_runtime.model": mock_model_mod,
+            "aws_sdk_bedrock_runtime.models": mock_model_mod,
         },
     ):
         yield sent_events, mock_client_cls

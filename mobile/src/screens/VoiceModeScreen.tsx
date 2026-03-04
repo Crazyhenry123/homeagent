@@ -38,32 +38,40 @@ export function VoiceModeScreen({route, navigation}: Props) {
     if (playingRef.current || audioQueueRef.current.length === 0) return;
     playingRef.current = true;
     setSpeaking(true);
+    console.log('[Voice] Starting playback, queue size:', audioQueueRef.current.length);
 
     while (audioQueueRef.current.length > 0) {
       const base64Audio = audioQueueRef.current.shift()!;
+      console.log('[Voice] Playing chunk:', base64Audio.length, 'chars b64');
       try {
+        const uri = `data:audio/wav;base64,${base64Audio}`;
+        console.log('[Voice] Creating sound with URI prefix:', uri.slice(0, 50));
         const {sound} = await Audio.Sound.createAsync(
-          {uri: `data:audio/wav;base64,${base64Audio}`},
+          {uri},
           {shouldPlay: true},
         );
+        console.log('[Voice] Sound created, waiting for playback to finish');
         await new Promise<void>(resolve => {
           sound.setOnPlaybackStatusUpdate(status => {
             if (status.isLoaded && status.didJustFinish) {
+              console.log('[Voice] Chunk playback finished');
               resolve();
             }
           });
         });
         await sound.unloadAsync();
-      } catch {
-        // Skip unplayable chunks
+      } catch (e) {
+        console.error('[Voice] Playback error:', e);
       }
     }
 
     playingRef.current = false;
     setSpeaking(false);
+    console.log('[Voice] Playback queue empty');
   }, []);
 
   const handleEvent = useCallback((event: VoiceEvent) => {
+    console.log('[Voice] handleEvent:', event.type);
     if (event.type === 'transcript') {
       const newTranscript: Transcript = {
         id: `t-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -102,10 +110,13 @@ export function VoiceModeScreen({route, navigation}: Props) {
     const session = new VoiceSessionClient(conversationId, handleEvent, handleClose);
     sessionRef.current = session;
 
+    console.log('[Voice] Connecting session...');
     session.connect().then(() => {
+      console.log('[Voice] Connected, sending audio_start');
       setConnected(true);
       session.sendAudioStart();
-    }).catch(() => {
+    }).catch((e) => {
+      console.error('[Voice] Connection failed:', e);
       setError('Failed to connect to voice service');
     });
 
@@ -177,6 +188,7 @@ export function VoiceModeScreen({route, navigation}: Props) {
         const base64 = await FileSystem.readAsStringAsync(uri, {
           encoding: FileSystem.EncodingType.Base64,
         });
+        console.log('[Voice] Recording stopped, file URI:', uri, 'base64 length:', base64.length);
         sessionRef.current.sendAudioChunk(base64);
         sessionRef.current.sendAudioEnd();
       }
