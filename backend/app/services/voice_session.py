@@ -37,7 +37,7 @@ class VoiceSession:
         self._started = False
         self._ended = False
 
-    def _get_client(self):
+    def _get_client(self) -> "boto3.client":
         if self._client is None:
             self._client = boto3.client(
                 "bedrock-runtime",

@@ -10,7 +10,7 @@ chat_media_bp = Blueprint("chat_media", __name__)
 
 @chat_media_bp.route("/chat/upload-image", methods=["POST"])
 @require_auth
-def upload_image():
+def upload_image() -> tuple:
     """Generate a presigned S3 URL for uploading a chat image."""
     data = request.get_json()
     if not data:

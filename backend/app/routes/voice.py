@@ -42,7 +42,7 @@ def _authenticate_ws(token: str) -> dict | None:
 
 
 @sock.route("/voice", bp=voice_bp)
-def voice_ws(ws):
+def voice_ws(ws: "simple_websocket.Server") -> None:
     """WebSocket endpoint for bidirectional voice streaming.
 
     Query params:
@@ -72,7 +72,7 @@ def voice_ws(ws):
 
     import gevent
 
-    def _receive_from_nova():
+    def _receive_from_nova() -> None:
         """Greenlet: read from Nova Sonic and forward to client."""
         try:
             for event in session.receive():

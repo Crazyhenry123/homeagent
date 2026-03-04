@@ -1,12 +1,5 @@
 import * as FileSystem from 'expo-file-system';
-import {BASE_URL} from './api';
-import {getToken} from './auth';
-import {emitAuthExpired} from './authEvents';
-
-interface UploadImageResponse {
-  media_id: string;
-  upload_url: string;
-}
+import {uploadChatImage} from './api';
 
 /**
  * Upload an image for chat: get a presigned URL from the backend,
@@ -17,27 +10,8 @@ export async function uploadImage(
   contentType: string,
   fileSize: number,
 ): Promise<string> {
-  const token = await getToken();
-
-  // Step 1: Get presigned upload URL
-  const response = await fetch(`${BASE_URL}/api/chat/upload-image`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({content_type: contentType, file_size: fileSize}),
-  });
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      emitAuthExpired();
-    }
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body.error || `Upload init failed: ${response.status}`);
-  }
-
-  const {media_id, upload_url}: UploadImageResponse = await response.json();
+  // Step 1: Get presigned upload URL via shared API client
+  const {media_id, upload_url} = await uploadChatImage(contentType, fileSize);
 
   // Step 2: Upload file directly to S3 via presigned URL
   await FileSystem.uploadAsync(upload_url, uri, {

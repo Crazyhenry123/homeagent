@@ -248,7 +248,7 @@ class DataStack(cdk.Stack):
                 name="media_id", type=dynamodb.AttributeType.STRING
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
             time_to_live_attribute="expires_at",
         )
 

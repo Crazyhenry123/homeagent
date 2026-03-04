@@ -51,21 +51,11 @@ def _build_system_prompt(user_id: str, base_prompt: str) -> str:
     return " ".join(parts)
 
 
-def _format_messages_for_agent(
-    messages: list[dict], images: list[dict] | None = None
-) -> list[dict]:
-    """Convert simple {role, content} messages to Bedrock converse format.
-
-    If images are provided, they are attached to the last user message.
-    """
+def _format_messages_for_agent(messages: list[dict]) -> list[dict]:
+    """Convert simple {role, content} messages to Bedrock converse format."""
     result = []
-    last_idx = len(messages) - 1
-    for i, m in enumerate(messages):
-        content: list[dict] = []
-        is_last_user = i == last_idx and m["role"] == "user"
-        if is_last_user and images:
-            content.extend(build_image_content_block(img) for img in images)
-        content.append({"text": m["content"]})
+    for m in messages:
+        content: list[dict] = [{"text": m["content"]}]
         result.append({"role": m["role"], "content": content})
     return result
 

@@ -1,5 +1,4 @@
-import {getToken} from './auth';
-import {BASE_URL} from './api';
+import {buildVoiceWsUrl} from './api';
 import type {VoiceEvent} from '../types';
 
 /**
@@ -22,12 +21,7 @@ export class VoiceSessionClient {
   }
 
   async connect(): Promise<void> {
-    const token = await getToken();
-    const wsBase = BASE_URL.replace(/^http/, 'ws');
-    let url = `${wsBase}/api/voice?token=${encodeURIComponent(token || '')}`;
-    if (this.conversationId) {
-      url += `&conversation_id=${encodeURIComponent(this.conversationId)}`;
-    }
+    const url = await buildVoiceWsUrl(this.conversationId);
 
     return new Promise<void>((resolve, reject) => {
       this.ws = new WebSocket(url);

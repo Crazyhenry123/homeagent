@@ -257,6 +257,20 @@ export async function disableMyAgent(agentType: string): Promise<void> {
   await request(`/api/agents/my/${agentType}`, {method: 'DELETE'});
 }
 
+// --- WebSocket URL builder ---
+
+export async function buildVoiceWsUrl(
+  conversationId: string | null,
+): Promise<string> {
+  const token = await getToken();
+  const wsBase = BASE_URL.replace(/^http/, 'ws');
+  let url = `${wsBase}/api/voice?token=${encodeURIComponent(token || '')}`;
+  if (conversationId) {
+    url += `&conversation_id=${encodeURIComponent(conversationId)}`;
+  }
+  return url;
+}
+
 // --- Chat Media APIs ---
 
 export async function uploadChatImage(

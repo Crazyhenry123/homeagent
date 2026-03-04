@@ -11,9 +11,10 @@ from app.models.dynamo import get_table
 
 CHAT_MEDIA_MAX_PER_MESSAGE = 5
 UPLOAD_TTL_SECONDS = 3600  # 1 hour for orphaned uploads
+PRESIGNED_URL_EXPIRY = 300  # 5 minutes for presigned upload URLs
 
 
-def _get_s3_client():
+def _get_s3_client() -> "boto3.client":
     kwargs = {"region_name": current_app.config["AWS_REGION"]}
     endpoint = current_app.config.get("S3_ENDPOINT")
     if endpoint:
@@ -75,7 +76,7 @@ def create_upload(
             "Key": s3_key,
             "ContentType": content_type,
         },
-        ExpiresIn=3600,
+        ExpiresIn=PRESIGNED_URL_EXPIRY,
     )
 
     return {"media_id": media_id, "upload_url": upload_url}
@@ -121,6 +122,8 @@ def resolve_media_for_message(
     s3 = _get_s3_client()
     results = []
 
+    validated_ids: list[str] = []
+
     for mid in media_ids:
         item = get_media(mid)
         if not item:
@@ -146,6 +149,10 @@ def resolve_media_for_message(
                 "format": fmt,
             }
         )
+        validated_ids.append(mid)
+
+    # Mark all media as attached only after all validations pass
+    for mid in validated_ids:
         mark_attached(mid)
 
     return results
