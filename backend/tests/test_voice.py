@@ -115,6 +115,14 @@ def mock_nova_sonic_sdk(receive_events=None, start_error=None):
     mock_client_mod = MagicMock()
     mock_client_mod.BedrockRuntimeClient = mock_client_cls
 
+    class FakeConfig:
+        def __init__(self, **kwargs):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
+    mock_config_mod = MagicMock()
+    mock_config_mod.Config = FakeConfig
+
     mock_model_mod = MagicMock()
     mock_model_mod.InvokeModelWithBidirectionalStreamOperationInput = FakeInput
     mock_model_mod.BidirectionalInputPayloadPart = FakePayloadPart
@@ -125,6 +133,7 @@ def mock_nova_sonic_sdk(receive_events=None, start_error=None):
         {
             "aws_sdk_bedrock_runtime": MagicMock(),
             "aws_sdk_bedrock_runtime.client": mock_client_mod,
+            "aws_sdk_bedrock_runtime.config": mock_config_mod,
             "aws_sdk_bedrock_runtime.models": mock_model_mod,
         },
     ):

@@ -113,11 +113,12 @@ class VoiceSession:
     async def _async_setup(self) -> None:
         """Create client, open stream, and send all 6 setup events."""
         from aws_sdk_bedrock_runtime.client import BedrockRuntimeClient
+        from aws_sdk_bedrock_runtime.config import Config as BedrockConfig
         from aws_sdk_bedrock_runtime.models import (
             InvokeModelWithBidirectionalStreamOperationInput,
         )
 
-        client = BedrockRuntimeClient(region_name=self._region)
+        client = BedrockRuntimeClient(config=BedrockConfig(region=self._region))
         self._stream = await client.invoke_model_with_bidirectional_stream(
             InvokeModelWithBidirectionalStreamOperationInput(model_id=self._model_id)
         )
