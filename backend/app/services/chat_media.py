@@ -31,7 +31,12 @@ def create_upload(
     Raises ValueError for invalid content type or file size.
     """
     allowed_types = current_app.config["CHAT_MEDIA_ALLOWED_TYPES"]
-    max_size = current_app.config["CHAT_MEDIA_MAX_SIZE"]
+    is_audio = content_type.startswith("audio/")
+    max_size = (
+        current_app.config["CHAT_MEDIA_AUDIO_MAX_SIZE"]
+        if is_audio
+        else current_app.config["CHAT_MEDIA_MAX_SIZE"]
+    )
     if content_type not in allowed_types:
         raise ValueError(
             f"Invalid content type: {content_type}. "
@@ -48,11 +53,12 @@ def create_upload(
     now = datetime.now(timezone.utc)
     media_id = str(ULID())
 
-    # Derive extension from content type
+    # Derive extension and filename prefix from content type
     ext = content_type.split("/")[-1]
     if ext == "jpeg":
         ext = "jpg"
-    s3_key = f"chat-media/{user_id}/{media_id}/image.{ext}"
+    prefix = "audio" if is_audio else "image"
+    s3_key = f"chat-media/{user_id}/{media_id}/{prefix}.{ext}"
 
     item = {
         "media_id": media_id,
@@ -137,7 +143,8 @@ def resolve_media_for_message(
         except s3.exceptions.ClientError:
             raise ValueError(f"Media not yet uploaded: {mid}")
 
-        # Map content_type to Bedrock image format
+        # Determine media type and format
+        is_audio = item["content_type"].startswith("audio/")
         fmt = item["content_type"].split("/")[-1]
         if fmt == "jpg":
             fmt = "jpeg"
@@ -147,6 +154,7 @@ def resolve_media_for_message(
                 "s3_uri": f"s3://{bucket}/{item['s3_key']}",
                 "content_type": item["content_type"],
                 "format": fmt,
+                "media_type": "audio" if is_audio else "image",
             }
         )
         validated_ids.append(mid)

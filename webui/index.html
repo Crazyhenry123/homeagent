@@ -57,64 +57,168 @@
       </div>
     </div>
 
-    <!-- Main Chat View -->
-    <div id="chat-view" class="view hidden">
-      <aside id="sidebar">
+    <!-- Main App View -->
+    <div id="main-view" class="view hidden">
+      <!-- Sidebar Navigation -->
+      <nav id="sidebar">
         <div class="sidebar-header">
-          <h2>Conversations</h2>
-          <button class="btn btn-icon" onclick="startNewConversation()" title="New Chat">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <h2>HomeAgent</h2>
+        </div>
+        <div class="nav-items">
+          <button class="nav-item active" data-panel="chat" onclick="switchPanel('chat')">
+            <span class="nav-icon">💬</span>
+            <span class="nav-label">Chat</span>
+          </button>
+          <button class="nav-item" data-panel="members" onclick="switchPanel('members')">
+            <span class="nav-icon">👥</span>
+            <span class="nav-label">Members</span>
+          </button>
+          <button class="nav-item" data-panel="family-tree" onclick="switchPanel('family-tree')">
+            <span class="nav-icon">🌳</span>
+            <span class="nav-label">Family Tree</span>
+          </button>
+          <button class="nav-item" data-panel="agent-templates" onclick="switchPanel('agent-templates')">
+            <span class="nav-icon">🤖</span>
+            <span class="nav-label">Agent Templates</span>
+          </button>
+          <button class="nav-item" data-panel="app-settings" onclick="switchPanel('app-settings')">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">Settings</span>
           </button>
         </div>
-        <div id="conversation-list" class="conversation-list"></div>
         <div class="sidebar-footer">
-          <div class="sidebar-footer-top">
-            <div id="api-endpoint-display" class="api-endpoint-display"></div>
-          </div>
+          <div id="api-endpoint-display" class="api-endpoint-display"></div>
           <div class="sidebar-footer-bottom">
             <div id="user-info" class="user-info"></div>
-            <div class="sidebar-footer-actions">
-              <button class="btn btn-sm btn-secondary hidden" id="generate-invite-btn" onclick="generateInviteCode()" title="Generate Invite Code">Invite</button>
-              <button class="btn btn-icon" onclick="openSettings()" title="Settings">
-                <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 13a3 3 0 100-6 3 3 0 000 6z" stroke="currentColor" stroke-width="1.5"/><path d="M17.4 12.3l-1.5-.9c.1-.5.1-.9.1-1.4s0-.9-.1-1.4l1.5-.9c.2-.1.3-.4.2-.6l-1.5-2.6c-.1-.2-.4-.3-.6-.2l-1.5.9c-.7-.5-1.4-.9-2.2-1.1V2.6c0-.2-.2-.4-.5-.4h-3c-.2 0-.4.2-.4.4v1.5c-.8.2-1.6.6-2.2 1.1l-1.5-.9c-.2-.1-.5 0-.6.2L2.1 7.1c-.1.2-.1.5.2.6l1.5.9c-.1.5-.1.9-.1 1.4s0 .9.1 1.4l-1.5.9c-.2.1-.3.4-.2.6l1.5 2.6c.1.2.4.3.6.2l1.5-.9c.7.5 1.4.9 2.2 1.1v1.5c0 .2.2.4.5.4h3c.2 0 .4-.2.4-.4v-1.5c.8-.2 1.6-.6 2.2-1.1l1.5.9c.2.1.5 0 .6-.2l1.5-2.6c.2-.2.1-.5-.1-.6z" stroke="currentColor" stroke-width="1.5"/></svg>
-              </button>
-            </div>
+            <button class="btn btn-sm btn-secondary" onclick="logout()">Logout</button>
           </div>
         </div>
-      </aside>
+      </nav>
 
-      <main id="chat-main">
-        <div id="chat-header" class="chat-header">
+      <!-- Main Content Area -->
+      <main id="main-content">
+        <!-- Mobile nav toggle -->
+        <div id="mobile-header" class="mobile-header">
           <button class="btn btn-icon sidebar-toggle" onclick="toggleSidebar()">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </button>
-          <span id="chat-title">New Conversation</span>
-          <div class="chat-header-actions">
-            <button class="btn btn-icon btn-danger" onclick="deleteCurrentConversation()" title="Delete conversation" id="delete-conv-btn" style="display:none">
-              <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M6 8v8M10 8v8M14 8v8M4 5h12M8 5V3h4v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
+          <span id="panel-title">Chat</span>
+        </div>
+
+        <!-- Chat Panel -->
+        <div id="panel-chat" class="panel active">
+          <div class="chat-layout">
+            <div class="chat-sidebar">
+              <div class="chat-sidebar-header">
+                <h3>Conversations</h3>
+                <button class="btn btn-icon" onclick="startNewConversation()" title="New Chat">
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+              </div>
+              <div id="conversation-list" class="conversation-list"></div>
+            </div>
+            <div class="chat-main">
+              <div id="chat-header" class="chat-header">
+                <span id="chat-title">New Conversation</span>
+                <div class="chat-header-actions">
+                  <button class="btn btn-icon btn-danger" onclick="deleteCurrentConversation()" title="Delete conversation" id="delete-conv-btn" style="display:none">
+                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M6 8v8M10 8v8M14 8v8M4 5h12M8 5V3h4v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div id="messages" class="messages">
+                <div id="empty-state" class="empty-state">
+                  <h3>HomeAgent Debug Console</h3>
+                  <p>Start a conversation to test the agent. Messages stream in real-time via SSE.</p>
+                </div>
+              </div>
+              <div id="chat-input-area" class="chat-input-area">
+                <div id="streaming-indicator" class="streaming-indicator hidden">
+                  <div class="dot-pulse"></div>
+                  <span>Agent is responding...</span>
+                  <button class="btn btn-sm btn-secondary" onclick="abortStream()">Stop</button>
+                </div>
+                <form id="chat-form" onsubmit="handleSendMessage(event)">
+                  <textarea id="message-input" placeholder="Type a message..." rows="1" onkeydown="handleInputKeydown(event)" oninput="autoResizeTextarea(this)"></textarea>
+                  <button type="submit" class="btn btn-primary btn-send" id="send-btn">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10l14-7-4 14-3-7-7-3z" fill="currentColor"/></svg>
+                  </button>
+                </form>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div id="messages" class="messages">
-          <div id="empty-state" class="empty-state">
-            <h3>HomeAgent Debug Console</h3>
-            <p>Start a conversation to test the agent. Messages stream in real-time via SSE.</p>
+        <!-- Members Panel -->
+        <div id="panel-members" class="panel">
+          <div class="panel-header">
+            <h2>Family Members</h2>
+          </div>
+          <div class="panel-body">
+            <div id="members-list" class="data-list"></div>
+            <div id="member-detail" class="detail-view hidden">
+              <button class="btn btn-secondary btn-back" onclick="closeMemberDetail()">&#8592; Back to Members</button>
+              <div id="member-detail-content"></div>
+            </div>
           </div>
         </div>
 
-        <div id="chat-input-area" class="chat-input-area">
-          <div id="streaming-indicator" class="streaming-indicator hidden">
-            <div class="dot-pulse"></div>
-            <span>Agent is responding...</span>
-            <button class="btn btn-sm btn-secondary" onclick="abortStream()">Stop</button>
+        <!-- Family Tree Panel -->
+        <div id="panel-family-tree" class="panel">
+          <div class="panel-header">
+            <h2>Family Tree</h2>
           </div>
-          <form id="chat-form" onsubmit="handleSendMessage(event)">
-            <textarea id="message-input" placeholder="Type a message..." rows="1" onkeydown="handleInputKeydown(event)" oninput="autoResizeTextarea(this)"></textarea>
-            <button type="submit" class="btn btn-primary btn-send" id="send-btn">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10l14-7-4 14-3-7-7-3z" fill="currentColor"/></svg>
-            </button>
-          </form>
+          <div class="panel-body">
+            <div id="family-tree-content"></div>
+          </div>
+        </div>
+
+        <!-- Agent Templates Panel -->
+        <div id="panel-agent-templates" class="panel">
+          <div class="panel-header">
+            <h2>Agent Templates</h2>
+            <button class="btn btn-primary" onclick="openTemplateEditor()">+ New Agent</button>
+          </div>
+          <div class="panel-body">
+            <div id="templates-list" class="data-list"></div>
+            <div id="template-editor" class="detail-view hidden">
+              <button class="btn btn-secondary btn-back" onclick="closeTemplateEditor()">&#8592; Back to Templates</button>
+              <div id="template-editor-content"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings Panel -->
+        <div id="panel-app-settings" class="panel">
+          <div class="panel-header">
+            <h2>Settings</h2>
+          </div>
+          <div class="panel-body">
+            <div class="settings-section">
+              <h3>API Configuration</h3>
+              <div class="form-group">
+                <label>API Base URL</label>
+                <div class="input-row">
+                  <input type="text" id="settings-api-url" class="form-input" placeholder="https://your-alb-domain.com">
+                  <button class="btn btn-primary" onclick="saveApiUrl()">Save</button>
+                </div>
+              </div>
+            </div>
+            <div class="settings-section">
+              <h3>Invite Codes</h3>
+              <p class="settings-description">Generate invite codes for new family members.</p>
+              <button class="btn btn-primary" id="settings-invite-btn" onclick="generateInviteCode()">Generate Invite Code</button>
+              <div id="invite-code-result" class="invite-code-result hidden"></div>
+            </div>
+            <div class="settings-section">
+              <h3>System Info</h3>
+              <div id="system-info" class="system-info">
+                <div class="info-row"><span class="info-label">User</span><span id="info-user" class="info-value"></span></div>
+                <div class="info-row"><span class="info-label">Role</span><span id="info-role" class="info-value"></span></div>
+                <div class="info-row"><span class="info-label">API Endpoint</span><span id="info-api" class="info-value"></span></div>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
     </div>

@@ -28,10 +28,13 @@ class Config:
     )
     S3_ENDPOINT: str | None = os.environ.get("S3_ENDPOINT")
     CHAT_MEDIA_ALLOWED_TYPES: set = {
-        "image/jpeg", "image/png", "image/gif", "image/webp"
+        "image/jpeg", "image/png", "image/gif", "image/webp", "audio/wav"
     }
     CHAT_MEDIA_MAX_SIZE: int = int(
         os.environ.get("CHAT_MEDIA_MAX_SIZE", str(5 * 1024 * 1024))
+    )
+    CHAT_MEDIA_AUDIO_MAX_SIZE: int = int(
+        os.environ.get("CHAT_MEDIA_AUDIO_MAX_SIZE", str(25 * 1024 * 1024))
     )
     VOICE_ENABLED: bool = (
         os.environ.get("VOICE_ENABLED", "false").lower() == "true"

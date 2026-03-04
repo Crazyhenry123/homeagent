@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import Constants from 'expo-constants';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {verify, generateInviteCode} from '../services/api';
+import {verify} from '../services/api';
 import {clearToken} from '../services/auth';
 import type {RootStackParamList} from '../navigation/AppNavigator';
 
@@ -20,7 +20,6 @@ export function SettingsScreen({navigation}: Props) {
   const [userId, setUserId] = useState('');
   const [role, setRole] = useState('');
   const [loading, setLoading] = useState(true);
-  const [generatingCode, setGeneratingCode] = useState(false);
 
   useEffect(() => {
     verify()
@@ -36,25 +35,6 @@ export function SettingsScreen({navigation}: Props) {
         setLoading(false);
       });
   }, []);
-
-  const handleGenerateInviteCode = async () => {
-    setGeneratingCode(true);
-    try {
-      const result = await generateInviteCode();
-      Alert.alert(
-        'Invite Code Created',
-        `Share this code with a family member:\n\n${result.code ?? 'Unknown'}`,
-        [{text: 'OK'}],
-      );
-    } catch (err) {
-      Alert.alert(
-        'Error',
-        err instanceof Error ? err.message : 'Failed to generate invite code',
-      );
-    } finally {
-      setGeneratingCode(false);
-    }
-  };
 
   const handleLogout = () => {
     Alert.alert('Log Out', 'You will need an invite code to log back in.', [
@@ -118,27 +98,9 @@ export function SettingsScreen({navigation}: Props) {
             <Text style={styles.sectionHeaderText}>ADMIN</Text>
           </View>
           <TouchableOpacity
-            style={styles.actionRow}
-            onPress={() => navigation.navigate('AdminMembers')}>
-            <Text style={styles.actionText}>Manage Family Members</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionRow}
-            onPress={() => navigation.navigate('FamilyTree')}>
-            <Text style={styles.actionText}>Manage Family Tree</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionRow}
-            onPress={() => navigation.navigate('AdminAgentTemplates')}>
-            <Text style={styles.actionText}>Manage Agent Templates</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionRow}
-            onPress={handleGenerateInviteCode}
-            disabled={generatingCode}>
-            <Text style={styles.actionText}>
-              {generatingCode ? 'Generating...' : 'Generate Invite Code'}
-            </Text>
+            style={styles.adminPanelButton}
+            onPress={() => navigation.navigate('AdminPanel')}>
+            <Text style={styles.adminPanelButtonText}>Open Admin Panel</Text>
           </TouchableOpacity>
         </>
       )}
@@ -198,6 +160,20 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 16,
     color: '#007AFF',
+  },
+  adminPanelButton: {
+    marginTop: 8,
+    marginHorizontal: 16,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  adminPanelButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '600',
   },
   logoutButton: {
     marginTop: 32,

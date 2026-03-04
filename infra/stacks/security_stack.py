@@ -68,6 +68,18 @@ class SecurityStack(cdk.Stack):
             )
         )
 
+        # AWS Transcribe permissions (voice-to-chat audio transcription)
+        self.task_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "transcribe:StartTranscriptionJob",
+                    "transcribe:GetTranscriptionJob",
+                    "transcribe:DeleteTranscriptionJob",
+                ],
+                resources=["*"],
+            )
+        )
+
         # S3 documents bucket permissions
         if documents_bucket:
             documents_bucket.grant_read_write(self.task_role)

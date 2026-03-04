@@ -14,6 +14,7 @@ from flask import (
 from app.auth import require_auth
 from app.services.bedrock import stream_chat
 from app.services.chat_media import resolve_media_for_message
+from app.services.transcribe import transcribe_audio
 from app.services.conversation import (
     add_message,
     create_conversation,
@@ -47,10 +48,12 @@ def _get_chat_stream(
 @require_auth
 def chat():
     data = request.get_json()
-    if not data or not data.get("message"):
-        return jsonify({"error": "message is required"}), 400
+    if not data:
+        return jsonify({"error": "request body is required"}), 400
+    if not data.get("message") and not data.get("media"):
+        return jsonify({"error": "message or media is required"}), 400
 
-    user_message = data["message"]
+    user_message = data.get("message", "")
     conversation_id = data.get("conversation_id")
     media_ids = data.get("media", [])
 
@@ -59,11 +62,20 @@ def chat():
     media_metadata = None
     if media_ids:
         try:
-            images = resolve_media_for_message(media_ids, g.user_id)
+            all_media = resolve_media_for_message(media_ids, g.user_id)
             media_metadata = [
-                {"media_id": mid, "content_type": img["content_type"]}
-                for mid, img in zip(media_ids, images)
+                {"media_id": mid, "content_type": m["content_type"]}
+                for mid, m in zip(media_ids, all_media)
             ]
+
+            # Transcribe audio items and prepend to user message
+            audio_items = [m for m in all_media if m["media_type"] == "audio"]
+            for audio in audio_items:
+                transcription = transcribe_audio(audio["s3_uri"])
+                user_message = f"[Voice message]: {transcription}\n\n{user_message}" if user_message else f"[Voice message]: {transcription}"
+
+            # Only pass image media to Bedrock (Claude doesn't accept audio)
+            images = [m for m in all_media if m["media_type"] == "image"] or None
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
 

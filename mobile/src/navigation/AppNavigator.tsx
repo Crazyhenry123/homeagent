@@ -13,7 +13,7 @@ import {ProfileScreen} from '../screens/ProfileScreen';
 import {AdminMembersScreen} from '../screens/AdminMembersScreen';
 import {AdminMemberDetailScreen} from '../screens/AdminMemberDetailScreen';
 import {FamilyTreeScreen} from '../screens/FamilyTreeScreen';
-import {AdminAgentTemplatesScreen} from '../screens/AdminAgentTemplatesScreen';
+import {AdminPanelScreen} from '../screens/AdminPanelScreen';
 import {MyAgentsScreen} from '../screens/MyAgentsScreen';
 import {VoiceModeScreen} from '../screens/VoiceModeScreen';
 
@@ -26,7 +26,7 @@ export type RootStackParamList = {
   AdminMembers: undefined;
   AdminMemberDetail: {userId: string};
   FamilyTree: undefined;
-  AdminAgentTemplates: undefined;
+  AdminPanel: undefined;
   MyAgents: undefined;
   VoiceMode: {conversationId?: string};
 };
@@ -39,7 +39,7 @@ export function AppNavigator() {
 
   useEffect(() => {
     getToken().then(token => {
-      setInitialRoute(token ? 'ConversationList' : 'Register');
+      setInitialRoute(token ? 'Chat' : 'Register');
     });
   }, []);
 
@@ -113,9 +113,9 @@ export function AppNavigator() {
           options={{title: 'Family Tree'}}
         />
         <Stack.Screen
-          name="AdminAgentTemplates"
-          component={AdminAgentTemplatesScreen}
-          options={{title: 'Agent Templates'}}
+          name="AdminPanel"
+          component={AdminPanelScreen}
+          options={{title: 'Admin Panel'}}
         />
         <Stack.Screen
           name="MyAgents"

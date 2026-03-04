@@ -4,15 +4,27 @@ import {StyleSheet, Text, TouchableOpacity} from 'react-native';
 interface Props {
   onPress: () => void;
   disabled?: boolean;
+  recording?: boolean;
 }
 
-export function VoiceButton({onPress, disabled}: Props) {
+export function VoiceButton({onPress, disabled, recording}: Props) {
   return (
     <TouchableOpacity
-      style={[styles.button, disabled && styles.buttonDisabled]}
+      style={[
+        styles.button,
+        recording && styles.buttonRecording,
+        disabled && styles.buttonDisabled,
+      ]}
       onPress={onPress}
       disabled={disabled}>
-      <Text style={[styles.icon, disabled && styles.iconDisabled]}>mic</Text>
+      <Text
+        style={[
+          styles.icon,
+          recording && styles.iconRecording,
+          disabled && styles.iconDisabled,
+        ]}>
+        {recording ? '●' : 'mic'}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -27,6 +39,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 6,
   },
+  buttonRecording: {
+    backgroundColor: '#FF3B30',
+  },
   buttonDisabled: {
     opacity: 0.5,
   },
@@ -34,6 +49,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#007AFF',
     fontWeight: '600',
+  },
+  iconRecording: {
+    color: '#FFFFFF',
+    fontSize: 16,
   },
   iconDisabled: {
     color: '#B0B0B0',
