@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import {ImageAttachment} from './ImageAttachment';
+import {VoiceButton} from './VoiceButton';
 import {getContentType} from '../services/chatMedia';
 import type {ChatMediaUpload} from '../types';
 
@@ -19,7 +20,7 @@ interface Props {
   disabled?: boolean;
 }
 
-export function ChatInput({onSend, disabled}: Props) {
+export function ChatInput({onSend, onVoicePress, disabled}: Props) {
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState<ChatMediaUpload[]>([]);
 
@@ -107,6 +108,9 @@ export function ChatInput({onSend, disabled}: Props) {
           disabled={!canSend}>
           <Text style={styles.sendText}>Send</Text>
         </TouchableOpacity>
+        {onVoicePress && (
+          <VoiceButton onPress={onVoicePress} disabled={disabled} />
+        )}
       </View>
     </View>
   );

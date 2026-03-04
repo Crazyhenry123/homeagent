@@ -616,6 +616,106 @@ DELETE /api/admin/health-documents/<user_id>/<document_id>
 
 ---
 
+## Chat Media (Image Upload)
+
+### Upload Image
+
+```
+POST /api/chat/upload-image
+```
+
+**Auth:** Bearer token required.
+
+**Request:**
+```json
+{
+  "content_type": "image/jpeg",
+  "file_size": 204800
+}
+```
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `content_type` | string | Yes | MIME type: `image/jpeg`, `image/png`, `image/gif`, `image/webp` |
+| `file_size` | integer | Yes | File size in bytes (1 – 5 MB) |
+
+**Response (200):**
+```json
+{
+  "media_id": "01JXYZ...",
+  "upload_url": "https://s3.amazonaws.com/...?X-Amz-Signature=...",
+  "expires_in": 300
+}
+```
+
+Upload the image to `upload_url` via HTTP PUT with the `Content-Type` header matching the request.
+
+### Send Chat with Images
+
+Include `media_ids` in the chat request to attach uploaded images:
+
+```json
+{
+  "message": "What's in this photo?",
+  "conversation_id": "01JXYZ...",
+  "media_ids": ["01JABC..."]
+}
+```
+
+Up to 5 images can be attached per message. Images are sent to Claude as content blocks alongside the text.
+
+---
+
+## Voice Mode (WebSocket)
+
+### Connect to Voice Session
+
+```
+WebSocket /api/voice?token=<device_token>&conversation_id=<optional>
+```
+
+**Auth:** Token passed as query parameter (WebSocket doesn't support Authorization headers).
+
+Establishes a bidirectional audio stream with Amazon Nova Sonic. ALB must support WebSocket upgrade (idle timeout 300s).
+
+### Client → Server Messages
+
+| Type | Fields | Description |
+|------|--------|-------------|
+| `audio_start` | `config.sample_rate` (default 16000) | Signal start of audio input |
+| `audio_chunk` | `data` (base64 PCM) | Audio data chunk (16-bit PCM, 16kHz, mono) |
+| `audio_end` | — | Signal end of audio input |
+| `text` | `content` | Optional text message alongside voice |
+
+**Example:**
+```json
+{"type": "audio_start", "config": {"sample_rate": 16000}}
+{"type": "audio_chunk", "data": "base64-encoded-pcm-data..."}
+{"type": "audio_end"}
+```
+
+### Server → Client Messages
+
+| Type | Fields | Description |
+|------|--------|-------------|
+| `transcript` | `role`, `content` | Transcribed text (user or assistant) |
+| `audio_chunk` | `data` (base64 PCM) | Assistant's audio response |
+| `error` | `content` | Error message |
+| `session_end` | — | Voice session ended |
+
+Transcripts are automatically saved to the conversation history when `conversation_id` is provided.
+
+### Configuration
+
+| Env Variable | Default | Description |
+|-------------|---------|-------------|
+| `VOICE_ENABLED` | `false` | Enable/disable voice endpoint |
+| `VOICE_MODEL_ID` | `amazon.nova-sonic-v1:0` | Nova Sonic model ID |
+
+When `VOICE_ENABLED` is `false`, the `/api/voice` endpoint is not registered and returns 404.
+
+---
+
 ## Error Response Format
 
 All error responses follow this structure:

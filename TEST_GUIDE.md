@@ -222,6 +222,38 @@ Open your iPhone camera and scan the QR code shown in the Expo terminal. The app
 
 ---
 
+### 16. Image Attachments
+
+**Screen**: Chat
+
+| # | Step | Expected Result |
+|---|------|-----------------|
+| 16.1 | Tap the **+** button in the chat input bar | Image picker opens showing the device photo library |
+| 16.2 | Select one image | Image appears as a thumbnail in the attachment row above the input field |
+| 16.3 | Tap the **X** on the thumbnail | Image is removed from attachments |
+| 16.4 | Select up to 5 images | All 5 thumbnails shown in attachment row |
+| 16.5 | Try to add a 6th image | Alert: "Limit reached" — max 5 images per message |
+| 16.6 | Type a message with images attached, tap Send | User message bubble shows with inline image thumbnails, assistant responds about the image content |
+| 16.7 | Send only an image (no text) | Image uploaded and analyzed, assistant describes what it sees |
+
+---
+
+### 17. Voice Mode
+
+**Screen**: Chat → Voice Mode
+
+| # | Step | Expected Result |
+|---|------|-----------------|
+| 17.1 | In a chat, tap the **mic** button (right of Send) | Navigates to Voice Mode screen with dark UI |
+| 17.2 | Wait for connection | Status text changes from "Connecting..." to "Tap to speak" |
+| 17.3 | Tap the blue MIC button | Button turns red, status shows "Listening...", mic permission requested on first use |
+| 17.4 | Speak a question, then tap STOP | Recording ends, audio sent to backend |
+| 17.5 | Wait for response | Status shows "Speaking...", transcript appears (user's speech and assistant's response), audio plays through speaker |
+| 17.6 | Tap "Back to Chat" | Returns to chat screen, voice transcripts are saved to conversation history |
+| 17.7 | Open voice mode with no conversation | Works as a new session, transcripts displayed but not persisted |
+
+---
+
 ## Quick Smoke Test (5 minutes)
 
 1. Open app -> Register with code `FAMILY` and your name
@@ -230,5 +262,7 @@ Open your iPhone camera and scan the QR code shown in the Expo terminal. The app
 4. Go to Settings -> My Agents -> Toggle Health Advisor ON
 5. New chat -> Ask a health question -> Verify the health advisor sub-agent is used
 6. Settings -> Manage Agent Templates -> Verify built-in templates listed
-7. Long-press conversation -> Delete -> Verify it disappears
-8. Generate an invite code -> Log Out -> Verify Register screen
+7. Attach an image in chat -> Send -> Verify assistant describes the image
+8. Tap mic button -> Speak a question -> Verify voice response and transcript
+9. Long-press conversation -> Delete -> Verify it disappears
+10. Generate an invite code -> Log Out -> Verify Register screen

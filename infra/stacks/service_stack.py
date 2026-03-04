@@ -92,9 +92,20 @@ class ServiceStack(cdk.Stack):
             min_healthy_percent=100,
         )
 
-        # SSE requires long idle timeout
+        # SSE and WebSocket connections require long idle timeout
         service.load_balancer.set_attribute(
             "idle_timeout.timeout_seconds", "300"
+        )
+
+        # Enable stickiness so WebSocket connections stay on the same target
+        service.target_group.set_attribute(
+            "stickiness.enabled", "true"
+        )
+        service.target_group.set_attribute(
+            "stickiness.type", "lb_cookie"
+        )
+        service.target_group.set_attribute(
+            "stickiness.lb_cookie.duration_seconds", "3600"
         )
 
         # ALB health check

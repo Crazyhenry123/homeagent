@@ -187,7 +187,11 @@ export function ChatScreen({route, navigation}: Props) {
           onContentSizeChange={scrollToEnd}
         />
       )}
-      <ChatInput onSend={handleSend} disabled={streaming || loadingMessages} />
+      <ChatInput
+        onSend={handleSend}
+        onVoicePress={() => navigation.navigate('VoiceMode', {conversationId: currentConversationId ?? undefined})}
+        disabled={streaming || loadingMessages}
+      />
     </KeyboardAvoidingView>
   );
 }

@@ -24,12 +24,44 @@ export function VoiceModeScreen({route, navigation}: Props) {
   const conversationId = route.params?.conversationId ?? null;
   const [connected, setConnected] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const sessionRef = useRef<VoiceSessionClient | null>(null);
   const recordingRef = useRef<Audio.Recording | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const audioQueueRef = useRef<string[]>([]);
+  const playingRef = useRef(false);
+
+  const playNextChunk = useCallback(async () => {
+    if (playingRef.current || audioQueueRef.current.length === 0) return;
+    playingRef.current = true;
+    setSpeaking(true);
+
+    while (audioQueueRef.current.length > 0) {
+      const base64Audio = audioQueueRef.current.shift()!;
+      try {
+        const {sound} = await Audio.Sound.createAsync(
+          {uri: `data:audio/pcm;base64,${base64Audio}`},
+          {shouldPlay: true},
+        );
+        await new Promise<void>(resolve => {
+          sound.setOnPlaybackStatusUpdate(status => {
+            if (status.isLoaded && status.didJustFinish) {
+              resolve();
+            }
+          });
+        });
+        await sound.unloadAsync();
+      } catch {
+        // Skip unplayable chunks
+      }
+    }
+
+    playingRef.current = false;
+    setSpeaking(false);
+  }, []);
 
   const handleEvent = useCallback((event: VoiceEvent) => {
     if (event.type === 'transcript') {
@@ -40,17 +72,29 @@ export function VoiceModeScreen({route, navigation}: Props) {
       };
       setTranscripts(prev => [...prev, newTranscript]);
     } else if (event.type === 'audio_chunk') {
-      // Audio playback would go here — for now we rely on transcripts
+      if (event.data) {
+        audioQueueRef.current.push(event.data);
+        playNextChunk();
+      }
     } else if (event.type === 'error') {
       setError(event.content || 'An error occurred');
     } else if (event.type === 'session_end') {
       setConnected(false);
     }
-  }, []);
+  }, [playNextChunk]);
 
   const handleClose = useCallback(() => {
     setConnected(false);
     setRecording(false);
+  }, []);
+
+  // Configure audio for playback on mount
+  useEffect(() => {
+    Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+    });
   }, []);
 
   // Connect on mount
@@ -67,6 +111,7 @@ export function VoiceModeScreen({route, navigation}: Props) {
 
     return () => {
       session.disconnect();
+      audioQueueRef.current = [];
     };
   }, [conversationId, handleEvent, handleClose]);
 
@@ -179,7 +224,9 @@ export function VoiceModeScreen({route, navigation}: Props) {
             ? 'Connecting...'
             : recording
               ? 'Listening...'
-              : 'Tap to speak'}
+              : speaking
+                ? 'Speaking...'
+                : 'Tap to speak'}
         </Text>
         <TouchableOpacity
           style={[

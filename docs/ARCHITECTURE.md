@@ -103,6 +103,7 @@ HomeAgent is a family AI chat application. Family members interact with Claude (
 | HealthObservations | PK: `user_id`, SK: `observation_id` | `category-index` | AI-extracted health observations |
 | HealthAuditLog | PK: `record_id`, SK: `audit_sk` | `user-audit-index` | Health record change audit trail |
 | HealthDocuments | PK: `user_id`, SK: `document_id` | — | Health document metadata (files in S3) |
+| ChatMedia | PK: `media_id` | — | Chat image metadata, presigned S3 URLs, TTL auto-cleanup |
 
 All tables use on-demand billing (PAY_PER_REQUEST).
 
@@ -118,8 +119,10 @@ All tables use on-demand billing (PAY_PER_REQUEST).
 | Resource | Details |
 |----------|---------|
 | Service | Amazon Bedrock |
-| Model | Claude Opus 4.6 (`us.anthropic.claude-opus-4-6-v1`) |
-| API | `converse_stream` (streaming) |
+| Text Model | Claude Opus 4.6 (`us.anthropic.claude-opus-4-6-v1`) |
+| Voice Model | Amazon Nova Sonic (`amazon.nova-sonic-v1:0`) |
+| Text API | `converse_stream` (streaming) |
+| Voice API | `invoke_model_with_bidirectional_stream` (WebSocket) |
 | Agent Framework | Strands Agents SDK (sub-agent orchestration) |
 | Max Tokens | 4096 |
 | Temperature | 0.7 |
@@ -242,6 +245,38 @@ The pipeline is self-mutating: changes to `infra/stacks/pipeline_stack.py` autom
 
 ---
 
+## Request Flow: Voice Mode
+
+```
+1. Mobile opens WebSocket to /api/voice?token=<token>&conversation_id=<id>
+2. ALB upgrades HTTP → WebSocket (idle timeout 300s, sticky sessions enabled)
+3. Flask-sock routes to voice_ws handler
+4. _authenticate_ws verifies device token
+5. VoiceSession.start() opens bidirectional stream to Nova Sonic
+6. Greenlet spawned: reads from Nova Sonic → forwards to client
+7. Main loop: reads from client WebSocket → forwards audio to Nova Sonic
+8. Audio chunks: base64-encoded PCM 16-bit 16kHz mono
+9. Transcripts saved to Messages table when conversation_id provided
+10. On disconnect: session.end() closes Nova Sonic stream
+```
+
+---
+
+## Request Flow: Image Upload
+
+```
+1. Mobile calls POST /api/chat/upload-image with content_type and file_size
+2. Backend validates content type and size, creates ChatMedia record
+3. Backend generates S3 presigned PUT URL (300s expiry)
+4. Mobile uploads image directly to S3 via presigned URL
+5. Mobile sends POST /api/chat with media_ids referencing uploaded images
+6. Backend fetches images from S3, builds mixed content blocks
+7. Bedrock receives image+text content blocks via converse_stream
+8. ChatMedia records auto-expire via DynamoDB TTL
+```
+
+---
+
 ## Technology Stack
 
 | Layer | Technology | Version |
@@ -250,15 +285,19 @@ The pipeline is self-mutating: changes to `infra/stacks/pipeline_stack.py` autom
 | Mobile Language | TypeScript | 5.7 |
 | Navigation | React Navigation | 7.0 |
 | Secure Storage | expo-secure-store | 14.0 |
+| Audio Recording/Playback | expo-av | 16.0 |
+| Image Picker | expo-image-picker | — |
 | Backend | Flask | 3.1 |
+| WebSocket | flask-sock | 0.7+ |
 | WSGI Server | gunicorn + gevent | 23.0 / 24.11 |
-| AI | Amazon Bedrock | Claude Opus 4.6 |
+| AI (Text) | Amazon Bedrock | Claude Opus 4.6 |
+| AI (Voice) | Amazon Bedrock | Nova Sonic v1 |
 | Agent Framework | Strands Agents SDK | — |
-| Database | Amazon DynamoDB | On-demand (13 tables) |
-| Object Storage | Amazon S3 | Health documents |
+| Database | Amazon DynamoDB | On-demand (14 tables) |
+| Object Storage | Amazon S3 | Health documents + chat media |
 | Container | Docker | python:3.12-slim |
 | Orchestration | ECS Fargate | — |
-| Load Balancer | Application LB | — |
+| Load Balancer | Application LB | WebSocket + HTTP |
 | CDN | Amazon CloudFront | Web UI |
 | Infrastructure | AWS CDK | 2.177 |
 | CI/CD | AWS CodePipeline | CDK Pipelines |
