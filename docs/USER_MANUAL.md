@@ -2,7 +2,7 @@
 
 ## What is HomeAgent?
 
-HomeAgent is a family AI assistant app. Each family member has their own account and can chat with an AI assistant powered by Claude. Conversations are private — each person can only see their own chats. The assistant can be extended with specialized agents (health advisor, meal planner, etc.) that members can enable for themselves.
+HomeAgent is a family AI assistant app. Each family member has their own account and can chat with an AI assistant powered by Claude. You can send text messages, attach images for the assistant to analyze, and use voice mode for hands-free conversation. Conversations are private — each person can only see their own chats. The assistant can be extended with specialized agents (health advisor, meal planner, etc.) that members can enable for themselves.
 
 ---
 
@@ -45,6 +45,34 @@ Your account is now created. You won't need to register again — the app rememb
 3. Type a new message to continue the conversation
 
 The assistant remembers the context of your conversation (up to the last 50 messages).
+
+### Sending Images
+
+You can attach images for the assistant to see and analyze (e.g., a photo of a meal, a document, a rash).
+
+1. In a chat, tap the **+** button next to the text input
+2. Select one or more images from your photo library (up to 5 per message)
+3. Selected images appear as thumbnails above the input field
+4. Tap the **X** on any thumbnail to remove it
+5. Type an optional message and tap **Send**
+
+The assistant will describe and respond to the image content. You can send images with or without accompanying text.
+
+**Limits:** Up to 5 images per message, each up to 5 MB. Supported formats: JPEG, PNG, GIF, WebP.
+
+### Using Voice Mode
+
+Voice mode lets you have a spoken conversation with the assistant.
+
+1. In a chat, tap the **microphone** button (right of the Send button)
+2. Wait for the connection (status changes from "Connecting..." to "Tap to speak")
+3. Tap the blue **MIC** button to start recording
+4. Speak your question, then tap **STOP**
+5. The assistant will respond with audio — you'll hear the reply through your speaker
+6. Transcripts of both your speech and the assistant's response appear on screen
+7. Tap **Back to Chat** to return to the text chat
+
+When you provide a conversation ID, voice transcripts are saved to that conversation's history so you can refer back to them later.
 
 ### Deleting a Chat
 
@@ -103,6 +131,8 @@ Tap the gear icon to access settings:
 ## Tips
 
 - **Be specific** — The more context you give the assistant, the better the response.
+- **Use images** — Attach a photo when words aren't enough (e.g., "What plant is this?").
+- **Try voice mode** — Use the mic button for hands-free conversation while cooking, exercising, etc.
 - **Conversations are private** — No one else can see your chats, not even the admin.
 - **New conversations for new topics** — Start a new chat when switching subjects.
 - **Enable relevant agents** — Turn on agents in My Agents to get specialized help.
@@ -175,6 +205,8 @@ If you log out or lose your device, you'll need a new invite code from the admin
 - All conversations are stored in Amazon DynamoDB (encrypted at rest)
 - Conversations are private to each user
 - Messages are sent to Amazon Bedrock (Claude) for AI responses
+- Images you attach are uploaded to Amazon S3 (encrypted) and sent to Claude for analysis
+- Voice audio is streamed to Amazon Nova Sonic for speech-to-text and text-to-speech
 - Health documents are stored in Amazon S3 (encrypted)
 - No data is shared with third parties
 - The admin cannot read other users' conversations

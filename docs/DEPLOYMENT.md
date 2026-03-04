@@ -17,8 +17,10 @@
 1. Open the [Amazon Bedrock console](https://console.aws.amazon.com/bedrock/)
 2. Go to **Model access** in the left sidebar
 3. Click **Manage model access**
-4. Enable **Anthropic → Claude Opus 4.6**
-5. Submit and wait for access to be granted
+4. Enable **Anthropic → Claude Opus 4.6** (text chat)
+5. Enable **Amazon → Nova Sonic** (voice mode — optional, only if `VOICE_ENABLED=true`)
+6. Enable **Anthropic → Claude Haiku 4.5** (health extraction — optional)
+7. Submit and wait for access to be granted
 
 ### 1.2 Create CodeStar Connection to GitHub
 
@@ -69,7 +71,7 @@ cdk deploy HomeAgentPipeline
 
 This creates the CodePipeline and all application stacks:
 - **NetworkStack** — VPC with public/private subnets
-- **DataStack** — 13 DynamoDB tables + S3 bucket
+- **DataStack** — 14 DynamoDB tables + S3 bucket
 - **SecurityStack** — ECR repository + IAM task role
 - **ServiceStack** — ECS Fargate cluster, task, ALB
 
@@ -165,9 +167,17 @@ Commit and push — the pipeline will automatically pick up the change on the ne
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AWS_REGION` | `us-east-1` | AWS region for Bedrock and DynamoDB |
-| `BEDROCK_MODEL_ID` | `us.anthropic.claude-opus-4-6-v1` | Claude model to use |
+| `BEDROCK_MODEL_ID` | `us.anthropic.claude-opus-4-6-v1` | Claude model for text chat |
 | `SYSTEM_PROMPT` | Family assistant persona | System prompt sent to Claude |
 | `ADMIN_INVITE_CODE` | `FAMILY` | Pre-seeded invite code for the first admin user |
+| `USE_AGENT_ORCHESTRATOR` | `false` | Enable Strands Agent orchestrator for sub-agent tools |
+| `AGENTCORE_MEMORY_ID` | — | AgentCore memory ID for conversation memory |
+| `S3_HEALTH_DOCUMENTS_BUCKET` | (from CDK) | S3 bucket for health docs and chat media |
+| `CHAT_MEDIA_MAX_SIZE` | `5242880` | Max image upload size in bytes (5 MB) |
+| `HEALTH_EXTRACTION_ENABLED` | `true` | Enable AI extraction of health observations from chats |
+| `HEALTH_EXTRACTION_MODEL_ID` | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | Model for health extraction |
+| `VOICE_ENABLED` | `false` | Enable the `/api/voice` WebSocket endpoint |
+| `VOICE_MODEL_ID` | `amazon.nova-sonic-v1:0` | Amazon Nova Sonic model for voice mode |
 
 To change these, edit `service_stack.py` and push — the pipeline will update ECS.
 
@@ -187,7 +197,7 @@ The pipeline deploys these stacks in order:
 | Stack | Resources | Dependencies |
 |-------|-----------|-------------|
 | `Deploy-Network` | VPC, subnets, NAT Gateway | — |
-| `Deploy-Data` | 13 DynamoDB tables, S3 bucket | — |
+| `Deploy-Data` | 14 DynamoDB tables, S3 bucket | — |
 | `Deploy-Security` | ECR repo, IAM task role | Data (table ARNs) |
 | `Deploy-Service` | ECS cluster, task, ALB, auto-scaling | Network, Security |
 
@@ -334,7 +344,7 @@ cdk destroy Deploy-Service Deploy-Security Deploy-Data Deploy-Network
 ```bash
 for t in Users Devices InviteCodes Conversations Messages MemberProfiles \
        AgentConfigs AgentTemplates FamilyRelationships HealthRecords \
-       HealthObservations HealthAuditLog HealthDocuments; do
+       HealthObservations HealthAuditLog HealthDocuments ChatMedia; do
   aws dynamodb delete-table --table-name $t
 done
 ```

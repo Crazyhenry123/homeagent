@@ -1,7 +1,7 @@
 # Family AI Agent (homeagent)
 
 ## Project Overview
-Family AI agent app — family members chat with Claude (via Amazon Bedrock) through a mobile app. Backend runs on ECS Fargate with Flask, data in DynamoDB, infra managed with AWS CDK.
+Family AI agent app — family members chat with Claude (via Amazon Bedrock) through a mobile app. Supports text chat (SSE streaming), image attachments (S3 presigned uploads), and voice mode (WebSocket with Amazon Nova Sonic). Backend runs on ECS Fargate with Flask, data in DynamoDB (14 tables), infra managed with AWS CDK.
 
 ## Monorepo Structure
 - `backend/` — Flask API (Python 3.12)
@@ -31,15 +31,18 @@ Family AI agent app — family members chat with Claude (via Amazon Bedrock) thr
 ### API
 - All endpoints prefixed with `/api/`
 - Auth via `Authorization: Bearer <device_token>` header
-- SSE streaming for chat responses (`text/event-stream`)
+- SSE streaming for text chat responses (`text/event-stream`)
+- WebSocket for voice mode (`/api/voice?token=<token>`)
+- Image uploads via S3 presigned PUT URLs (`POST /api/chat/upload-image`)
 - Pagination via cursor-based `?limit=N&cursor=X`
 
 ### Infrastructure
 - CDK Python, one stack per concern (network, data, security, service, webui, pipeline)
 - CDK Pipelines self-mutating pattern for CI/CD
-- DynamoDB on-demand billing, tables created by CDK (cloud) or auto-init (local)
-- ECS Fargate with ALB, 300s idle timeout for SSE
+- DynamoDB on-demand billing (14 tables), tables created by CDK (cloud) or auto-init (local)
+- ECS Fargate with ALB, 300s idle timeout for SSE and WebSocket
 - ECR repository `homeagent-backend` for Docker images
+- S3 for health documents + chat media images (shared bucket, separate prefixes)
 - S3 + CloudFront for debug web UI static hosting
 
 ## CI/CD Pipeline (AWS CodePipeline)
@@ -94,3 +97,21 @@ python -m http.server 8080 -d webui
 - `BEDROCK_MODEL_ID` — Claude model ID (default: us.anthropic.claude-opus-4-6-v1)
 - `SYSTEM_PROMPT` — System prompt for Claude
 - `ADMIN_INVITE_CODE` — Pre-seeded invite code for first admin
+- `USE_AGENT_ORCHESTRATOR` — Enable Strands Agent orchestrator (default: false)
+- `AGENTCORE_MEMORY_ID` — AgentCore memory ID for conversation memory
+- `S3_HEALTH_DOCUMENTS_BUCKET` — S3 bucket for health docs and chat media images
+- `S3_ENDPOINT` — S3 endpoint override (local dev only)
+- `CHAT_MEDIA_MAX_SIZE` — Max image upload size in bytes (default: 5MB)
+- `HEALTH_EXTRACTION_ENABLED` — Enable AI health extraction from chats (default: true)
+- `HEALTH_EXTRACTION_MODEL_ID` — Model for health extraction (default: claude-haiku)
+- `VOICE_ENABLED` — Enable voice mode WebSocket endpoint (default: false)
+- `VOICE_MODEL_ID` — Nova Sonic model ID (default: amazon.nova-sonic-v1:0)
+
+## Key Features
+- **Text Chat** — SSE streaming with Claude via Bedrock `converse_stream`
+- **Image Attachments** — Up to 5 images per message via S3 presigned upload
+- **Voice Mode** — Bidirectional WebSocket audio with Amazon Nova Sonic
+- **Agent System** — Pluggable sub-agents via Strands SDK (built-in + custom)
+- **Health Management** — Records, observations, documents, reports, AI extraction, audit trail
+- **Family Tree** — Relationship tracking with context injection into system prompt
+- **Profiles** — Per-member personalization (name, role, interests, health notes)
