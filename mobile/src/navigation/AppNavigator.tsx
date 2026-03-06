@@ -40,9 +40,22 @@ export function AppNavigator() {
   const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
 
   useEffect(() => {
-    getToken().then(token => {
+    async function checkAuth() {
+      // Check for Cognito token first, then device token
+      try {
+        const {getCognitoAccessToken} = await import('../services/cognitoAuth');
+        const cognitoToken = await getCognitoAccessToken();
+        if (cognitoToken) {
+          setInitialRoute('Chat');
+          return;
+        }
+      } catch {
+        // cognitoAuth module not available
+      }
+      const token = await getToken();
       setInitialRoute(token ? 'Chat' : 'Register');
-    });
+    }
+    checkAuth();
   }, []);
 
   // Listen for auth expiration (401 responses)

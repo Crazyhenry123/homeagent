@@ -253,6 +253,75 @@ def cancel_invite_code(code: str, user_id: str) -> bool:
     return True
 
 
+def create_owner_user(
+    email: str,
+    display_name: str,
+    cognito_sub: str,
+) -> dict:
+    """Create an owner user (family creator) in DynamoDB.
+
+    Returns dict with user_id.
+    Raises ValueError if email is already registered.
+    """
+    users_table = get_table("Users")
+
+    # Check if email already exists
+    result = users_table.query(
+        IndexName="email-index",
+        KeyConditionExpression=Key("email").eq(email),
+        Limit=1,
+    )
+    if result.get("Items"):
+        raise ValueError("An account with this email already exists")
+
+    user_id = str(ULID())
+    now = datetime.now(timezone.utc).isoformat()
+
+    users_table.put_item(
+        Item={
+            "user_id": user_id,
+            "name": display_name,
+            "email": email,
+            "cognito_sub": cognito_sub,
+            "role": "owner",
+            "created_at": now,
+        }
+    )
+
+    # Create default member profile
+    create_profile(
+        user_id=user_id,
+        display_name=display_name,
+        role="owner",
+    )
+
+    return {"user_id": user_id}
+
+
+def get_user_by_email(email: str) -> dict | None:
+    """Look up a user by email using the email-index GSI."""
+    users_table = get_table("Users")
+    result = users_table.query(
+        IndexName="email-index",
+        KeyConditionExpression=Key("email").eq(email),
+        Limit=1,
+    )
+    items = result.get("Items", [])
+    return items[0] if items else None
+
+
+def get_user_by_cognito_sub(cognito_sub: str) -> dict | None:
+    """Look up a user by cognito_sub using the cognito_sub-index GSI."""
+    users_table = get_table("Users")
+    result = users_table.query(
+        IndexName="cognito_sub-index",
+        KeyConditionExpression=Key("cognito_sub").eq(cognito_sub),
+        Limit=1,
+    )
+    items = result.get("Items", [])
+    return items[0] if items else None
+
+
 def delete_member(user_id: str) -> None:
     """Delete a member and all associated data across tables.
 

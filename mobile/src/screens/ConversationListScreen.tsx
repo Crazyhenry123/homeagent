@@ -2,11 +2,13 @@ import React, {useCallback, useEffect, useLayoutEffect, useState} from 'react';
 import {
   Alert,
   FlatList,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {ConversationItem} from '../components/ConversationItem';
 import {deleteConversation, getConversations} from '../services/api';
@@ -16,6 +18,7 @@ import type {RootStackParamList} from '../navigation/AppNavigator';
 type Props = NativeStackScreenProps<RootStackParamList, 'ConversationList'>;
 
 export function ConversationListScreen({navigation}: Props) {
+  const insets = useSafeAreaInsets();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -97,7 +100,12 @@ export function ConversationListScreen({navigation}: Props) {
           ) : null
         }
       />
-      <TouchableOpacity style={styles.fab} onPress={handleNewChat}>
+      <TouchableOpacity
+        style={[
+          styles.fab,
+          {bottom: Platform.OS === 'ios' ? insets.bottom + 12 : 30},
+        ]}
+        onPress={handleNewChat}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
     </View>
@@ -131,7 +139,6 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 30,
     width: 56,
     height: 56,
     borderRadius: 28,
