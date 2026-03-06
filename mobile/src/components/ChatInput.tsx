@@ -1,6 +1,7 @@
 import React, {useState, useCallback, useRef} from 'react';
 import {
   Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -8,6 +9,7 @@ import {
   View,
   Text,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Audio} from 'expo-av';
 import {getInfoAsync} from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
@@ -22,6 +24,7 @@ interface Props {
 }
 
 export function ChatInput({onSend, disabled}: Props) {
+  const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState<ChatMediaUpload[]>([]);
   const [recording, setRecording] = useState(false);
@@ -133,8 +136,13 @@ export function ChatInput({onSend, disabled}: Props) {
 
   const canSend = (text.trim().length > 0 || attachments.length > 0) && !disabled;
 
+  // On iOS, add safe area bottom inset + extra padding for thumb reach.
+  // On Android, just add a reasonable default padding.
+  const bottomPadding =
+    Platform.OS === 'ios' ? insets.bottom + 12 : 20;
+
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, {paddingBottom: bottomPadding}]}>
       {attachments.length > 0 && (
         <ScrollView
           horizontal
@@ -230,9 +238,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   attachButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#E9E9EB',
     justifyContent: 'center',
     alignItems: 'center',
@@ -263,8 +271,8 @@ const styles = StyleSheet.create({
   sendButton: {
     marginLeft: 8,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 18,
+    minHeight: 44,
+    borderRadius: 22,
     backgroundColor: '#007AFF',
     justifyContent: 'center',
   },
