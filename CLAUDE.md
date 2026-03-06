@@ -9,6 +9,12 @@ Family AI agent app — family members chat with Claude (via Amazon Bedrock) thr
 - `webui/` — Debug web console (static HTML/CSS/JS, hosted on S3+CloudFront)
 - `infra/` — AWS CDK stacks (Python)
 
+## Git Workflow
+- **ALWAYS create a new branch for every feature** before making changes. Branch from `main`.
+- Branch naming: `feature/<short-description>` (e.g., `feature/cognito-auth`, `feature/logistics-agent`)
+- Never commit directly to `main` or `master`. Each feature branch gets its own PR.
+- This prevents merge conflicts when multiple features are developed in parallel.
+
 ## Conventions
 
 ### Python (backend + infra)
