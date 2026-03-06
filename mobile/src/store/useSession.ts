@@ -62,6 +62,7 @@ export function useSession(): UseSessionReturn {
           agents: {
             available: data.agents.available,
             myConfigs: data.agents.my_configs,
+            agentTypes: data.agents.agent_types ?? {},
           },
           permissions: data.permissions,
           conversations: {

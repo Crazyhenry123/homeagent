@@ -29,7 +29,7 @@
       ]
     },
     "extra": {
-      "apiBaseUrl": "",
+      "apiBaseUrl": "https://agreements-biblical-symantec-mixture.trycloudflare.com",
       "eas": {
         "projectId": "a975d8e6-c9bb-4bd9-97a7-b5d601d5fd03"
       }

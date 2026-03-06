@@ -64,8 +64,6 @@ def enable_my_agent(agent_type: str):
 @member_agent_bp.route("/agents/my/<agent_type>", methods=["DELETE"])
 @require_auth
 def disable_my_agent(agent_type: str):
-    """Member disables one of their agents."""
-    deleted = delete_agent_config(g.user_id, agent_type)
-    if not deleted:
-        return jsonify({"error": "Agent config not found"}), 404
-    return jsonify({"success": True})
+    """Member disables one of their agents (sets enabled=false, keeps config)."""
+    result = put_agent_config(g.user_id, agent_type, enabled=False)
+    return jsonify(result)

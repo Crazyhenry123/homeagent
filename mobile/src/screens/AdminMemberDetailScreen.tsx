@@ -15,25 +15,22 @@ import {
   deleteAgentConfig,
   deleteMember,
   getAgentConfigs,
-  getAgentTypes,
   getProfile,
   putAgentConfig,
   updateProfile,
 } from '../services/api';
 import {useSession} from '../store';
 import type {RootStackParamList} from '../navigation/AppNavigator';
-import type {AgentConfig, AgentTypeInfo, MemberProfile} from '../types';
+import type {AgentConfig, MemberProfile} from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AdminMemberDetail'>;
 
 export function AdminMemberDetailScreen({route, navigation}: Props) {
   const {userId} = route.params;
   const {session} = useSession();
+  const agentTypes = session.agents.agentTypes;
   const [profile, setProfile] = useState<MemberProfile | null>(null);
   const [agentConfigs, setAgentConfigs] = useState<AgentConfig[]>([]);
-  const [agentTypes, setAgentTypes] = useState<Record<string, AgentTypeInfo>>(
-    {},
-  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -47,14 +44,12 @@ export function AdminMemberDetailScreen({route, navigation}: Props) {
     Promise.all([
       getProfile(userId),
       getAgentConfigs(userId),
-      getAgentTypes(),
     ])
-      .then(([p, configs, types]) => {
+      .then(([p, configs]) => {
         setProfile(p);
         setFamilyRole(p.family_role);
         setHealthNotes(p.health_notes);
         setAgentConfigs(configs.agent_configs);
-        setAgentTypes(types.agent_types);
       })
       .catch(err =>
         Alert.alert(
@@ -215,19 +210,15 @@ export function AdminMemberDetailScreen({route, navigation}: Props) {
           <View style={styles.agentInfo}>
             <Text style={styles.agentName}>{info.name}</Text>
             <Text style={styles.agentDescription}>{info.description}</Text>
-            {!info.implemented && (
-              <Text style={styles.agentNotReady}>Coming soon</Text>
-            )}
           </View>
           <Switch
             value={isAgentEnabled(type)}
             onValueChange={value => handleToggleAgent(type, value)}
-            disabled={!info.implemented}
           />
         </View>
       ))}
 
-      {profile?.role !== 'admin' && (
+      {userId !== session.user?.userId && (
         <>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionHeaderText}>DANGER ZONE</Text>

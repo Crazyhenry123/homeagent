@@ -74,11 +74,6 @@ export function SettingsScreen({navigation}: Props) {
             <Text style={styles.sectionHeaderText}>ADMIN</Text>
           </View>
           <TouchableOpacity
-            style={styles.actionRow}
-            onPress={() => navigation.navigate('FamilyManage')}>
-            <Text style={styles.actionText}>Manage Family</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
             style={styles.adminPanelButton}
             onPress={() => navigation.navigate('AdminPanel')}>
             <Text style={styles.adminPanelButtonText}>Open Admin Panel</Text>

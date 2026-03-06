@@ -1,5 +1,6 @@
 import React, {createContext, useContext, useMemo, useReducer} from 'react';
 import type {
+  AgentTypeInfo,
   AvailableAgent,
   AgentConfig,
   Conversation,
@@ -29,6 +30,7 @@ export interface SessionState {
   agents: {
     available: AvailableAgent[];
     myConfigs: AgentConfig[];
+    agentTypes: Record<string, AgentTypeInfo>;
   };
   permissions: PermissionGrant[];
   conversations: {
@@ -46,6 +48,7 @@ const initialState: SessionState = {
   agents: {
     available: [],
     myConfigs: [],
+    agentTypes: {},
   },
   permissions: [],
   conversations: {
@@ -64,7 +67,7 @@ type SessionAction =
         user: SessionUser;
         profile: MemberProfile | null;
         family: {info: Family; members: FamilyMember[]} | null;
-        agents: {available: AvailableAgent[]; myConfigs: AgentConfig[]};
+        agents: {available: AvailableAgent[]; myConfigs: AgentConfig[]; agentTypes: Record<string, AgentTypeInfo>};
         permissions: PermissionGrant[];
         conversations: {items: Conversation[]; nextCursor?: string};
       };
@@ -110,7 +113,7 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
       return {...state, family: action.payload};
 
     case 'UPDATE_AGENTS':
-      return {...state, agents: action.payload};
+      return {...state, agents: {...state.agents, ...action.payload}};
 
     case 'UPDATE_PERMISSIONS':
       return {...state, permissions: action.payload};

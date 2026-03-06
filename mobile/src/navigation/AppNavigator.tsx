@@ -1,5 +1,5 @@
 import React, {useEffect, useRef} from 'react';
-import {ActivityIndicator, Alert, View} from 'react-native';
+import {ActivityIndicator, Alert, StyleSheet, Text, View} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import type {NavigationContainerRef} from '@react-navigation/native';
@@ -66,8 +66,9 @@ function AppContent() {
 
   if (session.status === 'loading') {
     return (
-      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-        <ActivityIndicator size="large" />
+      <View style={styles.splash}>
+        <Text style={styles.splashTitle}>HomeAgent</Text>
+        <ActivityIndicator size="large" color="#007AFF" />
       </View>
     );
   }
@@ -147,6 +148,21 @@ function AppContent() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  splash: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  splashTitle: {
+    fontSize: 28,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 20,
+  },
+});
 
 export function AppNavigator() {
   return (

@@ -289,6 +289,7 @@ export interface SessionBootstrapResponse {
   agents: {
     available: AvailableAgent[];
     my_configs: AgentConfig[];
+    agent_types: Record<string, AgentTypeInfo>;
   };
   permissions: PermissionGrant[];
   conversations: {

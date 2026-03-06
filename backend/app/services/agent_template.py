@@ -77,26 +77,40 @@ def seed_builtin_templates(app) -> None:
             Limit=1,
         )
         if result.get("Items"):
+            # Clean up duplicates: keep only the first, delete the rest
+            all_for_type = table.query(
+                IndexName="agent_type-index",
+                KeyConditionExpression="agent_type = :at",
+                ExpressionAttributeValues={":at": agent_type},
+            ).get("Items", [])
+            if len(all_for_type) > 1:
+                for dup in all_for_type[1:]:
+                    table.delete_item(Key={"template_id": dup["template_id"]})
             continue
 
-        template_id = str(ULID())
-        table.put_item(
-            Item={
-                "template_id": template_id,
-                "agent_type": agent_type,
-                "name": info["name"],
-                "description": info["description"],
-                "system_prompt": info["system_prompt"],
-                "default_config": info["default_config"],
-                "required_permissions": info.get("required_permissions", []),
-                "is_default": info.get("is_default", False),
+        # Use a deterministic template_id to prevent race condition duplicates
+        template_id = f"builtin-{agent_type}"
+        try:
+            table.put_item(
+                Item={
+                    "template_id": template_id,
+                    "agent_type": agent_type,
+                    "name": info["name"],
+                    "description": info["description"],
+                    "system_prompt": info["system_prompt"],
+                    "default_config": info["default_config"],
+                    "required_permissions": info.get("required_permissions", []),
+                    "is_default": info.get("is_default", False),
                 "is_builtin": True,
                 "available_to": "all",
                 "created_by": "system",
                 "created_at": now,
                 "updated_at": now,
-            }
-        )
+                },
+                ConditionExpression="attribute_not_exists(template_id)",
+            )
+        except Exception:
+            pass  # Already exists (race condition with another worker)
 
 
 def list_templates() -> list[dict]:

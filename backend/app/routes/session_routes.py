@@ -11,7 +11,7 @@ from flask import Blueprint, Response, g, jsonify
 
 from app.auth import require_auth
 from app.models.dynamo import get_table
-from app.services.agent_config import get_agent_configs
+from app.services.agent_config import get_agent_configs, get_available_agent_types
 from app.services.agent_template import get_available_templates
 from app.services.conversation import list_conversations
 from app.services.family import get_family, get_family_members, get_user_family_id
@@ -72,7 +72,7 @@ def get_session() -> tuple[Response, int] | Response:
         except Exception:
             logger.warning("Failed to load family data for user %s", user_id)
 
-        # 4. Agents — available templates + user's configs
+        # 4. Agents — available templates + user's configs + type definitions
         available = get_available_templates(user_id)
         configs = get_agent_configs(user_id)
         enabled_types = {
@@ -82,6 +82,11 @@ def get_session() -> tuple[Response, int] | Response:
             {**t, "enabled": t["agent_type"] in enabled_types}
             for t in available
         ]
+
+        # Include agent type definitions for admin screens
+        agent_types = {}
+        if g.user_role in ("admin", "owner"):
+            agent_types = get_available_agent_types()
 
         # 5. Permissions
         permissions = get_active_permissions(user_id)
@@ -96,6 +101,7 @@ def get_session() -> tuple[Response, int] | Response:
             "agents": {
                 "available": available_with_status,
                 "my_configs": configs,
+                "agent_types": agent_types,
             },
             "permissions": permissions,
             "conversations": {

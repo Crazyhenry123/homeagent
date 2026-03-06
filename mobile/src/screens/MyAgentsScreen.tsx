@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -33,13 +33,44 @@ export function MyAgentsScreen({navigation}: Props) {
   const {session, actions} = useSession();
   const [toggling, setToggling] = useState<string | null>(null);
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   // Local copy of permissions for optimistic UI updates on toggle
   const [localPermissionOverrides, setLocalPermissionOverrides] = useState<
     Record<string, 'active' | 'revoked'>
   >({});
 
-  const agents = session.agents.available;
+  // Auto-refresh agents when screen comes into focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      actions.refreshAgents().catch(() => {});
+    });
+    return unsubscribe;
+  }, [navigation, actions]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await actions.refreshAgents();
+    } catch {
+      // ignore
+    } finally {
+      setRefreshing(false);
+    }
+  }, [actions]);
+
+  const allAgents = session.agents.available;
+  const myConfigs = session.agents.myConfigs;
   const permissions = session.permissions;
+
+  // Only show agents that admin has authorized (have an AgentConfig record)
+  const authorizedTypes = useMemo(
+    () => new Set(myConfigs.map(c => c.agent_type)),
+    [myConfigs],
+  );
+  const agents = useMemo(
+    () => allAgents.filter(a => authorizedTypes.has(a.agent_type)),
+    [allAgents, authorizedTypes],
+  );
 
   const grantedPermissionTypes = useMemo(() => {
     const set = new Set<string>();
@@ -213,11 +244,13 @@ export function MyAgentsScreen({navigation}: Props) {
         data={agents}
         keyExtractor={item => item.template_id}
         renderItem={renderAgent}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>No Agents Available</Text>
+            <Text style={styles.emptyTitle}>No Agents Authorized</Text>
             <Text style={styles.emptyText}>
-              Your admin hasn't made any agents available to you yet.
+              Your family admin hasn't authorized any agents for you yet. Ask them to enable agents in your member settings.
             </Text>
           </View>
         }
