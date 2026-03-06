@@ -286,7 +286,7 @@ export async function getRequiredPermissions(
   agentType: string,
 ): Promise<RequiredPermissionsResponse> {
   return request<RequiredPermissionsResponse>(
-    `/api/permissions/required/${agentType}`,
+    `/api/permissions/agent-required/${agentType}`,
   );
 }
 

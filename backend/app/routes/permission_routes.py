@@ -3,6 +3,8 @@
 Members can view/grant/revoke their own data access permissions.
 """
 
+import decimal
+
 from flask import Blueprint, g, jsonify, request
 
 from app.auth import require_auth
@@ -17,12 +19,23 @@ from app.services.member_permissions import (
 permission_bp = Blueprint("permissions", __name__)
 
 
+def _convert_decimals(obj):
+    """Convert DynamoDB Decimal values to native Python types."""
+    if isinstance(obj, list):
+        return [_convert_decimals(i) for i in obj]
+    elif isinstance(obj, dict):
+        return {k: _convert_decimals(v) for k, v in obj.items()}
+    elif isinstance(obj, decimal.Decimal):
+        return int(obj) if obj == int(obj) else float(obj)
+    return obj
+
+
 @permission_bp.route("/permissions", methods=["GET"])
 @require_auth
 def get_my_permissions():
     """Get all active permissions for the authenticated user."""
     permissions = get_active_permissions(g.user_id)
-    return jsonify({"permissions": permissions})
+    return jsonify({"permissions": [_convert_decimals(p) for p in permissions]})
 
 
 @permission_bp.route("/permissions/<permission_type>", methods=["PUT"])
@@ -41,7 +54,7 @@ def grant_my_permission(permission_type: str):
         config=config,
         granted_by=g.user_id,
     )
-    return jsonify(result)
+    return jsonify(_convert_decimals(result))
 
 
 @permission_bp.route("/permissions/<permission_type>", methods=["DELETE"])
@@ -58,7 +71,7 @@ def revoke_my_permission(permission_type: str):
     return jsonify({"success": True})
 
 
-@permission_bp.route("/permissions/required/<agent_type>", methods=["GET"])
+@permission_bp.route("/permissions/agent-required/<agent_type>", methods=["GET"])
 @require_auth
 def get_required_permissions(agent_type: str):
     """Get required permissions for an agent type."""

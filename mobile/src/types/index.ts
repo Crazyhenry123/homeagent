@@ -99,6 +99,8 @@ export interface AgentTypeInfo {
   description: string;
   default_config: Record<string, unknown>;
   implemented: boolean;
+  required_permissions?: PermissionType[];
+  is_default?: boolean;
 }
 
 export interface AgentTypesResponse {

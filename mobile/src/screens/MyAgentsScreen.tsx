@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import type {NativeStackScreenProps} from '@react-navigation/native-stack';
+import type {RootStackParamList} from '../navigation/AppNavigator';
 import type {AvailableAgent, PermissionGrant} from '../types';
 import {
   disableMyAgent,
@@ -26,7 +28,9 @@ const PERMISSION_LABELS: Record<string, string> = {
   medical_records: 'Medical Records Access',
 };
 
-export function MyAgentsScreen() {
+type Props = NativeStackScreenProps<RootStackParamList, 'MyAgents'>;
+
+export function MyAgentsScreen({navigation}: Props) {
   const [agents, setAgents] = useState<AvailableAgent[]>([]);
   const [permissions, setPermissions] = useState<PermissionGrant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,8 +104,18 @@ export function MyAgentsScreen() {
           ),
         );
       } else {
+        if (permissionType === 'email_access') {
+          Alert.alert(
+            'Setup Required',
+            'Please configure your email in Agent Setup to enable email access.',
+            [
+              {text: 'Go to Setup', onPress: () => navigation.navigate('AgentSetup')},
+              {text: 'Cancel'},
+            ],
+          );
+          return;
+        }
         const defaultConfigs: Record<string, Record<string, unknown>> = {
-          email_access: {email_address: '', provider: 'gmail'},
           calendar_access: {calendar_id: 'default', provider: 'gmail'},
           health_data: {consent_given: true, data_sources: ['healthkit']},
           medical_records: {folder_path: '/health-documents', s3_prefix: 'health-documents/'},

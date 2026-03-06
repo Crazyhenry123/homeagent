@@ -8,6 +8,8 @@ and configuration.
 
 from datetime import datetime, timezone
 
+from boto3.dynamodb.conditions import Key
+
 from app.models.dynamo import get_table
 
 VALID_PERMISSION_TYPES = {
@@ -80,8 +82,7 @@ def get_permissions(user_id: str) -> list[dict]:
     """Get all permissions for a user (including revoked)."""
     table = get_table("MemberPermissions")
     result = table.query(
-        KeyConditionExpression="user_id = :uid",
-        ExpressionAttributeValues={":uid": user_id},
+        KeyConditionExpression=Key("user_id").eq(user_id),
     )
     return result.get("Items", [])
 
@@ -108,16 +109,23 @@ def check_permission(user_id: str, permission_type: str) -> bool:
 def delete_all_permissions(user_id: str) -> None:
     """Delete all permissions for a user. Used during member deletion."""
     table = get_table("MemberPermissions")
-    result = table.query(
-        KeyConditionExpression="user_id = :uid",
-        ExpressionAttributeValues={":uid": user_id},
-        ProjectionExpression="user_id, permission_type",
-    )
-    with table.batch_writer() as batch:
-        for item in result.get("Items", []):
-            batch.delete_item(
-                Key={
-                    "user_id": item["user_id"],
-                    "permission_type": item["permission_type"],
-                }
-            )
+    last_key = None
+    while True:
+        kwargs = {
+            "KeyConditionExpression": Key("user_id").eq(user_id),
+            "ProjectionExpression": "user_id, permission_type",
+        }
+        if last_key:
+            kwargs["ExclusiveStartKey"] = last_key
+        result = table.query(**kwargs)
+        with table.batch_writer() as batch:
+            for item in result.get("Items", []):
+                batch.delete_item(
+                    Key={
+                        "user_id": item["user_id"],
+                        "permission_type": item["permission_type"],
+                    }
+                )
+        last_key = result.get("LastEvaluatedKey")
+        if not last_key:
+            break

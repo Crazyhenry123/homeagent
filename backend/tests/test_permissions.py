@@ -211,7 +211,7 @@ class TestPermissionRequirements:
         member_token, _ = _register_member(client, admin_token)
 
         resp = client.get(
-            "/api/permissions/required/health_advisor",
+            "/api/permissions/agent-required/health_advisor",
             headers={"Authorization": f"Bearer {member_token}"},
         )
         assert resp.status_code == 200
@@ -224,7 +224,7 @@ class TestPermissionRequirements:
         member_token, _ = _register_member(client, admin_token)
 
         resp = client.get(
-            "/api/permissions/required/logistics_assistant",
+            "/api/permissions/agent-required/logistics_assistant",
             headers={"Authorization": f"Bearer {member_token}"},
         )
         assert resp.status_code == 200
@@ -237,7 +237,7 @@ class TestPermissionRequirements:
         member_token, _ = _register_member(client, admin_token)
 
         resp = client.get(
-            "/api/permissions/required/nonexistent_agent",
+            "/api/permissions/agent-required/nonexistent_agent",
             headers={"Authorization": f"Bearer {member_token}"},
         )
         assert resp.status_code == 404
