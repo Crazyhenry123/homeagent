@@ -66,6 +66,18 @@ export function AdminPanelScreen({navigation}: Props) {
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.actionRow}
+        onPress={() => navigation.navigate('FamilyManage')}>
+        <View style={styles.actionRowContent}>
+          <Text style={styles.actionIcon}>🏠</Text>
+          <View style={styles.actionInfo}>
+            <Text style={styles.actionText}>Family & Invites</Text>
+            <Text style={styles.actionSubtext}>Manage family members and send invites</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </View>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.actionRow}
         onPress={handleGenerateInviteCode}
         disabled={generatingCode}>
         <View style={styles.actionRowContent}>

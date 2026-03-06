@@ -32,7 +32,45 @@ TABLE_DEFINITIONS = {
     },
     "InviteCodes": {
         "KeySchema": [{"AttributeName": "code", "KeyType": "HASH"}],
-        "AttributeDefinitions": [{"AttributeName": "code", "AttributeType": "S"}],
+        "AttributeDefinitions": [
+            {"AttributeName": "code", "AttributeType": "S"},
+            {"AttributeName": "invited_email", "AttributeType": "S"},
+        ],
+        "GlobalSecondaryIndexes": [
+            {
+                "IndexName": "invited_email-index",
+                "KeySchema": [
+                    {"AttributeName": "invited_email", "KeyType": "HASH"},
+                ],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+        ],
+    },
+    "Families": {
+        "KeySchema": [{"AttributeName": "family_id", "KeyType": "HASH"}],
+        "AttributeDefinitions": [
+            {"AttributeName": "family_id", "AttributeType": "S"},
+            {"AttributeName": "owner_user_id", "AttributeType": "S"},
+        ],
+        "GlobalSecondaryIndexes": [
+            {
+                "IndexName": "owner-index",
+                "KeySchema": [
+                    {"AttributeName": "owner_user_id", "KeyType": "HASH"},
+                ],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+        ],
+    },
+    "FamilyMembers": {
+        "KeySchema": [
+            {"AttributeName": "family_id", "KeyType": "HASH"},
+            {"AttributeName": "user_id", "KeyType": "RANGE"},
+        ],
+        "AttributeDefinitions": [
+            {"AttributeName": "family_id", "AttributeType": "S"},
+            {"AttributeName": "user_id", "AttributeType": "S"},
+        ],
     },
     "Conversations": {
         "KeySchema": [{"AttributeName": "conversation_id", "KeyType": "HASH"}],

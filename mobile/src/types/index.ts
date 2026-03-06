@@ -153,3 +153,29 @@ export interface AvailableAgent extends AgentTemplate {
 export interface AvailableAgentsResponse {
   agents: AvailableAgent[];
 }
+
+export interface Family {
+  family_id: string;
+  name: string;
+  owner_user_id: string;
+  created_at: string;
+}
+
+export interface FamilyMember {
+  family_id: string;
+  user_id: string;
+  role: 'owner' | 'member';
+  joined_at: string;
+  name: string;
+}
+
+export interface FamilyInvite {
+  code: string;
+  created_by: string;
+  status: string;
+  invited_email?: string;
+  family_id?: string;
+  invite_type: 'email' | 'code';
+  expires_at: string;
+  created_at?: string;
+}
