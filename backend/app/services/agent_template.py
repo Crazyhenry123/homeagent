@@ -28,18 +28,24 @@ _BUILTIN_AGENTS = {
             "observation_tracking_enabled": True,
         },
         "system_prompt": "",
+        "required_permissions": ["health_data", "medical_records"],
+        "is_default": True,
     },
     "logistics_assistant": {
         "name": "Logistics Assistant",
         "description": "Email drafting and scheduling assistance",
         "default_config": {"draft_only": True},
         "system_prompt": "",
+        "required_permissions": ["email_access", "calendar_access"],
+        "is_default": True,
     },
     "shopping_assistant": {
         "name": "Shopping Assistant",
         "description": "Product search and recommendations",
         "default_config": {},
         "system_prompt": "",
+        "required_permissions": [],
+        "is_default": False,
     },
 }
 
@@ -82,6 +88,8 @@ def seed_builtin_templates(app) -> None:
                 "description": info["description"],
                 "system_prompt": info["system_prompt"],
                 "default_config": info["default_config"],
+                "required_permissions": info.get("required_permissions", []),
+                "is_default": info.get("is_default", False),
                 "is_builtin": True,
                 "available_to": "all",
                 "created_by": "system",
@@ -219,6 +227,15 @@ def delete_template(template_id: str) -> bool:
     table = get_table("AgentTemplates")
     table.delete_item(Key={"template_id": template_id})
     return True
+
+
+def get_default_agent_types() -> list[str]:
+    """Return agent_type slugs for all agents marked as default."""
+    return [
+        agent_type
+        for agent_type, info in _BUILTIN_AGENTS.items()
+        if info.get("is_default", False)
+    ]
 
 
 def get_available_templates(user_id: str) -> list[dict]:

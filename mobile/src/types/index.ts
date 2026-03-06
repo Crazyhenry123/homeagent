@@ -135,6 +135,8 @@ export interface AgentTemplate {
   description: string;
   system_prompt: string;
   default_config: Record<string, unknown>;
+  required_permissions: PermissionType[];
+  is_default: boolean;
   is_builtin: boolean;
   available_to: 'all' | string[];
   created_by: string;
@@ -152,4 +154,56 @@ export interface AvailableAgent extends AgentTemplate {
 
 export interface AvailableAgentsResponse {
   agents: AvailableAgent[];
+}
+
+// --- Permission Types ---
+
+export type PermissionType =
+  | 'email_access'
+  | 'calendar_access'
+  | 'health_data'
+  | 'medical_records';
+
+export interface EmailAccessConfig {
+  email_address: string;
+  provider: 'gmail' | 'outlook' | 'other';
+}
+
+export interface CalendarAccessConfig {
+  calendar_id: string;
+  provider: 'gmail' | 'outlook' | 'other';
+}
+
+export interface HealthDataConfig {
+  consent_given: boolean;
+  data_sources: string[];
+}
+
+export interface MedicalRecordsConfig {
+  folder_path: string;
+  s3_prefix: string;
+}
+
+export type PermissionConfig =
+  | EmailAccessConfig
+  | CalendarAccessConfig
+  | HealthDataConfig
+  | MedicalRecordsConfig;
+
+export interface PermissionGrant {
+  user_id: string;
+  permission_type: PermissionType;
+  config: Record<string, unknown>;
+  granted_at: string;
+  granted_by: string;
+  status: 'active' | 'revoked';
+}
+
+export interface PermissionsResponse {
+  permissions: PermissionGrant[];
+}
+
+export interface RequiredPermissionsResponse {
+  agent_type: string;
+  required_permissions: PermissionType[];
 }

@@ -12,10 +12,13 @@ import type {
   FamilyRelationshipsResponse,
   MemberProfile,
   MessageListResponse,
+  PermissionGrant,
+  PermissionsResponse,
   ProfileListResponse,
   RegisterRequest,
   RegisterResponse,
   RelationshipType,
+  RequiredPermissionsResponse,
 } from '../types';
 import {getToken} from './auth';
 import {emitAuthExpired} from './authEvents';
@@ -255,6 +258,36 @@ export async function enableMyAgent(agentType: string): Promise<AgentConfig> {
 
 export async function disableMyAgent(agentType: string): Promise<void> {
   await request(`/api/agents/my/${agentType}`, {method: 'DELETE'});
+}
+
+// --- Permission APIs ---
+
+export async function getMyPermissions(): Promise<PermissionsResponse> {
+  return request<PermissionsResponse>('/api/permissions');
+}
+
+export async function grantPermission(
+  permissionType: string,
+  config: Record<string, unknown>,
+): Promise<PermissionGrant> {
+  return request<PermissionGrant>(`/api/permissions/${permissionType}`, {
+    method: 'PUT',
+    body: JSON.stringify({config}),
+  });
+}
+
+export async function revokePermission(
+  permissionType: string,
+): Promise<void> {
+  await request(`/api/permissions/${permissionType}`, {method: 'DELETE'});
+}
+
+export async function getRequiredPermissions(
+  agentType: string,
+): Promise<RequiredPermissionsResponse> {
+  return request<RequiredPermissionsResponse>(
+    `/api/permissions/required/${agentType}`,
+  );
 }
 
 // --- WebSocket URL builder ---

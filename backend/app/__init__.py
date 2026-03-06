@@ -17,6 +17,7 @@ from app.routes.health_records import admin_health_records_bp, health_records_bp
 from app.routes.health_reports import health_reports_bp
 from app.routes.health_documents import admin_health_documents_bp
 from app.routes.member_agent_routes import member_agent_bp
+from app.routes.permission_routes import permission_bp
 from app.routes.profiles import admin_profiles_bp, profiles_bp
 from app.services.agent_template import seed_builtin_templates
 
@@ -42,6 +43,7 @@ def create_app(config: Config | None = None) -> Flask:
     app.register_blueprint(agent_config_bp, url_prefix="/api/admin")
     app.register_blueprint(agent_template_bp, url_prefix="/api/admin")
     app.register_blueprint(member_agent_bp, url_prefix="/api")
+    app.register_blueprint(permission_bp, url_prefix="/api")
     app.register_blueprint(family_tree_bp, url_prefix="/api/admin")
     app.register_blueprint(health_records_bp, url_prefix="/api")
     app.register_blueprint(admin_health_records_bp, url_prefix="/api/admin")
