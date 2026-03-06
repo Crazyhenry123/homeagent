@@ -4,7 +4,19 @@ from flask import Flask, g, current_app
 TABLE_DEFINITIONS = {
     "Users": {
         "KeySchema": [{"AttributeName": "user_id", "KeyType": "HASH"}],
-        "AttributeDefinitions": [{"AttributeName": "user_id", "AttributeType": "S"}],
+        "AttributeDefinitions": [
+            {"AttributeName": "user_id", "AttributeType": "S"},
+            {"AttributeName": "email", "AttributeType": "S"},
+        ],
+        "GlobalSecondaryIndexes": [
+            {
+                "IndexName": "email-index",
+                "KeySchema": [
+                    {"AttributeName": "email", "KeyType": "HASH"},
+                ],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+        ],
     },
     "Devices": {
         "KeySchema": [{"AttributeName": "device_id", "KeyType": "HASH"}],

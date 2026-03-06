@@ -7,15 +7,23 @@ import type {
   AgentTemplatesResponse,
   AgentTypesResponse,
   AvailableAgentsResponse,
+  ConfirmRequest,
+  ConfirmResponse,
   ConversationListResponse,
   FamilyRelationship,
   FamilyRelationshipsResponse,
+  LoginRequest,
+  LoginResponse,
   MemberProfile,
   MessageListResponse,
   ProfileListResponse,
   RegisterRequest,
   RegisterResponse,
   RelationshipType,
+  ResendCodeRequest,
+  ResendCodeResponse,
+  SignupRequest,
+  SignupResponse,
 } from '../types';
 import {getToken} from './auth';
 import {emitAuthExpired} from './authEvents';
@@ -45,12 +53,24 @@ function getBaseUrl(): string {
 export const BASE_URL = getBaseUrl();
 
 async function headers(): Promise<Record<string, string>> {
-  const token = await getToken();
+  // Prefer Cognito access token over device token
+  let authToken: string | null = null;
+  try {
+    const {getCognitoAccessToken} = await import('./cognitoAuth');
+    authToken = await getCognitoAccessToken();
+  } catch {
+    // cognitoAuth module not available, fall through
+  }
+
+  if (!authToken) {
+    authToken = await getToken();
+  }
+
   const h: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  if (token) {
-    h['Authorization'] = `Bearer ${token}`;
+  if (authToken) {
+    h['Authorization'] = `Bearer ${authToken}`;
   }
   return h;
 }
@@ -80,6 +100,44 @@ export async function register(
   data: RegisterRequest,
 ): Promise<RegisterResponse> {
   return request<RegisterResponse>('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// --- Cognito Auth APIs ---
+
+export async function cognitoSignUp(
+  data: SignupRequest,
+): Promise<SignupResponse> {
+  return request<SignupResponse>('/api/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function cognitoConfirm(
+  data: ConfirmRequest,
+): Promise<ConfirmResponse> {
+  return request<ConfirmResponse>('/api/auth/confirm', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function cognitoLogin(
+  data: LoginRequest,
+): Promise<LoginResponse> {
+  return request<LoginResponse>('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function cognitoResendCode(
+  data: ResendCodeRequest,
+): Promise<ResendCodeResponse> {
+  return request<ResendCodeResponse>('/api/auth/resend-code', {
     method: 'POST',
     body: JSON.stringify(data),
   });
