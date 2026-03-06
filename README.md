@@ -7,6 +7,7 @@ A mobile-first platform where family members chat with Claude (via Amazon Bedroc
 ## Table of Contents
 
 - [App Design and Features](#app-design-and-features)
+- [How It Works](#how-it-works)
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
@@ -106,6 +107,55 @@ Both methods are tried in sequence on each request. The `Authorization: Bearer <
 ### Debug Web Console
 
 A browser-based admin and testing tool located in `webui/`. Built as static HTML/CSS/JS (no build step), it connects to the backend API and provides a full-featured interface for testing chat, managing members, and monitoring the system. Hosted on S3 with CloudFront distribution in production.
+
+---
+
+## How It Works
+
+### App Flow Overview
+
+A family admin registers and creates the family workspace. They invite family members via codes or email. The admin authorizes which AI agents each member can use. Members then chat with Claude through the app — Claude is personalized with their profile, family context, and health history. Specialized agents (health advisor, logistics assistant) can be invoked automatically during conversations based on the topic. Members control their own data permissions, deciding what the AI can access.
+
+### Key User Flows (Brief)
+
+1. **Onboarding**
+
+```
+Admin registers → Creates family → Invites members → Authorizes agents
+```
+
+2. **Chat**
+
+```
+User types message → Backend streams to Claude → Response appears token-by-token → Health data auto-extracted
+```
+
+3. **Voice**
+
+```
+User speaks → Audio streamed via WebSocket → Nova Sonic responds in real-time
+```
+
+4. **Agent Authorization**
+
+```
+Admin enables agent for member → Member enables it for themselves → Member grants required permissions → Agent becomes available in chat
+```
+
+5. **Health Tracking**
+
+```
+Health records created manually + auto-extracted from chats → Health Advisor agent uses records during conversations → Admin generates AI health reports
+```
+
+### Design Philosophy
+
+- **Family-centric**: Shared workspace with per-member personalization and admin oversight
+- **Privacy by design**: 2-layer permission model — admin controls access, members control their data
+- **Agent extensibility**: New agents can be added at runtime without code changes
+- **Mobile-first**: Phone is the primary interface; web console for admin/debug
+
+For detailed architecture, user scenarios, and end-to-end flow diagrams, see [Architecture & Design](docs/architecture-and-design.md).
 
 ---
 
