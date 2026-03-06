@@ -3,6 +3,17 @@ import {getToken} from './auth';
 import {BASE_URL} from './api';
 import {emitAuthExpired} from './authEvents';
 
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const {getCognitoAccessToken} = await import('./cognitoAuth');
+    const cognitoToken = await getCognitoAccessToken();
+    if (cognitoToken) return cognitoToken;
+  } catch {
+    // cognitoAuth not available
+  }
+  return getToken();
+}
+
 /**
  * SSE client using XMLHttpRequest for real-time streaming in React Native.
  * React Native's fetch does not reliably support ReadableStream,
@@ -16,7 +27,7 @@ export async function streamChat(
   signal?: AbortSignal,
   media?: string[],
 ): Promise<void> {
-  const token = await getToken();
+  const token = await getAuthToken();
 
   const body: Record<string, unknown> = {message};
   if (conversationId) {
@@ -34,6 +45,7 @@ export async function streamChat(
     xhr.setRequestHeader('Content-Type', 'application/json');
     xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.setRequestHeader('Accept', 'text/event-stream');
+    xhr.setRequestHeader('bypass-tunnel-reminder', 'true');
 
     if (signal) {
       signal.addEventListener('abort', () => {

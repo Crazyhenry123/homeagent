@@ -48,7 +48,7 @@ export function AppNavigator() {
         const {getCognitoAccessToken} = await import('../services/cognitoAuth');
         const cognitoToken = await getCognitoAccessToken();
         if (cognitoToken) {
-          setInitialRoute('Chat');
+          setInitialRoute('ConversationList');
           return;
         }
       } catch {
@@ -64,9 +64,15 @@ export function AppNavigator() {
   useEffect(() => {
     const unsubscribe = onAuthExpired(async () => {
       await clearToken();
+      try {
+        const {clearCognitoTokens} = await import('../services/cognitoAuth');
+        await clearCognitoTokens();
+      } catch {
+        // cognitoAuth module not available
+      }
       Alert.alert(
         'Session Expired',
-        'Please register again with an invite code.',
+        'Please sign in again.',
         [{
           text: 'OK',
           onPress: () => {

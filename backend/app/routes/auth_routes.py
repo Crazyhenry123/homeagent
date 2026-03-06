@@ -25,10 +25,8 @@ logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint("auth", __name__)
 
-# Password validation: min 8 chars, uppercase, lowercase, number, special char
-_PASSWORD_PATTERN = re.compile(
-    r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).{8,}$"
-)
+# Password validation: min 8 chars
+_PASSWORD_MIN_LENGTH = 8
 
 
 def _validate_email(email: str) -> bool:
@@ -38,13 +36,8 @@ def _validate_email(email: str) -> bool:
 
 def _validate_password(password: str) -> str | None:
     """Validate password requirements. Returns error message or None."""
-    if len(password) < 8:
-        return "Password must be at least 8 characters"
-    if not _PASSWORD_PATTERN.match(password):
-        return (
-            "Password must contain uppercase, lowercase, "
-            "number, and special character"
-        )
+    if len(password) < _PASSWORD_MIN_LENGTH:
+        return f"Password must be at least {_PASSWORD_MIN_LENGTH} characters"
     return None
 
 

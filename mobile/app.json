@@ -29,7 +29,7 @@
       ]
     },
     "extra": {
-      "apiBaseUrl": "http://Deploy-Servi-XjO6myh4gADc-1702122244.us-east-1.elb.amazonaws.com",
+      "apiBaseUrl": "https://short-kids-look.loca.lt",
       "eas": {
         "projectId": "a975d8e6-c9bb-4bd9-97a7-b5d601d5fd03"
       }

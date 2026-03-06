@@ -37,13 +37,19 @@ export function SettingsScreen({navigation}: Props) {
   }, []);
 
   const handleLogout = () => {
-    Alert.alert('Log Out', 'You will need an invite code to log back in.', [
+    Alert.alert('Log Out', 'Are you sure you want to log out?', [
       {text: 'Cancel', style: 'cancel'},
       {
         text: 'Log Out',
         style: 'destructive',
         onPress: async () => {
           await clearToken();
+          try {
+            const {clearCognitoTokens} = await import('../services/cognitoAuth');
+            await clearCognitoTokens();
+          } catch {
+            // cognitoAuth not available
+          }
           navigation.reset({index: 0, routes: [{name: 'Register'}]});
         },
       },
@@ -92,11 +98,16 @@ export function SettingsScreen({navigation}: Props) {
         <Text style={styles.actionText}>My Agents</Text>
       </TouchableOpacity>
 
-      {role === 'admin' && (
+      {(role === 'admin' || role === 'owner') && (
         <>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionHeaderText}>ADMIN</Text>
           </View>
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={() => navigation.navigate('FamilyManage')}>
+            <Text style={styles.actionText}>Manage Family</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.adminPanelButton}
             onPress={() => navigation.navigate('AdminPanel')}>
