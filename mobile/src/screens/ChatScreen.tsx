@@ -206,29 +206,31 @@ export function ChatScreen({route, navigation}: Props) {
   }, []);
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
-      {loadingMessages ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-        </View>
-      ) : (
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={item => item.id}
-          renderItem={({item}) => <MessageBubble message={item} />}
-          contentContainerStyle={styles.messageList}
-          onContentSizeChange={scrollToEnd}
+    <View style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+        {loadingMessages ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#007AFF" />
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={item => item.id}
+            renderItem={({item}) => <MessageBubble message={item} />}
+            contentContainerStyle={styles.messageList}
+            onContentSizeChange={scrollToEnd}
+          />
+        )}
+        <ChatInput
+          onSend={handleSend}
+          disabled={streaming || loadingMessages}
         />
-      )}
-      <ChatInput
-        onSend={handleSend}
-        disabled={streaming || loadingMessages}
-      />
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -236,6 +238,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  flex: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
