@@ -12,4 +12,11 @@ export async function getToken(): Promise<string | null> {
 
 export async function clearToken(): Promise<void> {
   await SecureStore.deleteItemAsync(TOKEN_KEY);
+  // Also clear Cognito tokens if present
+  try {
+    const {clearCognitoTokens} = await import('./cognitoAuth');
+    await clearCognitoTokens();
+  } catch {
+    // cognitoAuth module not available, ignore
+  }
 }

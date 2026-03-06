@@ -17,6 +17,7 @@ import {AdminPanelScreen} from '../screens/AdminPanelScreen';
 import {MyAgentsScreen} from '../screens/MyAgentsScreen';
 import {AgentSetupScreen} from '../screens/AgentSetupScreen';
 import {VoiceModeScreen} from '../screens/VoiceModeScreen';
+import {FamilyManageScreen} from '../screens/FamilyManageScreen';
 
 export type RootStackParamList = {
   Register: undefined;
@@ -28,6 +29,7 @@ export type RootStackParamList = {
   AdminMemberDetail: {userId: string};
   FamilyTree: undefined;
   AdminPanel: undefined;
+  FamilyManage: undefined;
   MyAgents: undefined;
   AgentSetup: undefined;
   VoiceMode: {conversationId?: string};
@@ -40,9 +42,22 @@ export function AppNavigator() {
   const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
 
   useEffect(() => {
-    getToken().then(token => {
+    async function checkAuth() {
+      // Check for Cognito token first, then device token
+      try {
+        const {getCognitoAccessToken} = await import('../services/cognitoAuth');
+        const cognitoToken = await getCognitoAccessToken();
+        if (cognitoToken) {
+          setInitialRoute('Chat');
+          return;
+        }
+      } catch {
+        // cognitoAuth module not available
+      }
+      const token = await getToken();
       setInitialRoute(token ? 'Chat' : 'Register');
-    });
+    }
+    checkAuth();
   }, []);
 
   // Listen for auth expiration (401 responses)
@@ -118,6 +133,11 @@ export function AppNavigator() {
           name="AdminPanel"
           component={AdminPanelScreen}
           options={{title: 'Admin Panel'}}
+        />
+        <Stack.Screen
+          name="FamilyManage"
+          component={FamilyManageScreen}
+          options={{title: 'Family'}}
         />
         <Stack.Screen
           name="MyAgents"

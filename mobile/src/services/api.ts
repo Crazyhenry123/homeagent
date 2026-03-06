@@ -7,9 +7,16 @@ import type {
   AgentTemplatesResponse,
   AgentTypesResponse,
   AvailableAgentsResponse,
+  ConfirmRequest,
+  ConfirmResponse,
   ConversationListResponse,
+  Family,
+  FamilyInvite,
+  FamilyMember,
   FamilyRelationship,
   FamilyRelationshipsResponse,
+  LoginRequest,
+  LoginResponse,
   MemberProfile,
   MessageListResponse,
   PermissionGrant,
@@ -19,6 +26,10 @@ import type {
   RegisterResponse,
   RelationshipType,
   RequiredPermissionsResponse,
+  ResendCodeRequest,
+  ResendCodeResponse,
+  SignupRequest,
+  SignupResponse,
 } from '../types';
 import {getToken} from './auth';
 import {emitAuthExpired} from './authEvents';
@@ -48,12 +59,24 @@ function getBaseUrl(): string {
 export const BASE_URL = getBaseUrl();
 
 async function headers(): Promise<Record<string, string>> {
-  const token = await getToken();
+  // Prefer Cognito access token over device token
+  let authToken: string | null = null;
+  try {
+    const {getCognitoAccessToken} = await import('./cognitoAuth');
+    authToken = await getCognitoAccessToken();
+  } catch {
+    // cognitoAuth module not available, fall through
+  }
+
+  if (!authToken) {
+    authToken = await getToken();
+  }
+
   const h: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  if (token) {
-    h['Authorization'] = `Bearer ${token}`;
+  if (authToken) {
+    h['Authorization'] = `Bearer ${authToken}`;
   }
   return h;
 }
@@ -79,10 +102,63 @@ async function request<T>(
   return response.json() as Promise<T>;
 }
 
+async function publicRequest<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {'Content-Type': 'application/json', ...options.headers},
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed: ${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
 export async function register(
   data: RegisterRequest,
 ): Promise<RegisterResponse> {
   return request<RegisterResponse>('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// --- Cognito Auth APIs ---
+
+export async function cognitoSignUp(
+  data: SignupRequest,
+): Promise<SignupResponse> {
+  return publicRequest<SignupResponse>('/api/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function cognitoConfirm(
+  data: ConfirmRequest,
+): Promise<ConfirmResponse> {
+  return publicRequest<ConfirmResponse>('/api/auth/confirm', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function cognitoLogin(
+  data: LoginRequest,
+): Promise<LoginResponse> {
+  return publicRequest<LoginResponse>('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function cognitoResendCode(
+  data: ResendCodeRequest,
+): Promise<ResendCodeResponse> {
+  return publicRequest<ResendCodeResponse>('/api/auth/resend-code', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -361,4 +437,41 @@ export async function deleteRelationship(
     `/api/admin/family/relationships/${userId}/${relatedUserId}`,
     {method: 'DELETE'},
   );
+}
+
+// --- Family Management APIs ---
+
+export async function createFamily(
+  name: string,
+): Promise<Family> {
+  return request<Family>('/api/family', {
+    method: 'POST',
+    body: JSON.stringify({name}),
+  });
+}
+
+export async function getFamily(): Promise<{
+  family: Family;
+  members: FamilyMember[];
+}> {
+  return request('/api/family');
+}
+
+export async function inviteMember(
+  email: string,
+): Promise<FamilyInvite & {email_sent: boolean; family_name: string}> {
+  return request('/api/family/invite', {
+    method: 'POST',
+    body: JSON.stringify({email}),
+  });
+}
+
+export async function getPendingInvites(): Promise<{
+  invites: FamilyInvite[];
+}> {
+  return request('/api/family/invites');
+}
+
+export async function cancelInvite(code: string): Promise<void> {
+  await request(`/api/family/invites/${code}`, {method: 'DELETE'});
 }

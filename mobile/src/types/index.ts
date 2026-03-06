@@ -1,7 +1,56 @@
 export interface User {
   user_id: string;
   name: string;
-  role: 'admin' | 'member';
+  role: 'admin' | 'member' | 'owner';
+}
+
+export interface CognitoTokens {
+  id_token: string;
+  access_token: string;
+  refresh_token: string;
+}
+
+export interface SignupRequest {
+  email: string;
+  password: string;
+  display_name: string;
+}
+
+export interface SignupResponse {
+  user_id: string;
+  email: string;
+}
+
+export interface ConfirmRequest {
+  email: string;
+  confirmation_code: string;
+}
+
+export interface ConfirmResponse {
+  confirmed: boolean;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  tokens: CognitoTokens;
+  user: {
+    user_id: string;
+    name: string;
+    email: string;
+    role: 'admin' | 'member' | 'owner';
+  };
+}
+
+export interface ResendCodeRequest {
+  email: string;
+}
+
+export interface ResendCodeResponse {
+  sent: boolean;
 }
 
 export interface Conversation {
@@ -81,7 +130,7 @@ export interface MemberProfile {
   preferences: Record<string, string>;
   health_notes: string;
   interests: string[];
-  role: 'admin' | 'member';
+  role: 'admin' | 'member' | 'owner';
   created_at: string;
   updated_at: string;
 }
@@ -208,4 +257,30 @@ export interface PermissionsResponse {
 export interface RequiredPermissionsResponse {
   agent_type: string;
   required_permissions: PermissionType[];
+}
+
+export interface Family {
+  family_id: string;
+  name: string;
+  owner_user_id: string;
+  created_at: string;
+}
+
+export interface FamilyMember {
+  family_id: string;
+  user_id: string;
+  role: 'owner' | 'member';
+  joined_at: string;
+  name: string;
+}
+
+export interface FamilyInvite {
+  code: string;
+  created_by: string;
+  status: string;
+  invited_email?: string;
+  family_id?: string;
+  invite_type: 'email' | 'code';
+  expires_at: string;
+  created_at?: string;
 }

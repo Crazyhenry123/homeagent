@@ -28,7 +28,11 @@ class Config:
     )
     S3_ENDPOINT: str | None = os.environ.get("S3_ENDPOINT")
     CHAT_MEDIA_ALLOWED_TYPES: set = {
-        "image/jpeg", "image/png", "image/gif", "image/webp", "audio/wav"
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+        "audio/wav",
     }
     CHAT_MEDIA_MAX_SIZE: int = int(
         os.environ.get("CHAT_MEDIA_MAX_SIZE", str(5 * 1024 * 1024))
@@ -42,3 +46,10 @@ class Config:
     VOICE_MODEL_ID: str = os.environ.get(
         "VOICE_MODEL_ID", "amazon.nova-sonic-v1:0"
     )
+    COGNITO_USER_POOL_ID: str | None = os.environ.get("COGNITO_USER_POOL_ID")
+    COGNITO_CLIENT_ID: str | None = os.environ.get("COGNITO_CLIENT_ID")
+    COGNITO_REGION: str = os.environ.get(
+        "COGNITO_REGION", os.environ.get("AWS_REGION", "us-east-1")
+    )
+    SES_ENABLED: bool = os.environ.get("SES_ENABLED", "false").lower() == "true"
+    SES_FROM_EMAIL: str = os.environ.get("SES_FROM_EMAIL", "")
