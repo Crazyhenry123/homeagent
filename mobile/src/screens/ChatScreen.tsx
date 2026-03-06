@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {ChatInput} from '../components/ChatInput';
 import {MessageBubble} from '../components/MessageBubble';
@@ -207,11 +206,11 @@ export function ChatScreen({route, navigation}: Props) {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <View style={styles.container}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}>
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
         {loadingMessages ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#007AFF" />
@@ -231,7 +230,7 @@ export function ChatScreen({route, navigation}: Props) {
           disabled={streaming || loadingMessages}
         />
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
