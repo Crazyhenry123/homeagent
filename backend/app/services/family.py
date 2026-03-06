@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timezone
 
 from boto3.dynamodb.conditions import Key
+from botocore.exceptions import ClientError
 from ulid import ULID
 
 from app.models.dynamo import get_table
@@ -18,14 +19,20 @@ def create_family(owner_user_id: str, family_name: str) -> dict:
     now = datetime.now(timezone.utc).isoformat()
 
     families_table = get_table("Families")
-    families_table.put_item(
-        Item={
-            "family_id": family_id,
-            "name": family_name,
-            "owner_user_id": owner_user_id,
-            "created_at": now,
-        }
-    )
+    try:
+        families_table.put_item(
+            Item={
+                "family_id": family_id,
+                "name": family_name,
+                "owner_user_id": owner_user_id,
+                "created_at": now,
+            },
+            ConditionExpression="attribute_not_exists(family_id)",
+        )
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            raise ValueError("Family already exists (duplicate creation detected)")
+        raise
 
     # Add owner as first member
     add_member_to_family(family_id, owner_user_id, role="owner")

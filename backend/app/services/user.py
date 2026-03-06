@@ -4,7 +4,8 @@ import uuid
 from datetime import datetime, timezone
 
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Attr, Key
+from botocore.exceptions import ClientError
 from flask import current_app
 from ulid import ULID
 
@@ -37,8 +38,16 @@ def register_device(
     # Check if this is an admin invite
     is_admin = code_item.get("is_admin", False)
 
-    # Create user
+    # Mark invite code as used immediately to prevent reuse
     user_id = str(ULID())
+    codes_table.update_item(
+        Key={"code": invite_code},
+        UpdateExpression="SET #s = :used, used_by = :uid",
+        ExpressionAttributeNames={"#s": "status"},
+        ExpressionAttributeValues={":used": "used", ":uid": user_id},
+    )
+
+    # Create user
     users_table = get_table("Users")
     now = datetime.now(timezone.utc).isoformat()
 
@@ -86,14 +95,6 @@ def register_device(
 
         create_family(owner_user_id=user_id, family_name=f"{display_name}'s Family")
 
-    # Mark invite code as used
-    codes_table.update_item(
-        Key={"code": invite_code},
-        UpdateExpression="SET #s = :used, used_by = :uid",
-        ExpressionAttributeNames={"#s": "status"},
-        ExpressionAttributeValues={":used": "used", ":uid": user_id},
-    )
-
     return {"user_id": user_id, "device_token": device_token}
 
 
@@ -111,34 +112,45 @@ def generate_invite_code(
 
     Returns dict with code, expires_at, and optional invited_email/family_id.
     """
-    code = secrets.token_hex(3).upper()[:6]
     expires_at = datetime(2099, 12, 31, tzinfo=timezone.utc).isoformat()
     now = datetime.now(timezone.utc).isoformat()
-
-    item: dict = {
-        "code": code,
-        "created_by": created_by,
-        "status": "active",
-        "is_admin": False,
-        "expires_at": expires_at,
-        "created_at": now,
-        "invite_type": "email" if invited_email else "code",
-    }
-
-    if invited_email:
-        item["invited_email"] = invited_email
-    if family_id:
-        item["family_id"] = family_id
-
     codes_table = get_table("InviteCodes")
-    codes_table.put_item(Item=item)
 
-    result: dict = {"code": code, "expires_at": expires_at}
-    if invited_email:
-        result["invited_email"] = invited_email
-    if family_id:
-        result["family_id"] = family_id
-    return result
+    for _ in range(5):
+        code = secrets.token_hex(3).upper()[:6]
+
+        item: dict = {
+            "code": code,
+            "created_by": created_by,
+            "status": "active",
+            "is_admin": False,
+            "expires_at": expires_at,
+            "created_at": now,
+            "invite_type": "email" if invited_email else "code",
+        }
+
+        if invited_email:
+            item["invited_email"] = invited_email
+        if family_id:
+            item["family_id"] = family_id
+
+        try:
+            codes_table.put_item(
+                Item=item,
+                ConditionExpression="attribute_not_exists(code)",
+            )
+            result: dict = {"code": code, "expires_at": expires_at}
+            if invited_email:
+                result["invited_email"] = invited_email
+            if family_id:
+                result["family_id"] = family_id
+            return result
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                continue
+            raise
+
+    raise RuntimeError("Failed to generate a unique invite code after 5 attempts")
 
 
 def send_invite_email(
@@ -202,13 +214,20 @@ def send_invite_email(
 def get_pending_invites_by_creator(created_by: str) -> list[dict]:
     """Get all active invite codes created by a user."""
     codes_table = get_table("InviteCodes")
-    # Scan with filter — not ideal but invite codes are typically few
-    result = codes_table.scan(
-        FilterExpression="created_by = :uid AND #s = :active",
-        ExpressionAttributeNames={"#s": "status"},
-        ExpressionAttributeValues={":uid": created_by, ":active": "active"},
-    )
-    return result.get("Items", [])
+    items = []
+    last_key = None
+    while True:
+        kwargs = {
+            "FilterExpression": Attr("created_by").eq(created_by) & Attr("status").eq("active"),
+        }
+        if last_key:
+            kwargs["ExclusiveStartKey"] = last_key
+        result = codes_table.scan(**kwargs)
+        items.extend(result.get("Items", []))
+        last_key = result.get("LastEvaluatedKey")
+        if not last_key:
+            break
+    return items
 
 
 def cancel_invite_code(code: str, user_id: str) -> bool:

@@ -130,6 +130,8 @@ def invite_member():
     family = get_family_by_owner(g.user_id)
     if not family:
         return jsonify({"error": "You must create a family first"}), 400
+    if family["owner_user_id"] != g.user_id:
+        return jsonify({"error": "Only the family owner can invite members"}), 403
 
     family_id = family["family_id"]
     family_name = data.get("family_name") or family.get("name", "My Family")
