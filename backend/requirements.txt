@@ -8,3 +8,5 @@ python-ulid==3.0.0
 strands-agents>=0.1.0
 strands-agents-tools>=0.1.0
 flask-sock>=0.7.0
+python-jose[cryptography]>=3.3.0
+requests>=2.31.0

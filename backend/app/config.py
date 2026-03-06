@@ -42,3 +42,8 @@ class Config:
     VOICE_MODEL_ID: str = os.environ.get(
         "VOICE_MODEL_ID", "amazon.nova-sonic-v1:0"
     )
+    COGNITO_USER_POOL_ID: str | None = os.environ.get("COGNITO_USER_POOL_ID")
+    COGNITO_CLIENT_ID: str | None = os.environ.get("COGNITO_CLIENT_ID")
+    COGNITO_REGION: str = os.environ.get(
+        "COGNITO_REGION", os.environ.get("AWS_REGION", "us-east-1")
+    )

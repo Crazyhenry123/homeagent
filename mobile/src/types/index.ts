@@ -1,7 +1,56 @@
 export interface User {
   user_id: string;
   name: string;
-  role: 'admin' | 'member';
+  role: 'admin' | 'member' | 'owner';
+}
+
+export interface CognitoTokens {
+  id_token: string;
+  access_token: string;
+  refresh_token: string;
+}
+
+export interface SignupRequest {
+  email: string;
+  password: string;
+  display_name: string;
+}
+
+export interface SignupResponse {
+  user_id: string;
+  email: string;
+}
+
+export interface ConfirmRequest {
+  email: string;
+  confirmation_code: string;
+}
+
+export interface ConfirmResponse {
+  confirmed: boolean;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  tokens: CognitoTokens;
+  user: {
+    user_id: string;
+    name: string;
+    email: string;
+    role: 'admin' | 'member' | 'owner';
+  };
+}
+
+export interface ResendCodeRequest {
+  email: string;
+}
+
+export interface ResendCodeResponse {
+  sent: boolean;
 }
 
 export interface Conversation {
@@ -81,7 +130,7 @@ export interface MemberProfile {
   preferences: Record<string, string>;
   health_notes: string;
   interests: string[];
-  role: 'admin' | 'member';
+  role: 'admin' | 'member' | 'owner';
   created_at: string;
   updated_at: string;
 }
