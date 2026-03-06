@@ -7,6 +7,7 @@ import {
   ScrollView,
 } from 'react-native';
 import {Audio} from 'expo-av';
+import {readAsStringAsync, EncodingType} from 'expo-file-system/legacy';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {VoiceSessionClient} from '../services/voiceSession';
 import type {VoiceEvent} from '../types';
@@ -167,7 +168,8 @@ export function VoiceModeScreen({route, navigation}: Props) {
 
       recordingRef.current = rec;
       setRecording(true);
-    } catch {
+    } catch (e) {
+      console.error('[Voice] Failed to start recording:', e);
       setError('Failed to start recording');
     }
   }, []);
@@ -182,17 +184,23 @@ export function VoiceModeScreen({route, navigation}: Props) {
       const uri = rec.getURI();
       recordingRef.current = null;
 
+      // Reset audio mode for playback (speaker instead of earpiece)
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+      });
+
       if (uri && sessionRef.current) {
         // Read file as base64 and send as audio chunk
-        const FileSystem = await import('expo-file-system');
-        const base64 = await FileSystem.readAsStringAsync(uri, {
-          encoding: FileSystem.EncodingType.Base64,
+        const base64 = await readAsStringAsync(uri, {
+          encoding: EncodingType.Base64,
         });
         console.log('[Voice] Recording stopped, file URI:', uri, 'base64 length:', base64.length);
         sessionRef.current.sendAudioChunk(base64);
         sessionRef.current.sendAudioEnd();
       }
-    } catch {
+    } catch (e) {
+      console.error('[Voice] Failed to process recording:', e);
       setError('Failed to process recording');
     }
   }, []);

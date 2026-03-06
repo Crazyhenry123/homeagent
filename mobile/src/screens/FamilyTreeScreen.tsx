@@ -15,10 +15,10 @@ import {
   deleteRelationship,
   getUserRelationships,
   listProfiles,
-  verify,
 } from '../services/api';
+import {useSession} from '../store';
 import type {RootStackParamList} from '../navigation/AppNavigator';
-import type {FamilyRelationship, MemberProfile, RelationshipType} from '../types';
+import type {MemberProfile, RelationshipType} from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FamilyTree'>;
 
@@ -37,7 +37,9 @@ function getLabelForType(type: RelationshipOption): string {
 }
 
 export function FamilyTreeScreen(_props: Props) {
-  const [adminId, setAdminId] = useState('');
+  const {session} = useSession();
+  const currentUserId = session.user?.userId ?? '';
+
   const [members, setMembers] = useState<MemberProfile[]>([]);
   const [relationshipMap, setRelationshipMap] = useState<
     Record<string, RelationshipType>
@@ -47,20 +49,18 @@ export function FamilyTreeScreen(_props: Props) {
   const [pickerMember, setPickerMember] = useState<MemberProfile | null>(null);
 
   useEffect(() => {
+    if (!currentUserId) return;
+
     (async () => {
       try {
-        const [me, profileData] = await Promise.all([
-          verify(),
-          listProfiles(),
-        ]);
-        setAdminId(me.user_id);
+        const profileData = await listProfiles();
 
         const otherMembers = profileData.profiles.filter(
-          p => p.user_id !== me.user_id,
+          p => p.user_id !== currentUserId,
         );
         setMembers(otherMembers);
 
-        const relData = await getUserRelationships(me.user_id);
+        const relData = await getUserRelationships(currentUserId);
         const map: Record<string, RelationshipType> = {};
         for (const rel of relData.relationships) {
           map[rel.related_user_id] = rel.relationship_type;
@@ -75,7 +75,7 @@ export function FamilyTreeScreen(_props: Props) {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [currentUserId]);
 
   const handleSetRelationship = async (
     memberId: string,
@@ -88,7 +88,7 @@ export function FamilyTreeScreen(_props: Props) {
 
       if (type === 'none') {
         if (currentType) {
-          await deleteRelationship(adminId, memberId);
+          await deleteRelationship(currentUserId, memberId);
           setRelationshipMap(prev => {
             const next = {...prev};
             delete next[memberId];
@@ -98,9 +98,9 @@ export function FamilyTreeScreen(_props: Props) {
       } else {
         // Delete existing first if changing type
         if (currentType) {
-          await deleteRelationship(adminId, memberId);
+          await deleteRelationship(currentUserId, memberId);
         }
-        await createRelationship(adminId, memberId, type);
+        await createRelationship(currentUserId, memberId, type);
         setRelationshipMap(prev => ({...prev, [memberId]: type}));
       }
     } catch (err) {
@@ -133,7 +133,7 @@ export function FamilyTreeScreen(_props: Props) {
 
   const renderMember = ({item}: {item: MemberProfile}) => {
     const currentType: RelationshipOption =
-      relationshipMap[item.user_id] ?? 'none';
+      (relationshipMap[item.user_id] as RelationshipOption | undefined) ?? 'none';
     const isSaving = savingFor === item.user_id;
 
     return (

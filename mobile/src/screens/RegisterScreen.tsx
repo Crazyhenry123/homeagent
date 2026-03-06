@@ -14,6 +14,7 @@ import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {register} from '../services/api';
 import {saveToken} from '../services/auth';
 import {signUp, confirmSignUp, signIn} from '../services/cognitoAuth';
+import {useSession} from '../store';
 import type {RootStackParamList} from '../navigation/AppNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
@@ -21,6 +22,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 type RegistrationMode = 'select' | 'owner' | 'member' | 'confirm' | 'login';
 
 export function RegisterScreen({navigation}: Props) {
+  const {actions} = useSession();
   const [mode, setMode] = useState<RegistrationMode>('select');
 
   // Member (invite code) flow
@@ -53,6 +55,7 @@ export function RegisterScreen({navigation}: Props) {
         display_name: displayName.trim(),
       });
       await saveToken(result.device_token);
+      await actions.bootstrap();
       navigation.reset({index: 0, routes: [{name: 'AgentSetup'}]});
     } catch (err) {
       Alert.alert(
@@ -112,6 +115,7 @@ export function RegisterScreen({navigation}: Props) {
       await signIn(email.trim().toLowerCase(), password);
       setPassword('');
       setConfirmPassword('');
+      await actions.bootstrap();
       navigation.reset({index: 0, routes: [{name: 'ConversationList'}]});
     } catch (err) {
       Alert.alert(
@@ -146,6 +150,7 @@ export function RegisterScreen({navigation}: Props) {
     try {
       await signIn(email.trim().toLowerCase(), password);
       setPassword('');
+      await actions.bootstrap();
       navigation.reset({index: 0, routes: [{name: 'ConversationList'}]});
     } catch (err) {
       Alert.alert(

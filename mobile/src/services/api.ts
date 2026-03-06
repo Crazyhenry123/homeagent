@@ -28,6 +28,7 @@ import type {
   RequiredPermissionsResponse,
   ResendCodeRequest,
   ResendCodeResponse,
+  SessionBootstrapResponse,
   SignupRequest,
   SignupResponse,
 } from '../types';
@@ -172,6 +173,10 @@ export async function verify(): Promise<{
   role: string;
 }> {
   return request('/api/auth/verify', {method: 'POST'});
+}
+
+export async function getSession(): Promise<SessionBootstrapResponse> {
+  return request<SessionBootstrapResponse>('/api/session');
 }
 
 export async function generateInviteCode(): Promise<{code: string}> {

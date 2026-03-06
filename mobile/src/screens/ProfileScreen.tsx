@@ -10,33 +10,30 @@ import {
   View,
 } from 'react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {getMyProfile, updateMyProfile} from '../services/api';
+import {useSession} from '../store';
 import type {RootStackParamList} from '../navigation/AppNavigator';
-import type {MemberProfile} from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
 export function ProfileScreen({}: Props) {
-  const [profile, setProfile] = useState<MemberProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const {session, actions} = useSession();
+  const profile = session.profile;
+
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [familyRole, setFamilyRole] = useState('');
   const [healthNotes, setHealthNotes] = useState('');
   const [interestsText, setInterestsText] = useState('');
 
+  // Populate form fields from session profile
   useEffect(() => {
-    getMyProfile()
-      .then(p => {
-        setProfile(p);
-        setDisplayName(p.display_name);
-        setFamilyRole(p.family_role);
-        setHealthNotes(p.health_notes);
-        setInterestsText(p.interests.join(', '));
-      })
-      .catch(() => Alert.alert('Error', 'Failed to load profile'))
-      .finally(() => setLoading(false));
-  }, []);
+    if (profile) {
+      setDisplayName(profile.display_name);
+      setFamilyRole(profile.family_role);
+      setHealthNotes(profile.health_notes);
+      setInterestsText(profile.interests.join(', '));
+    }
+  }, [profile]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -45,13 +42,12 @@ export function ProfileScreen({}: Props) {
         .split(',')
         .map(s => s.trim())
         .filter(Boolean);
-      const updated = await updateMyProfile({
+      await actions.updateProfile({
         display_name: displayName,
         family_role: familyRole,
         health_notes: healthNotes,
         interests,
       });
-      setProfile(updated);
       Alert.alert('Saved', 'Profile updated successfully');
     } catch (err) {
       Alert.alert(
@@ -63,7 +59,7 @@ export function ProfileScreen({}: Props) {
     }
   };
 
-  if (loading) {
+  if (!profile) {
     return (
       <View style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color="#007AFF" />
@@ -118,12 +114,10 @@ export function ProfileScreen({}: Props) {
         />
       </View>
 
-      {profile && (
-        <View style={styles.infoSection}>
-          <Text style={styles.infoText}>Role: {profile.role}</Text>
-          <Text style={styles.infoText}>User ID: {profile.user_id}</Text>
-        </View>
-      )}
+      <View style={styles.infoSection}>
+        <Text style={styles.infoText}>Role: {profile.role}</Text>
+        <Text style={styles.infoText}>User ID: {profile.user_id}</Text>
+      </View>
 
       <TouchableOpacity
         style={[styles.saveButton, saving && styles.saveButtonDisabled]}

@@ -1,40 +1,24 @@
-import React, {useEffect, useState} from 'react';
+import React from 'react';
 import {
   Alert,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from 'react-native';
 import Constants from 'expo-constants';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {verify} from '../services/api';
-import {clearToken} from '../services/auth';
+import {useSession} from '../store';
 import type {RootStackParamList} from '../navigation/AppNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
 export function SettingsScreen({navigation}: Props) {
-  const [name, setName] = useState('');
-  const [userId, setUserId] = useState('');
-  const [role, setRole] = useState('');
-  const [loading, setLoading] = useState(true);
+  const {session, actions, isOwnerOrAdmin} = useSession();
 
-  useEffect(() => {
-    verify()
-      .then(result => {
-        setName(result.name);
-        setUserId(result.user_id);
-        setRole(result.role);
-      })
-      .catch(() => {
-        // Token may be invalid
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, []);
+  const name = session.user?.name ?? '';
+  const userId = session.user?.userId ?? '';
+  const role = session.user?.role ?? '';
 
   const handleLogout = () => {
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
@@ -43,26 +27,12 @@ export function SettingsScreen({navigation}: Props) {
         text: 'Log Out',
         style: 'destructive',
         onPress: async () => {
-          await clearToken();
-          try {
-            const {clearCognitoTokens} = await import('../services/cognitoAuth');
-            await clearCognitoTokens();
-          } catch {
-            // cognitoAuth not available
-          }
+          await actions.logout();
           navigation.reset({index: 0, routes: [{name: 'Register'}]});
         },
       },
     ]);
   };
-
-  if (loading) {
-    return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
-    );
-  }
 
   const appVersion = Constants.expoConfig?.version ?? '0.1.0';
 
@@ -98,7 +68,7 @@ export function SettingsScreen({navigation}: Props) {
         <Text style={styles.actionText}>My Agents</Text>
       </TouchableOpacity>
 
-      {(role === 'admin' || role === 'owner') && (
+      {isOwnerOrAdmin && (
         <>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionHeaderText}>ADMIN</Text>
@@ -129,10 +99,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F2F2F7',
-  },
-  loadingContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   sectionHeader: {
     paddingHorizontal: 16,

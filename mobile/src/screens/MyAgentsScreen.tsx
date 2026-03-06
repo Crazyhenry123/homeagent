@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useMemo, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,12 +11,11 @@ import {
 } from 'react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import type {RootStackParamList} from '../navigation/AppNavigator';
-import type {AvailableAgent, PermissionGrant} from '../types';
+import type {AvailableAgent} from '../types';
+import {useSession} from '../store';
 import {
   disableMyAgent,
   enableMyAgent,
-  getAvailableAgents,
-  getMyPermissions,
   grantPermission,
   revokePermission,
 } from '../services/api';
@@ -31,36 +30,32 @@ const PERMISSION_LABELS: Record<string, string> = {
 type Props = NativeStackScreenProps<RootStackParamList, 'MyAgents'>;
 
 export function MyAgentsScreen({navigation}: Props) {
-  const [agents, setAgents] = useState<AvailableAgent[]>([]);
-  const [permissions, setPermissions] = useState<PermissionGrant[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {session, actions} = useSession();
   const [toggling, setToggling] = useState<string | null>(null);
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
+  // Local copy of permissions for optimistic UI updates on toggle
+  const [localPermissionOverrides, setLocalPermissionOverrides] = useState<
+    Record<string, 'active' | 'revoked'>
+  >({});
 
-  const loadData = useCallback(async () => {
-    try {
-      const [agentResult, permResult] = await Promise.all([
-        getAvailableAgents(),
-        getMyPermissions(),
-      ]);
-      setAgents(agentResult.agents);
-      setPermissions(permResult.permissions);
-    } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to load agents');
-    } finally {
-      setLoading(false);
+  const agents = session.agents.available;
+  const permissions = session.permissions;
+
+  const grantedPermissionTypes = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of permissions) {
+      const override = localPermissionOverrides[p.permission_type];
+      const status = override ?? p.status;
+      if (status === 'active') {
+        set.add(p.permission_type);
+      }
     }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const grantedPermissionTypes = new Set(
-    permissions
-      .filter(p => p.status === 'active')
-      .map(p => p.permission_type),
-  );
+    // Also include permissions that were freshly granted (not in original list)
+    for (const [type, status] of Object.entries(localPermissionOverrides)) {
+      if (status === 'active') set.add(type);
+    }
+    return set;
+  }, [permissions, localPermissionOverrides]);
 
   const getMissingPermissions = (agent: AvailableAgent): string[] => {
     const required = agent.required_permissions ?? [];
@@ -75,13 +70,7 @@ export function MyAgentsScreen({navigation}: Props) {
       } else {
         await enableMyAgent(agent.agent_type);
       }
-      setAgents(prev =>
-        prev.map(a =>
-          a.agent_type === agent.agent_type
-            ? {...a, enabled: !a.enabled}
-            : a,
-        ),
-      );
+      await actions.refreshAgents();
     } catch (err) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Failed to update');
     } finally {
@@ -96,13 +85,9 @@ export function MyAgentsScreen({navigation}: Props) {
     try {
       if (currentlyGranted) {
         await revokePermission(permissionType);
-        setPermissions(prev =>
-          prev.map(p =>
-            p.permission_type === permissionType
-              ? {...p, status: 'revoked' as const}
-              : p,
-          ),
-        );
+        setLocalPermissionOverrides(prev => ({...prev, [permissionType]: 'revoked'}));
+        await actions.refreshPermissions();
+        setLocalPermissionOverrides({});
       } else {
         if (permissionType === 'email_access') {
           Alert.alert(
@@ -120,14 +105,13 @@ export function MyAgentsScreen({navigation}: Props) {
           health_data: {consent_given: true, data_sources: ['healthkit']},
           medical_records: {folder_path: '/health-documents', s3_prefix: 'health-documents/'},
         };
-        const result = await grantPermission(
+        await grantPermission(
           permissionType,
           defaultConfigs[permissionType] ?? {},
         );
-        setPermissions(prev => {
-          const filtered = prev.filter(p => p.permission_type !== permissionType);
-          return [...filtered, result];
-        });
+        setLocalPermissionOverrides(prev => ({...prev, [permissionType]: 'active'}));
+        await actions.refreshPermissions();
+        setLocalPermissionOverrides({});
       }
     } catch (err) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Failed to update permission');
@@ -215,7 +199,7 @@ export function MyAgentsScreen({navigation}: Props) {
     );
   };
 
-  if (loading) {
+  if (session.status === 'loading') {
     return (
       <View style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color="#007AFF" />

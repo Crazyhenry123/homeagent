@@ -15,6 +15,7 @@ import {MessageBubble} from '../components/MessageBubble';
 import {getConversations, getMessages} from '../services/api';
 import {uploadImage} from '../services/chatMedia';
 import {streamChat} from '../services/sse';
+import {useSession} from '../store';
 import type {ChatMediaUpload, SSEEvent} from '../types';
 import type {RootStackParamList} from '../navigation/AppNavigator';
 
@@ -34,6 +35,7 @@ interface DisplayMessage {
 
 export function ChatScreen({route, navigation}: Props) {
   const conversationId = route.params?.conversationId ?? null;
+  const {actions} = useSession();
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId);
   const [streaming, setStreaming] = useState(false);
@@ -160,6 +162,9 @@ export function ChatScreen({route, navigation}: Props) {
       const controller = new AbortController();
       abortRef.current = controller;
 
+      // Track whether this is a new conversation (no ID yet)
+      const isNewConversation = !currentConversationId;
+
       streamChat(
         text,
         currentConversationId,
@@ -176,6 +181,17 @@ export function ChatScreen({route, navigation}: Props) {
           } else if (event.type === 'message_done') {
             if (event.conversation_id) {
               setCurrentConversationId(event.conversation_id);
+
+              // If a new conversation was created, add it to the session store
+              if (isNewConversation) {
+                actions.addConversation({
+                  conversation_id: event.conversation_id,
+                  user_id: '',
+                  title: text.slice(0, 50) || 'New conversation',
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                });
+              }
             }
             setStreaming(false);
           } else if (event.type === 'error') {
@@ -196,7 +212,7 @@ export function ChatScreen({route, navigation}: Props) {
         mediaIds.length > 0 ? mediaIds : undefined,
       );
     },
-    [currentConversationId, scrollToEnd],
+    [currentConversationId, scrollToEnd, actions],
   );
 
   useEffect(() => {
