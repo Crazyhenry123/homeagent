@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useLayoutEffect, useState} from 'react';
+import React, {useCallback, useLayoutEffect, useMemo, useState} from 'react';
 import {
   Alert,
   FlatList,
@@ -11,16 +11,23 @@ import {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {ConversationItem} from '../components/ConversationItem';
-import {deleteConversation, getConversations} from '../services/api';
-import type {Conversation} from '../types';
+import {deleteConversation} from '../services/api';
+import {useSession} from '../store';
 import type {RootStackParamList} from '../navigation/AppNavigator';
+
+const REFRESH_THRESHOLD_MS = 30_000; // 30 seconds
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConversationList'>;
 
 export function ConversationListScreen({navigation}: Props) {
   const insets = useSafeAreaInsets();
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {session, actions} = useSession();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const conversations = useMemo(
+    () => session.conversations.items,
+    [session.conversations.items],
+  );
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -34,46 +41,62 @@ export function ConversationListScreen({navigation}: Props) {
     });
   }, [navigation]);
 
-  const loadConversations = useCallback(async () => {
+  // Refresh on focus only if stale (> 30s since last fetch)
+  React.useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      const lastFetched = session.conversations.lastFetched;
+      if (!lastFetched || Date.now() - lastFetched > REFRESH_THRESHOLD_MS) {
+        actions.refreshConversations().catch(() => {
+          // Silently ignore refresh errors on focus
+        });
+      }
+    });
+    return unsubscribe;
+  }, [navigation, session.conversations.lastFetched, actions]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
     try {
-      const result = await getConversations();
-      setConversations(result.conversations);
-    } catch (err) {
+      await actions.refreshConversations();
+    } catch {
       Alert.alert('Error', 'Failed to load conversations');
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
-  }, []);
+  }, [actions]);
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', loadConversations);
-    return unsubscribe;
-  }, [navigation, loadConversations]);
+  const handlePress = useCallback(
+    (conversationId: string) => {
+      const conv = conversations.find(c => c.conversation_id === conversationId);
+      navigation.navigate('Chat', {conversationId, title: conv?.title});
+    },
+    [conversations, navigation],
+  );
 
-  const handlePress = (conversationId: string) => {
-    const conv = conversations.find(c => c.conversation_id === conversationId);
-    navigation.navigate('Chat', {conversationId, title: conv?.title});
-  };
-
-  const confirmDelete = (conversationId: string) => {
-    Alert.alert('Delete Conversation', 'Are you sure?', [
-      {text: 'Cancel', style: 'cancel'},
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteConversation(conversationId);
-          setConversations(prev =>
-            prev.filter(c => c.conversation_id !== conversationId),
-          );
+  const confirmDelete = useCallback(
+    (conversationId: string) => {
+      Alert.alert('Delete Conversation', 'Are you sure?', [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteConversation(conversationId);
+              actions.removeConversation(conversationId);
+            } catch {
+              Alert.alert('Error', 'Failed to delete conversation');
+            }
+          },
         },
-      },
-    ]);
-  };
+      ]);
+    },
+    [actions],
+  );
 
-  const handleNewChat = () => {
+  const handleNewChat = useCallback(() => {
     navigation.navigate('Chat', {});
-  };
+  }, [navigation]);
 
   return (
     <View style={styles.container}>
@@ -87,10 +110,10 @@ export function ConversationListScreen({navigation}: Props) {
             onLongPress={confirmDelete}
           />
         )}
-        refreshing={loading}
-        onRefresh={loadConversations}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
         ListEmptyComponent={
-          !loading ? (
+          !refreshing ? (
             <View style={styles.empty}>
               <Text style={styles.emptyText}>No conversations yet</Text>
               <Text style={styles.emptySubtext}>

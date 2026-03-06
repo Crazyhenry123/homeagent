@@ -10,14 +10,19 @@ import {
 } from 'react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {listProfiles} from '../services/api';
+import {useSession} from '../store';
 import type {RootStackParamList} from '../navigation/AppNavigator';
 import type {MemberProfile} from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AdminMembers'>;
 
 export function AdminMembersScreen({navigation}: Props) {
+  const {session} = useSession();
   const [profiles, setProfiles] = useState<MemberProfile[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Verify user has admin/owner role via session
+  const userRole = session.user?.role;
 
   const loadProfiles = useCallback(async () => {
     try {
@@ -64,6 +69,14 @@ export function AdminMembersScreen({navigation}: Props) {
     return (
       <View style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
+  if (userRole && userRole !== 'admin' && userRole !== 'owner') {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={styles.emptyText}>Access denied. Admin role required.</Text>
       </View>
     );
   }

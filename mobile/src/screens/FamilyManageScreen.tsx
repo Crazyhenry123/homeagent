@@ -13,51 +13,49 @@ import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {
   cancelInvite,
   createFamily,
-  getFamily,
   getPendingInvites,
   inviteMember,
 } from '../services/api';
+import {useSession} from '../store';
 import type {RootStackParamList} from '../navigation/AppNavigator';
-import type {Family, FamilyInvite, FamilyMember} from '../types';
+import type {FamilyInvite} from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FamilyManage'>;
 
 export function FamilyManageScreen({}: Props) {
-  const [family, setFamily] = useState<Family | null>(null);
-  const [members, setMembers] = useState<FamilyMember[]>([]);
+  const {session, actions} = useSession();
+  const familyData = session.family;
+  const family = familyData?.info ?? null;
+  const members = familyData?.members ?? [];
+
   const [invites, setInvites] = useState<FamilyInvite[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingInvites, setLoadingInvites] = useState(true);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviting, setInviting] = useState(false);
   const [showInviteInput, setShowInviteInput] = useState(false);
   const [familyName, setFamilyName] = useState('');
   const [creatingFamily, setCreatingFamily] = useState(false);
-  const [noFamily, setNoFamily] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const noFamily = !familyData;
+
+  const loadInvites = useCallback(async () => {
     try {
-      const result = await getFamily();
-      setFamily(result.family);
-      setMembers(result.members);
-      setNoFamily(false);
-
       const invitesResult = await getPendingInvites();
       setInvites(invitesResult.invites);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
-      if (msg.includes('not in a family') || msg.includes('404')) {
-        setNoFamily(true);
-      } else {
-        Alert.alert('Error', msg || 'Failed to load family data');
-      }
+    } catch {
+      // Invites may not be available
     } finally {
-      setLoading(false);
+      setLoadingInvites(false);
     }
   }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!noFamily) {
+      loadInvites();
+    } else {
+      setLoadingInvites(false);
+    }
+  }, [noFamily, loadInvites]);
 
   const handleCreateFamily = async () => {
     if (!familyName.trim()) {
@@ -68,7 +66,8 @@ export function FamilyManageScreen({}: Props) {
     try {
       await createFamily(familyName.trim());
       setFamilyName('');
-      await loadData();
+      await actions.refreshFamily();
+      await loadInvites();
     } catch (err) {
       Alert.alert(
         'Error',
@@ -93,7 +92,8 @@ export function FamilyManageScreen({}: Props) {
       Alert.alert('Invite Created', message);
       setInviteEmail('');
       setShowInviteInput(false);
-      await loadData();
+      await actions.refreshFamily();
+      await loadInvites();
     } catch (err) {
       Alert.alert(
         'Error',
@@ -116,7 +116,8 @@ export function FamilyManageScreen({}: Props) {
           onPress: async () => {
             try {
               await cancelInvite(code);
-              await loadData();
+              await actions.refreshFamily();
+              await loadInvites();
             } catch (err) {
               Alert.alert(
                 'Error',
@@ -131,7 +132,7 @@ export function FamilyManageScreen({}: Props) {
     );
   };
 
-  if (loading) {
+  if (session.status === 'loading' || loadingInvites) {
     return (
       <View style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color="#007AFF" />

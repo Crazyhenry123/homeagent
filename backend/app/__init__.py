@@ -19,6 +19,7 @@ from app.routes.health_documents import admin_health_documents_bp
 from app.routes.member_agent_routes import member_agent_bp
 from app.routes.permission_routes import permission_bp
 from app.routes.profiles import admin_profiles_bp, profiles_bp
+from app.routes.session_routes import session_bp
 from app.services.agent_template import seed_builtin_templates
 
 
@@ -51,6 +52,7 @@ def create_app(config: Config | None = None) -> Flask:
     app.register_blueprint(admin_health_documents_bp, url_prefix="/api/admin")
     app.register_blueprint(chat_media_bp, url_prefix="/api")
     app.register_blueprint(family_bp, url_prefix="/api/family")
+    app.register_blueprint(session_bp, url_prefix="/api")
 
     # Voice WebSocket
     if app.config.get("VOICE_ENABLED"):

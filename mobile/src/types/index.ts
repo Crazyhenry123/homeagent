@@ -274,6 +274,29 @@ export interface FamilyMember {
   name: string;
 }
 
+export interface SessionBootstrapResponse {
+  user: {
+    user_id: string;
+    name: string;
+    email: string;
+    role: 'admin' | 'member' | 'owner';
+  };
+  profile: MemberProfile | null;
+  family: {
+    info: Family;
+    members: FamilyMember[];
+  } | null;
+  agents: {
+    available: AvailableAgent[];
+    my_configs: AgentConfig[];
+  };
+  permissions: PermissionGrant[];
+  conversations: {
+    items: Conversation[];
+    next_cursor?: string;
+  };
+}
+
 export interface FamilyInvite {
   code: string;
   created_by: string;

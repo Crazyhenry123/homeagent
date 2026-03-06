@@ -14,13 +14,15 @@ import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {register} from '../services/api';
 import {saveToken} from '../services/auth';
 import {signUp, confirmSignUp, signIn} from '../services/cognitoAuth';
+import {useSession} from '../store';
 import type {RootStackParamList} from '../navigation/AppNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
-type RegistrationMode = 'select' | 'owner' | 'member' | 'confirm';
+type RegistrationMode = 'select' | 'owner' | 'member' | 'confirm' | 'login';
 
 export function RegisterScreen({navigation}: Props) {
+  const {actions} = useSession();
   const [mode, setMode] = useState<RegistrationMode>('select');
 
   // Member (invite code) flow
@@ -53,6 +55,7 @@ export function RegisterScreen({navigation}: Props) {
         display_name: displayName.trim(),
       });
       await saveToken(result.device_token);
+      await actions.bootstrap();
       navigation.reset({index: 0, routes: [{name: 'AgentSetup'}]});
     } catch (err) {
       Alert.alert(
@@ -85,19 +88,6 @@ export function RegisterScreen({navigation}: Props) {
       return;
     }
 
-    const hasUpper = /[A-Z]/.test(password);
-    const hasLower = /[a-z]/.test(password);
-    const hasNumber = /\d/.test(password);
-    const hasSpecial = /[^a-zA-Z\d]/.test(password);
-
-    if (!hasUpper || !hasLower || !hasNumber || !hasSpecial) {
-      Alert.alert(
-        'Error',
-        'Password must contain uppercase, lowercase, number, and special character',
-      );
-      return;
-    }
-
     setLoading(true);
     try {
       await signUp(email.trim().toLowerCase(), password, ownerDisplayName.trim());
@@ -125,6 +115,7 @@ export function RegisterScreen({navigation}: Props) {
       await signIn(email.trim().toLowerCase(), password);
       setPassword('');
       setConfirmPassword('');
+      await actions.bootstrap();
       navigation.reset({index: 0, routes: [{name: 'ConversationList'}]});
     } catch (err) {
       Alert.alert(
@@ -146,6 +137,28 @@ export function RegisterScreen({navigation}: Props) {
         'Error',
         err instanceof Error ? err.message : 'Failed to resend code',
       );
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!email.trim() || !password) {
+      Alert.alert('Error', 'Please enter your email and password');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await signIn(email.trim().toLowerCase(), password);
+      setPassword('');
+      await actions.bootstrap();
+      navigation.reset({index: 0, routes: [{name: 'ConversationList'}]});
+    } catch (err) {
+      Alert.alert(
+        'Login Failed',
+        err instanceof Error ? err.message : 'Unknown error',
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -173,6 +186,65 @@ export function RegisterScreen({navigation}: Props) {
             <Text style={[styles.buttonText, styles.secondaryButtonText]}>
               Join Family
             </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.linkButton}
+            onPress={() => setMode('login')}>
+            <Text style={styles.linkText}>Already have an account? Sign In</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    );
+  }
+
+  // Login screen
+  if (mode === 'login') {
+    return (
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.content}>
+          <Text style={styles.title}>Sign In</Text>
+          <Text style={styles.subtitle}>
+            Welcome back
+          </Text>
+
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor="#8E8E93"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor="#8E8E93"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoComplete="password"
+          />
+
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleLogin}
+            disabled={loading}>
+            <Text style={styles.buttonText}>
+              {loading ? 'Signing In...' : 'Sign In'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.linkButton}
+            onPress={() => setMode('select')}>
+            <Text style={styles.linkText}>Back</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -284,8 +356,7 @@ export function RegisterScreen({navigation}: Props) {
           />
 
           <Text style={styles.passwordHint}>
-            Min 8 characters with uppercase, lowercase, number, and special
-            character
+            Minimum 8 characters
           </Text>
 
           <TouchableOpacity

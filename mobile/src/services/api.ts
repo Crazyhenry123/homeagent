@@ -28,6 +28,7 @@ import type {
   RequiredPermissionsResponse,
   ResendCodeRequest,
   ResendCodeResponse,
+  SessionBootstrapResponse,
   SignupRequest,
   SignupResponse,
 } from '../types';
@@ -74,6 +75,7 @@ async function headers(): Promise<Record<string, string>> {
 
   const h: Record<string, string> = {
     'Content-Type': 'application/json',
+    'bypass-tunnel-reminder': 'true',
   };
   if (authToken) {
     h['Authorization'] = `Bearer ${authToken}`;
@@ -108,7 +110,7 @@ async function publicRequest<T>(
 ): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
     ...options,
-    headers: {'Content-Type': 'application/json', ...options.headers},
+    headers: {'Content-Type': 'application/json', 'bypass-tunnel-reminder': 'true', ...options.headers},
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -171,6 +173,10 @@ export async function verify(): Promise<{
   role: string;
 }> {
   return request('/api/auth/verify', {method: 'POST'});
+}
+
+export async function getSession(): Promise<SessionBootstrapResponse> {
+  return request<SessionBootstrapResponse>('/api/session');
 }
 
 export async function generateInviteCode(): Promise<{code: string}> {
@@ -371,7 +377,16 @@ export async function getRequiredPermissions(
 export async function buildVoiceWsUrl(
   conversationId: string | null,
 ): Promise<string> {
-  const token = await getToken();
+  let token: string | null = null;
+  try {
+    const {getCognitoAccessToken} = await import('./cognitoAuth');
+    token = await getCognitoAccessToken();
+  } catch {
+    // cognitoAuth not available
+  }
+  if (!token) {
+    token = await getToken();
+  }
   const wsBase = BASE_URL.replace(/^http/, 'ws');
   let url = `${wsBase}/api/voice?token=${encodeURIComponent(token || '')}`;
   if (conversationId) {

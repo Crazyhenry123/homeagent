@@ -20,6 +20,7 @@ import {
   putAgentConfig,
   updateProfile,
 } from '../services/api';
+import {useSession} from '../store';
 import type {RootStackParamList} from '../navigation/AppNavigator';
 import type {AgentConfig, AgentTypeInfo, MemberProfile} from '../types';
 
@@ -27,6 +28,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'AdminMemberDetail'>;
 
 export function AdminMemberDetailScreen({route, navigation}: Props) {
   const {userId} = route.params;
+  const {session} = useSession();
   const [profile, setProfile] = useState<MemberProfile | null>(null);
   const [agentConfigs, setAgentConfigs] = useState<AgentConfig[]>([]);
   const [agentTypes, setAgentTypes] = useState<Record<string, AgentTypeInfo>>(
@@ -37,6 +39,9 @@ export function AdminMemberDetailScreen({route, navigation}: Props) {
   const [deleting, setDeleting] = useState(false);
   const [familyRole, setFamilyRole] = useState('');
   const [healthNotes, setHealthNotes] = useState('');
+
+  // Verify admin role from session
+  const currentUserRole = session.user?.role;
 
   useEffect(() => {
     Promise.all([
@@ -141,6 +146,14 @@ export function AdminMemberDetailScreen({route, navigation}: Props) {
     return (
       <View style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
+  if (currentUserRole && currentUserRole !== 'admin' && currentUserRole !== 'owner') {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={{fontSize: 16, color: '#8E8E93'}}>Access denied. Admin role required.</Text>
       </View>
     );
   }

@@ -1,10 +1,10 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useRef} from 'react';
 import {ActivityIndicator, Alert, View} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import type {NavigationContainerRef} from '@react-navigation/native';
-import {getToken, clearToken} from '../services/auth';
 import {onAuthExpired} from '../services/authEvents';
+import {SessionProvider, useSession} from '../store';
 import {RegisterScreen} from '../screens/RegisterScreen';
 import {ConversationListScreen} from '../screens/ConversationListScreen';
 import {ChatScreen} from '../screens/ChatScreen';
@@ -37,36 +37,22 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-export function AppNavigator() {
-  const [initialRoute, setInitialRoute] = useState<keyof RootStackParamList | null>(null);
+function AppContent() {
+  const {session, actions} = useSession();
   const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
 
+  // Bootstrap session on mount
   useEffect(() => {
-    async function checkAuth() {
-      // Check for Cognito token first, then device token
-      try {
-        const {getCognitoAccessToken} = await import('../services/cognitoAuth');
-        const cognitoToken = await getCognitoAccessToken();
-        if (cognitoToken) {
-          setInitialRoute('Chat');
-          return;
-        }
-      } catch {
-        // cognitoAuth module not available
-      }
-      const token = await getToken();
-      setInitialRoute(token ? 'Chat' : 'Register');
-    }
-    checkAuth();
-  }, []);
+    actions.bootstrap();
+  }, [actions]);
 
   // Listen for auth expiration (401 responses)
   useEffect(() => {
     const unsubscribe = onAuthExpired(async () => {
-      await clearToken();
+      await actions.logout();
       Alert.alert(
         'Session Expired',
-        'Please register again with an invite code.',
+        'Please sign in again.',
         [{
           text: 'OK',
           onPress: () => {
@@ -76,15 +62,18 @@ export function AppNavigator() {
       );
     });
     return unsubscribe;
-  }, []);
+  }, [actions]);
 
-  if (!initialRoute) {
+  if (session.status === 'loading') {
     return (
       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
         <ActivityIndicator size="large" />
       </View>
     );
   }
+
+  const initialRoute: keyof RootStackParamList =
+    session.status === 'authenticated' ? 'ConversationList' : 'Register';
 
   return (
     <NavigationContainer ref={navigationRef}>
@@ -156,5 +145,13 @@ export function AppNavigator() {
         />
       </Stack.Navigator>
     </NavigationContainer>
+  );
+}
+
+export function AppNavigator() {
+  return (
+    <SessionProvider>
+      <AppContent />
+    </SessionProvider>
   );
 }
