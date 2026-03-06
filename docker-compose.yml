@@ -19,9 +19,9 @@ services:
       - S3_ENDPOINT=http://minio:9000
       - VOICE_ENABLED=true
       - VOICE_MODEL_ID=amazon.nova-sonic-v1:0
-      - COGNITO_USER_POOL_ID=us-east-1_o3Cjipthl
-      - COGNITO_CLIENT_ID=2o5gv30rf8c7ubl2anm0p61q9v
-      - COGNITO_REGION=us-east-1
+      - COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID}
+      - COGNITO_CLIENT_ID=${COGNITO_CLIENT_ID}
+      - COGNITO_REGION=${COGNITO_REGION:-us-east-1}
       - SES_ENABLED=false
       - SES_FROM_EMAIL=
     depends_on:
