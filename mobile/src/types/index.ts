@@ -281,7 +281,7 @@ export interface SessionBootstrapResponse {
     email: string;
     role: 'admin' | 'member' | 'owner';
   };
-  profile: MemberProfile;
+  profile: MemberProfile | null;
   family: {
     info: Family;
     members: FamilyMember[];

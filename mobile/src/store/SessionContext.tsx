@@ -1,4 +1,4 @@
-import React, {createContext, useContext, useReducer} from 'react';
+import React, {createContext, useContext, useMemo, useReducer} from 'react';
 import type {
   AvailableAgent,
   AgentConfig,
@@ -166,9 +166,10 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 
 export function SessionProvider({children}: {children: React.ReactNode}) {
   const [state, dispatch] = useReducer(sessionReducer, initialState);
+  const value = useMemo(() => ({state, dispatch}), [state]);
 
   return (
-    <SessionContext.Provider value={{state, dispatch}}>
+    <SessionContext.Provider value={value}>
       {children}
     </SessionContext.Provider>
   );

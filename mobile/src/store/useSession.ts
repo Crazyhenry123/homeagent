@@ -122,7 +122,7 @@ export function useSession(): UseSessionReturn {
   }, [dispatch]);
 
   const refreshAgents = useCallback(async () => {
-    const [availableResult, myResult] = await Promise.allSettled([
+    const [availableResult, myResult] = await Promise.all([
       getAvailableAgents(),
       getMyAgents(),
     ]);
@@ -130,17 +130,11 @@ export function useSession(): UseSessionReturn {
     dispatch({
       type: 'UPDATE_AGENTS',
       payload: {
-        available:
-          availableResult.status === 'fulfilled'
-            ? availableResult.value.agents
-            : state.agents.available,
-        myConfigs:
-          myResult.status === 'fulfilled'
-            ? myResult.value.agent_configs
-            : state.agents.myConfigs,
+        available: availableResult.agents,
+        myConfigs: myResult.agent_configs,
       },
     });
-  }, [dispatch, state.agents]);
+  }, [dispatch]);
 
   const refreshPermissions = useCallback(async () => {
     const result = await getMyPermissions();

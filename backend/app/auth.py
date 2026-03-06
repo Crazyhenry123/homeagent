@@ -32,7 +32,10 @@ def _try_cognito_auth(token: str) -> bool:
         g.user_role = user.get("role", "member")
         g.cognito_sub = cognito_sub
         return True
+    except ImportError:
+        return False
     except Exception:
+        logger.warning("Cognito auth error: %s", token[:10], exc_info=True)
         return False
 
 
@@ -41,30 +44,34 @@ def _try_device_auth(token: str) -> bool:
 
     Returns True and populates Flask g if successful, False otherwise.
     """
-    devices_table = get_table("Devices")
-    result = devices_table.query(
-        IndexName="device_token-index",
-        KeyConditionExpression="device_token = :token",
-        ExpressionAttributeValues={":token": token},
-        Limit=1,
-    )
+    try:
+        devices_table = get_table("Devices")
+        result = devices_table.query(
+            IndexName="device_token-index",
+            KeyConditionExpression="device_token = :token",
+            ExpressionAttributeValues={":token": token},
+            Limit=1,
+        )
 
-    items = result.get("Items", [])
-    if not items:
+        items = result.get("Items", [])
+        if not items:
+            return False
+
+        device = items[0]
+
+        users_table = get_table("Users")
+        user = users_table.get_item(Key={"user_id": device["user_id"]}).get("Item")
+        if not user:
+            return False
+
+        g.user_id = user["user_id"]
+        g.user_name = user["name"]
+        g.user_role = user.get("role", "member")
+        g.device_id = device["device_id"]
+        return True
+    except Exception:
+        logger.warning("Device auth error", exc_info=True)
         return False
-
-    device = items[0]
-
-    users_table = get_table("Users")
-    user = users_table.get_item(Key={"user_id": device["user_id"]}).get("Item")
-    if not user:
-        return False
-
-    g.user_id = user["user_id"]
-    g.user_name = user["name"]
-    g.user_role = user.get("role", "member")
-    g.device_id = device["device_id"]
-    return True
 
 
 def require_auth(f: Callable) -> Callable:
