@@ -17,6 +17,8 @@ def get_available_agent_types() -> dict:
             "name": t["name"],
             "description": t["description"],
             "default_config": t.get("default_config", {}),
+            "required_permissions": t.get("required_permissions", []),
+            "is_default": t.get("is_default", False),
         }
     return result
 

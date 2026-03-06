@@ -53,7 +53,7 @@ export function RegisterScreen({navigation}: Props) {
         display_name: displayName.trim(),
       });
       await saveToken(result.device_token);
-      navigation.reset({index: 0, routes: [{name: 'ConversationList'}]});
+      navigation.reset({index: 0, routes: [{name: 'AgentSetup'}]});
     } catch (err) {
       Alert.alert(
         'Registration Failed',

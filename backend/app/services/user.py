@@ -10,6 +10,8 @@ from flask import current_app
 from ulid import ULID
 
 from app.models.dynamo import get_table
+from app.services.agent_config import put_agent_config
+from app.services.agent_template import get_default_agent_types
 from app.services.profile import create_profile
 
 logger = logging.getLogger(__name__)
@@ -82,6 +84,13 @@ def register_device(
         display_name=display_name,
         role="admin" if is_admin else "member",
     )
+
+    # Auto-enable default agents for new members
+    for agent_type in get_default_agent_types():
+        try:
+            put_agent_config(user_id, agent_type, enabled=True)
+        except ValueError:
+            pass  # Template not yet seeded — skip gracefully
 
     # Auto-join family if invite code has a family_id
     family_id = code_item.get("family_id")
@@ -374,7 +383,12 @@ def delete_member(user_id: str) -> None:
     # 5. Delete FamilyRelationships (both directions)
     delete_all_relationships(user_id)
 
-    # 5b. Delete HealthRecords, HealthObservations, and HealthDocuments
+    # 5b. Delete MemberPermissions
+    from app.services.member_permissions import delete_all_permissions
+
+    delete_all_permissions(user_id)
+
+    # 5c. Delete HealthRecords, HealthObservations, and HealthDocuments
     from app.services.health_documents import delete_all_documents
     from app.services.health_observations import delete_all_observations
     from app.services.health_records import delete_all_health_records

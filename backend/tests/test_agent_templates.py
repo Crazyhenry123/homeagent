@@ -328,12 +328,13 @@ def test_member_disable_agent(client):
     assert resp.status_code == 200
     assert resp.get_json()["success"] is True
 
-    # Verify gone
+    # Verify health_advisor is gone (logistics_assistant still present as default)
     resp = client.get(
         "/api/agents/my",
         headers={"Authorization": f"Bearer {member_token}"},
     )
-    assert len(resp.get_json()["agent_configs"]) == 0
+    types = {c["agent_type"] for c in resp.get_json()["agent_configs"]}
+    assert "health_advisor" not in types
 
 
 def test_member_list_my_agents(client):
@@ -341,20 +342,16 @@ def test_member_list_my_agents(client):
     admin_token, _ = _register_admin(client)
     member_token, _ = _register_member(client, admin_token)
 
-    # Enable an agent
-    client.put(
-        "/api/agents/my/health_advisor",
-        headers={"Authorization": f"Bearer {member_token}"},
-    )
-
+    # health_advisor and logistics_assistant are auto-enabled as defaults
     resp = client.get(
         "/api/agents/my",
         headers={"Authorization": f"Bearer {member_token}"},
     )
     assert resp.status_code == 200
     configs = resp.get_json()["agent_configs"]
-    assert len(configs) == 1
-    assert configs[0]["agent_type"] == "health_advisor"
+    types = {c["agent_type"] for c in configs}
+    assert "health_advisor" in types
+    assert "logistics_assistant" in types
 
 
 # --- Backward compatibility: existing agent_config routes still work ---
@@ -420,5 +417,10 @@ def test_available_agents_shows_enabled_status(client):
     ha = next(a for a in agents if a["agent_type"] == "health_advisor")
     assert ha["enabled"] is True
 
+    # logistics_assistant is also auto-enabled as a default agent
     la = next(a for a in agents if a["agent_type"] == "logistics_assistant")
-    assert la["enabled"] is False
+    assert la["enabled"] is True
+
+    # shopping_assistant is NOT a default agent
+    sa = next(a for a in agents if a["agent_type"] == "shopping_assistant")
+    assert sa["enabled"] is False

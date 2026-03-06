@@ -234,6 +234,16 @@ TABLE_DEFINITIONS = {
             {"AttributeName": "document_id", "AttributeType": "S"},
         ],
     },
+    "MemberPermissions": {
+        "KeySchema": [
+            {"AttributeName": "user_id", "KeyType": "HASH"},
+            {"AttributeName": "permission_type", "KeyType": "RANGE"},
+        ],
+        "AttributeDefinitions": [
+            {"AttributeName": "user_id", "AttributeType": "S"},
+            {"AttributeName": "permission_type", "AttributeType": "S"},
+        ],
+    },
     "ChatMedia": {
         "KeySchema": [{"AttributeName": "media_id", "KeyType": "HASH"}],
         "AttributeDefinitions": [{"AttributeName": "media_id", "AttributeType": "S"}],

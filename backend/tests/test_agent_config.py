@@ -103,21 +103,17 @@ def test_list_user_agents(client):
     )
     assert resp.status_code == 200
     configs = resp.get_json()["agent_configs"]
-    assert len(configs) == 2
+    # Default agents (health_advisor, logistics_assistant) are auto-enabled,
+    # plus we explicitly enabled shopping_assistant above.
     types = {c["agent_type"] for c in configs}
-    assert types == {"health_advisor", "shopping_assistant"}
+    assert {"health_advisor", "shopping_assistant", "logistics_assistant"}.issubset(types)
 
 
 def test_disable_agent(client):
     admin_token, _ = _register_admin(client)
     _, member_id = _register_member(client, admin_token)
 
-    # Enable then delete
-    client.put(
-        f"/api/admin/agents/{member_id}/health_advisor",
-        json={"enabled": True},
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
+    # health_advisor is auto-enabled as a default agent; delete it
     resp = client.delete(
         f"/api/admin/agents/{member_id}/health_advisor",
         headers={"Authorization": f"Bearer {admin_token}"},
@@ -125,20 +121,22 @@ def test_disable_agent(client):
     assert resp.status_code == 200
     assert resp.get_json()["success"] is True
 
-    # Verify it's gone
+    # Verify health_advisor is gone (logistics_assistant remains as default)
     resp = client.get(
         f"/api/admin/agents/{member_id}",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert len(resp.get_json()["agent_configs"]) == 0
+    types = {c["agent_type"] for c in resp.get_json()["agent_configs"]}
+    assert "health_advisor" not in types
 
 
 def test_delete_nonexistent_agent(client):
     admin_token, _ = _register_admin(client)
     _, member_id = _register_member(client, admin_token)
 
+    # shopping_assistant is not a default agent, so it should not exist yet
     resp = client.delete(
-        f"/api/admin/agents/{member_id}/health_advisor",
+        f"/api/admin/agents/{member_id}/shopping_assistant",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 404
