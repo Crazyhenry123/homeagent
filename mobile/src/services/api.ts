@@ -96,6 +96,21 @@ async function request<T>(
   return response.json() as Promise<T>;
 }
 
+async function publicRequest<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {'Content-Type': 'application/json', ...options.headers},
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed: ${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
 export async function register(
   data: RegisterRequest,
 ): Promise<RegisterResponse> {
@@ -110,7 +125,7 @@ export async function register(
 export async function cognitoSignUp(
   data: SignupRequest,
 ): Promise<SignupResponse> {
-  return request<SignupResponse>('/api/auth/signup', {
+  return publicRequest<SignupResponse>('/api/auth/signup', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -119,7 +134,7 @@ export async function cognitoSignUp(
 export async function cognitoConfirm(
   data: ConfirmRequest,
 ): Promise<ConfirmResponse> {
-  return request<ConfirmResponse>('/api/auth/confirm', {
+  return publicRequest<ConfirmResponse>('/api/auth/confirm', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -128,7 +143,7 @@ export async function cognitoConfirm(
 export async function cognitoLogin(
   data: LoginRequest,
 ): Promise<LoginResponse> {
-  return request<LoginResponse>('/api/auth/login', {
+  return publicRequest<LoginResponse>('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -137,7 +152,7 @@ export async function cognitoLogin(
 export async function cognitoResendCode(
   data: ResendCodeRequest,
 ): Promise<ResendCodeResponse> {
-  return request<ResendCodeResponse>('/api/auth/resend-code', {
+  return publicRequest<ResendCodeResponse>('/api/auth/resend-code', {
     method: 'POST',
     body: JSON.stringify(data),
   });

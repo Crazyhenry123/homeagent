@@ -157,14 +157,11 @@ def get_user_by_email(email: str) -> dict | None:
 
 
 def get_user_by_cognito_sub(cognito_sub: str) -> dict | None:
-    """Look up a user by cognito_sub via table scan.
-
-    Note: For production scale, consider adding a GSI on cognito_sub.
-    """
+    """Look up a user by cognito_sub using the cognito_sub-index GSI."""
     users_table = get_table("Users")
-    result = users_table.scan(
-        FilterExpression="cognito_sub = :sub",
-        ExpressionAttributeValues={":sub": cognito_sub},
+    result = users_table.query(
+        IndexName="cognito_sub-index",
+        KeyConditionExpression=Key("cognito_sub").eq(cognito_sub),
         Limit=1,
     )
     items = result.get("Items", [])

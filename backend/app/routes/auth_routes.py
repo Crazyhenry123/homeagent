@@ -94,6 +94,11 @@ def signup():
     if not display_name:
         return jsonify({"error": "Display name cannot be empty"}), 400
 
+    # Pre-check: ensure email is not already registered in DynamoDB
+    existing = get_user_by_email(email)
+    if existing:
+        return jsonify({"error": "An account with this email already exists", "code": "UsernameExistsException"}), 409
+
     try:
         cognito_sub = sign_up(email, password, display_name)
     except CognitoError as e:

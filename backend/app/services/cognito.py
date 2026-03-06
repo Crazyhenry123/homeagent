@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import TypedDict
+from typing import Any, TypedDict
 
 import boto3
 import requests
@@ -30,7 +30,7 @@ class CognitoError(Exception):
         self.code = code
 
 
-def _get_cognito_client():
+def _get_cognito_client() -> Any:
     """Get a boto3 cognito-idp client."""
     region = current_app.config["COGNITO_REGION"]
     return boto3.client("cognito-idp", region_name=region)
@@ -195,9 +195,12 @@ def _get_jwks(user_pool_id: str, region: str) -> dict:
         f"https://cognito-idp.{region}.amazonaws.com"
         f"/{user_pool_id}/.well-known/jwks.json"
     )
-    response = requests.get(jwks_url, timeout=10)
-    response.raise_for_status()
-    jwks_data = response.json()
+    try:
+        response = requests.get(jwks_url, timeout=10)
+        response.raise_for_status()
+        jwks_data = response.json()
+    except requests.exceptions.RequestException as e:
+        raise CognitoError(f"Failed to fetch JWKS: {e}", "JWKSFetchError")
 
     _jwks_cache[user_pool_id] = jwks_data
     _jwks_cache_time[user_pool_id] = now

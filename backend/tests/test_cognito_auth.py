@@ -439,3 +439,58 @@ def test_signup_creates_owner_role(mock_boto3, client):
     )
     assert login_resp.status_code == 200
     assert login_resp.get_json()["user"]["role"] == "owner"
+
+
+# ---------------------------------------------------------------------------
+# Valid JWT but no matching DynamoDB user
+# ---------------------------------------------------------------------------
+
+
+@patch("app.services.cognito.requests")
+@patch("app.services.cognito.jwt")
+@patch("app.services.cognito.jwk")
+def test_cognito_token_valid_but_no_dynamo_user(mock_jwk, mock_jwt, mock_requests, app):
+    """Test that a valid Cognito JWT returns 401 when no matching DynamoDB user exists."""
+    from app.auth import require_cognito_auth
+    from flask import Blueprint, g, jsonify
+
+    # Set up Cognito config
+    app.config["COGNITO_USER_POOL_ID"] = "us-east-1_TestPool"
+    app.config["COGNITO_CLIENT_ID"] = "test-client-id"
+    app.config["COGNITO_REGION"] = "us-east-1"
+
+    # Create a test route with Cognito auth
+    test_bp = Blueprint("test_cognito_no_user", __name__)
+
+    @test_bp.route("/test-cognito-no-user", methods=["GET"])
+    @require_cognito_auth
+    def test_route():
+        return jsonify({"user_id": g.user_id})
+
+    app.register_blueprint(test_bp, url_prefix="/api")
+
+    with app.test_client() as test_client:
+        # Mock JWKS fetch
+        mock_requests.get.return_value = MagicMock(
+            json=MagicMock(return_value={
+                "keys": [{"kid": "test-kid", "kty": "RSA"}]
+            }),
+            raise_for_status=MagicMock(),
+        )
+
+        # Mock JWT decode with a sub that has no matching DynamoDB user
+        mock_jwt.get_unverified_header.return_value = {"kid": "test-kid"}
+        mock_jwt.decode.return_value = {
+            "sub": "non-existent-sub-99999",
+            "token_use": "access",
+            "exp": 9999999999,
+        }
+        mock_jwk.construct.return_value = "mock-public-key"
+
+        response = test_client.get(
+            "/api/test-cognito-no-user",
+            headers={"Authorization": "Bearer valid-but-orphaned-token"},
+        )
+        assert response.status_code == 401
+        data = response.get_json()
+        assert "error" in data

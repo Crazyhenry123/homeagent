@@ -7,12 +7,20 @@ TABLE_DEFINITIONS = {
         "AttributeDefinitions": [
             {"AttributeName": "user_id", "AttributeType": "S"},
             {"AttributeName": "email", "AttributeType": "S"},
+            {"AttributeName": "cognito_sub", "AttributeType": "S"},
         ],
         "GlobalSecondaryIndexes": [
             {
                 "IndexName": "email-index",
                 "KeySchema": [
                     {"AttributeName": "email", "KeyType": "HASH"},
+                ],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+            {
+                "IndexName": "cognito_sub-index",
+                "KeySchema": [
+                    {"AttributeName": "cognito_sub", "KeyType": "HASH"},
                 ],
                 "Projection": {"ProjectionType": "ALL"},
             },

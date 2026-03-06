@@ -123,6 +123,8 @@ export function RegisterScreen({navigation}: Props) {
       await confirmSignUp(email.trim().toLowerCase(), confirmationCode.trim());
       // Auto-login after confirmation
       await signIn(email.trim().toLowerCase(), password);
+      setPassword('');
+      setConfirmPassword('');
       navigation.reset({index: 0, routes: [{name: 'ConversationList'}]});
     } catch (err) {
       Alert.alert(
