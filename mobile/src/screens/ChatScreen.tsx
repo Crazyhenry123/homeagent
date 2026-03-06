@@ -40,6 +40,7 @@ export function ChatScreen({route, navigation}: Props) {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId);
   const [streaming, setStreaming] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const flatListRef = useRef<FlatList<DisplayMessage>>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -59,6 +60,8 @@ export function ChatScreen({route, navigation}: Props) {
 
   // Auto-load the most recent conversation (single channel mode)
   useEffect(() => {
+    setLoadError(null);
+
     if (conversationId) {
       // Explicit conversation passed — load it directly
       setLoadingMessages(true);
@@ -72,6 +75,7 @@ export function ChatScreen({route, navigation}: Props) {
             })),
           );
         })
+        .catch(() => setLoadError('Failed to load messages. Please go back and try again.'))
         .finally(() => setLoadingMessages(false));
       return;
     }
@@ -95,6 +99,7 @@ export function ChatScreen({route, navigation}: Props) {
         }
         // No conversations yet — start fresh
       })
+      .catch(() => setLoadError('Failed to load messages. Please go back and try again.'))
       .finally(() => setLoadingMessages(false));
   }, [conversationId]);
 
@@ -231,6 +236,10 @@ export function ChatScreen({route, navigation}: Props) {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#007AFF" />
           </View>
+        ) : loadError ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.errorText}>{loadError}</Text>
+          </View>
         ) : (
           <FlatList
             ref={flatListRef}
@@ -262,6 +271,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 16,
+    textAlign: 'center',
+    paddingHorizontal: 32,
   },
   messageList: {
     paddingVertical: 8,
