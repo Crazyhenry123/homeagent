@@ -16,6 +16,7 @@ import {FamilyTreeScreen} from '../screens/FamilyTreeScreen';
 import {AdminPanelScreen} from '../screens/AdminPanelScreen';
 import {MyAgentsScreen} from '../screens/MyAgentsScreen';
 import {VoiceModeScreen} from '../screens/VoiceModeScreen';
+import {FamilyManageScreen} from '../screens/FamilyManageScreen';
 
 export type RootStackParamList = {
   Register: undefined;
@@ -27,6 +28,7 @@ export type RootStackParamList = {
   AdminMemberDetail: {userId: string};
   FamilyTree: undefined;
   AdminPanel: undefined;
+  FamilyManage: undefined;
   MyAgents: undefined;
   VoiceMode: {conversationId?: string};
 };
@@ -129,6 +131,11 @@ export function AppNavigator() {
           name="AdminPanel"
           component={AdminPanelScreen}
           options={{title: 'Admin Panel'}}
+        />
+        <Stack.Screen
+          name="FamilyManage"
+          component={FamilyManageScreen}
+          options={{title: 'Family'}}
         />
         <Stack.Screen
           name="MyAgents"

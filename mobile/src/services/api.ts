@@ -10,6 +10,9 @@ import type {
   ConfirmRequest,
   ConfirmResponse,
   ConversationListResponse,
+  Family,
+  FamilyInvite,
+  FamilyMember,
   FamilyRelationship,
   FamilyRelationshipsResponse,
   LoginRequest,
@@ -401,4 +404,41 @@ export async function deleteRelationship(
     `/api/admin/family/relationships/${userId}/${relatedUserId}`,
     {method: 'DELETE'},
   );
+}
+
+// --- Family Management APIs ---
+
+export async function createFamily(
+  name: string,
+): Promise<Family> {
+  return request<Family>('/api/family', {
+    method: 'POST',
+    body: JSON.stringify({name}),
+  });
+}
+
+export async function getFamily(): Promise<{
+  family: Family;
+  members: FamilyMember[];
+}> {
+  return request('/api/family');
+}
+
+export async function inviteMember(
+  email: string,
+): Promise<FamilyInvite & {email_sent: boolean; family_name: string}> {
+  return request('/api/family/invite', {
+    method: 'POST',
+    body: JSON.stringify({email}),
+  });
+}
+
+export async function getPendingInvites(): Promise<{
+  invites: FamilyInvite[];
+}> {
+  return request('/api/family/invites');
+}
+
+export async function cancelInvite(code: string): Promise<void> {
+  await request(`/api/family/invites/${code}`, {method: 'DELETE'});
 }
