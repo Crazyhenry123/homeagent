@@ -90,6 +90,7 @@ def stream_agent_chat(
     system_prompt: str | None = None,
     tools: list | None = None,
     images: list[dict] | None = None,
+    is_voice_message: bool = False,
 ) -> Generator[dict, None, None]:
     """Stream a chat response using Strands Agent with personalized prompt.
 
@@ -102,6 +103,7 @@ def stream_agent_chat(
         tools: Optional list of Strands tool functions for sub-agents.
         images: Optional list of {"s3_uri", "content_type", "format"} for images
                 attached to the last user message.
+        is_voice_message: Whether the current message originated from voice input.
 
     Yields:
         Dicts with type "text_delta", "message_done", or "error".
@@ -117,6 +119,15 @@ def stream_agent_chat(
     model_id = current_app.config["BEDROCK_MODEL_ID"]
     base_prompt = system_prompt or current_app.config["SYSTEM_PROMPT"]
     personalized_prompt = _build_system_prompt(user_id, base_prompt)
+
+    if is_voice_message:
+        personalized_prompt += (
+            "\n\nThe user sent this message via voice (speech-to-text). "
+            "Keep your response concise and conversational — as if speaking "
+            "back to them. Aim for 2-4 sentences unless they ask for detail. "
+            "Avoid markdown formatting, bullet points, or long lists. "
+            "Use a natural, warm tone."
+        )
 
     # Split history from the new user message
     if not messages:

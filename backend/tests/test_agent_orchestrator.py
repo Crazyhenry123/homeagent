@@ -54,7 +54,7 @@ def test_chat_default_uses_bedrock(mock_bedrock, client):
 
 
 def _mock_stream_agent_chat(
-    messages, user_id, conversation_id=None, system_prompt=None, tools=None, images=None
+    messages, user_id, conversation_id=None, system_prompt=None, tools=None, images=None, is_voice_message=False
 ):
     """Fake agent orchestrator streaming."""
     yield {"type": "text_delta", "content": "Agent "}
