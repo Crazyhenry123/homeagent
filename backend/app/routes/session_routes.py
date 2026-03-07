@@ -17,6 +17,7 @@ from app.services.conversation import list_conversations
 from app.services.family import get_family, get_family_members, get_user_family_id
 from app.services.member_permissions import get_active_permissions
 from app.services.profile import get_profile
+from app.services.storage_config import get_storage_config
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,13 @@ def get_session() -> tuple[Response, int] | Response:
         # 6. Conversations (most recent 20)
         convos_result = list_conversations(user_id=user_id, limit=20)
 
+        # 7. Storage configuration
+        storage_config = get_storage_config(user_id)
+        storage_data = {
+            "provider": storage_config.get("provider", "local") if storage_config else "local",
+            "status": storage_config.get("status", "active") if storage_config else "active",
+        }
+
         result = {
             "user": user,
             "profile": profile,
@@ -108,6 +116,7 @@ def get_session() -> tuple[Response, int] | Response:
                 "items": convos_result.get("conversations", []),
                 "next_cursor": convos_result.get("next_cursor"),
             },
+            "storage": storage_data,
         }
 
         return jsonify(_convert_decimals(result))
