@@ -11,6 +11,7 @@ from strands.models import BedrockModel
 
 from app.agents.health_tools import build_health_tools
 from app.agents.registry import register_agent
+from app.storage.resolver import get_request_storage
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +122,8 @@ def create_health_advisor_tool(
             temperature=0.5,
         )
 
-        agent_tools = build_health_tools(user_id, config)
+        storage = get_request_storage()
+        agent_tools = build_health_tools(user_id, config, storage=storage)
 
         agent = Agent(
             model=model,

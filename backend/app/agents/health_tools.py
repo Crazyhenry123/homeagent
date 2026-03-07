@@ -1,22 +1,33 @@
 """Health advisor tools — 7 @tool functions the health advisor agent can call.
 
-build_health_tools(user_id, config) returns a list of Strands tool functions.
-All tools use closures capturing user_id for context.
+build_health_tools(user_id, config, storage) returns a list of Strands tool
+functions. All tools use closures capturing user_id and optional storage provider.
 """
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 
 from strands import tool
+
+if TYPE_CHECKING:
+    from app.storage.base import StorageProvider
 
 logger = logging.getLogger(__name__)
 
 
-def build_health_tools(user_id: str, config: dict) -> list:
+def build_health_tools(
+    user_id: str,
+    config: dict,
+    storage: StorageProvider | None = None,
+) -> list:
     """Build and return health advisor tools for the given user.
 
     Args:
         user_id: The user requesting health advice.
         config: Agent config dict (controls feature flags).
+        storage: Optional storage provider for the user's data.
     """
     tools = []
 
@@ -50,7 +61,7 @@ def build_health_tools(user_id: str, config: dict) -> list:
                 return "Access denied: the target user is not in your family."
 
         records = list_health_records(
-            target_user_id, record_type=record_type or None
+            target_user_id, record_type=record_type or None, storage=storage
         )
         if not records:
             return f"No health records found for user {target_user_id}."
@@ -88,7 +99,7 @@ def build_health_tools(user_id: str, config: dict) -> list:
             if target_user_id not in family_ids:
                 return "Access denied: the target user is not in your family."
 
-        summary = get_health_summary(target_user_id)
+        summary = get_health_summary(target_user_id, storage=storage)
         if summary["record_count"] == 0:
             return f"No health records found for user {target_user_id}."
 
@@ -188,6 +199,7 @@ def build_health_tools(user_id: str, config: dict) -> list:
                     summary=summary,
                     detail=detail,
                     confidence=confidence,
+                    storage=storage,
                 )
                 return f"Observation saved (id: {obs['observation_id']})."
             except ValueError as e:
@@ -223,7 +235,7 @@ def build_health_tools(user_id: str, config: dict) -> list:
                 return "Access denied: the target user is not in your family."
 
         observations = list_observations(
-            target_user_id, category=category or None
+            target_user_id, category=category or None, storage=storage
         )
         if not observations:
             return f"No health observations found for user {target_user_id}."
@@ -312,8 +324,6 @@ def build_health_tools(user_id: str, config: dict) -> list:
             Args:
                 query: The health topic to search for.
             """
-            # Placeholder — wire up Tavily, Bedrock retrieve_and_generate,
-            # or strands_tools.http_request in a follow-up.
             return (
                 f"Web search is not yet configured. "
                 f"Please consult a healthcare provider or trusted medical "

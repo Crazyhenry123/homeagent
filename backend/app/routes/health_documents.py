@@ -1,4 +1,7 @@
-"""Admin API routes for health document upload/download/management."""
+"""Admin API routes for health document upload/download/management.
+
+Routes pass the request-scoped storage provider (if any) to service calls.
+"""
 
 from flask import Blueprint, g, jsonify, request
 
@@ -13,11 +16,16 @@ from app.services.health_documents import (
 admin_health_documents_bp = Blueprint("admin_health_documents", __name__)
 
 
+def _get_storage():
+    """Get storage provider from request context."""
+    return getattr(g, "storage_provider", None)
+
+
 @admin_health_documents_bp.route("/health-documents/<user_id>", methods=["GET"])
 @require_auth
 @require_admin
 def admin_list_documents(user_id: str):
-    docs = list_documents(user_id)
+    docs = list_documents(user_id, storage=_get_storage())
     return jsonify({"documents": docs})
 
 
@@ -47,6 +55,7 @@ def admin_upload_document(user_id: str):
             uploaded_by=g.user_id,
             record_id=data.get("record_id"),
             description=data.get("description", ""),
+            storage=_get_storage(),
         )
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -60,7 +69,7 @@ def admin_upload_document(user_id: str):
 @require_auth
 @require_admin
 def admin_download_document(user_id: str, document_id: str):
-    result = get_download_url(user_id, document_id)
+    result = get_download_url(user_id, document_id, storage=_get_storage())
     if not result:
         return jsonify({"error": "Document not found"}), 404
     return jsonify(result)
@@ -72,7 +81,7 @@ def admin_download_document(user_id: str, document_id: str):
 @require_auth
 @require_admin
 def admin_delete_document(user_id: str, document_id: str):
-    deleted = delete_document(user_id, document_id)
+    deleted = delete_document(user_id, document_id, storage=_get_storage())
     if not deleted:
         return jsonify({"error": "Document not found"}), 404
     return jsonify({"success": True})

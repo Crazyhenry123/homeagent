@@ -1,4 +1,7 @@
-"""API routes for health records — self-access and admin CRUD."""
+"""API routes for health records — self-access and admin CRUD.
+
+Routes pass the request-scoped storage provider (if any) to service calls.
+"""
 
 from flask import Blueprint, g, jsonify, request
 
@@ -17,6 +20,11 @@ health_records_bp = Blueprint("health_records", __name__)
 admin_health_records_bp = Blueprint("admin_health_records", __name__)
 
 
+def _get_storage():
+    """Get storage provider from request context."""
+    return getattr(g, "storage_provider", None)
+
+
 # ── Self-access routes ──────────────────────────────────────────────
 
 
@@ -24,14 +32,16 @@ admin_health_records_bp = Blueprint("admin_health_records", __name__)
 @require_auth
 def get_my_health_records():
     record_type = request.args.get("record_type")
-    records = list_health_records(g.user_id, record_type=record_type)
+    records = list_health_records(
+        g.user_id, record_type=record_type, storage=_get_storage()
+    )
     return jsonify({"records": records})
 
 
 @health_records_bp.route("/health-records/me/summary", methods=["GET"])
 @require_auth
 def get_my_health_summary():
-    summary = get_health_summary(g.user_id)
+    summary = get_health_summary(g.user_id, storage=_get_storage())
     return jsonify(summary)
 
 
@@ -43,7 +53,9 @@ def get_my_health_summary():
 @require_admin
 def admin_list_health_records(user_id: str):
     record_type = request.args.get("record_type")
-    records = list_health_records(user_id, record_type=record_type)
+    records = list_health_records(
+        user_id, record_type=record_type, storage=_get_storage()
+    )
     return jsonify({"records": records})
 
 
@@ -66,6 +78,7 @@ def admin_create_health_record(user_id: str):
             record_type=record_type,
             data=record_data,
             created_by=g.user_id,
+            storage=_get_storage(),
         )
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -77,7 +90,7 @@ def admin_create_health_record(user_id: str):
 @require_auth
 @require_admin
 def admin_get_health_record(user_id: str, record_id: str):
-    record = get_health_record(user_id, record_id)
+    record = get_health_record(user_id, record_id, storage=_get_storage())
     if not record:
         return jsonify({"error": "Record not found"}), 404
     return jsonify(record)
@@ -92,7 +105,9 @@ def admin_update_health_record(user_id: str, record_id: str):
         return jsonify({"error": "Request body required"}), 400
 
     try:
-        record = update_health_record(user_id, record_id, data, actor_id=g.user_id)
+        record = update_health_record(
+            user_id, record_id, data, actor_id=g.user_id, storage=_get_storage()
+        )
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
@@ -107,7 +122,9 @@ def admin_update_health_record(user_id: str, record_id: str):
 @require_auth
 @require_admin
 def admin_delete_health_record(user_id: str, record_id: str):
-    deleted = delete_health_record(user_id, record_id, actor_id=g.user_id)
+    deleted = delete_health_record(
+        user_id, record_id, actor_id=g.user_id, storage=_get_storage()
+    )
     if not deleted:
         return jsonify({"error": "Record not found"}), 404
     return jsonify({"success": True})
@@ -117,11 +134,12 @@ def admin_delete_health_record(user_id: str, record_id: str):
 @require_auth
 @require_admin
 def admin_get_health_summary(user_id: str):
-    summary = get_health_summary(user_id)
+    summary = get_health_summary(user_id, storage=_get_storage())
     return jsonify(summary)
 
 
 # ── Audit log routes ───────────────────────────────────────────────
+# Audit logs always read from DynamoDB (never delegated to storage provider)
 
 
 @admin_health_records_bp.route(

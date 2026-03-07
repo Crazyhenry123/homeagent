@@ -74,6 +74,26 @@ def _try_device_auth(token: str) -> bool:
         return False
 
 
+def _resolve_storage_provider() -> None:
+    """Resolve the storage provider for the authenticated user on Flask g.
+
+    Sets g.storage_provider to the user's configured provider, or None
+    for the default local provider. Failures are silently ignored.
+    """
+    try:
+        from app.services.storage_config import get_storage_config
+
+        config = get_storage_config(g.user_id)
+        if config and config.get("provider", "local") != "local":
+            from app.storage.provider_factory import get_storage_provider
+
+            g.storage_provider = get_storage_provider(g.user_id)
+        else:
+            g.storage_provider = None
+    except (ImportError, Exception):
+        g.storage_provider = None
+
+
 def require_auth(f: Callable) -> Callable:
     """Middleware that validates auth token (Cognito JWT or device token)."""
 
@@ -90,6 +110,9 @@ def require_auth(f: Callable) -> Callable:
         # Try Cognito JWT first, then fall back to device token
         if not _try_cognito_auth(token) and not _try_device_auth(token):
             return jsonify({"error": "Invalid token"}), 401
+
+        # Resolve storage provider for this user
+        _resolve_storage_provider()
 
         return f(*args, **kwargs)
 

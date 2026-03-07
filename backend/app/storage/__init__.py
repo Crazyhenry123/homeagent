@@ -1,4 +1,8 @@
-"""User storage provider abstraction layer."""
+"""Storage provider abstraction layer.
+
+Provides the StorageProvider interface and collection constants.
+Full provider implementations live in the storage-provider-abstraction branch.
+"""
 
 from app.storage.base import (
     COLLECTION_HEALTH_DOCUMENTS,
@@ -6,11 +10,9 @@ from app.storage.base import (
     COLLECTION_HEALTH_RECORDS,
     StorageProvider,
 )
-from app.storage.provider_factory import get_storage_provider
 
 __all__ = [
     "StorageProvider",
-    "get_storage_provider",
     "COLLECTION_HEALTH_RECORDS",
     "COLLECTION_HEALTH_OBSERVATIONS",
     "COLLECTION_HEALTH_DOCUMENTS",
