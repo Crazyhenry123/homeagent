@@ -574,3 +574,30 @@ export async function testStorageConnection(): Promise<StorageTestResponse> {
     method: 'POST',
   });
 }
+
+// --- Storage Admin APIs ---
+
+export async function getStorageAdminCredentials(): Promise<
+  Record<string, {client_id: string; configured: boolean}>
+> {
+  return request('/api/storage/admin/credentials');
+}
+
+export async function saveStorageAdminCredentials(
+  providerId: string,
+  clientId: string,
+  clientSecret: string,
+): Promise<{success: boolean}> {
+  return request(`/api/storage/admin/credentials/${providerId}`, {
+    method: 'PUT',
+    body: JSON.stringify({client_id: clientId, client_secret: clientSecret}),
+  });
+}
+
+export async function deleteStorageAdminCredentials(
+  providerId: string,
+): Promise<{success: boolean}> {
+  return request(`/api/storage/admin/credentials/${providerId}`, {
+    method: 'DELETE',
+  });
+}
