@@ -1,5 +1,6 @@
 import React from 'react';
-import {StyleSheet, Text, TouchableOpacity} from 'react-native';
+import {StyleSheet, TouchableOpacity} from 'react-native';
+import {Ionicons} from '@expo/vector-icons';
 import {colors} from '../theme';
 
 interface Props {
@@ -9,6 +10,12 @@ interface Props {
 }
 
 export function VoiceButton({onPress, disabled, recording}: Props) {
+  const iconColor = disabled
+    ? colors.disabledText
+    : recording
+      ? colors.surface
+      : colors.primary;
+
   return (
     <TouchableOpacity
       style={[
@@ -18,14 +25,11 @@ export function VoiceButton({onPress, disabled, recording}: Props) {
       ]}
       onPress={onPress}
       disabled={disabled}>
-      <Text
-        style={[
-          styles.icon,
-          recording && styles.iconRecording,
-          disabled && styles.iconDisabled,
-        ]}>
-        {recording ? '●' : 'mic'}
-      </Text>
+      <Ionicons
+        name={recording ? 'stop' : 'mic'}
+        size={20}
+        color={iconColor}
+      />
     </TouchableOpacity>
   );
 }
@@ -45,17 +49,5 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
-  },
-  icon: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  iconRecording: {
-    color: colors.surface,
-    fontSize: 16,
-  },
-  iconDisabled: {
-    color: colors.disabledText,
   },
 });

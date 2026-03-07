@@ -120,7 +120,7 @@ export function AgentSetupScreen({navigation}: Props) {
             <TextInput
               style={styles.input}
               placeholder="your@email.com"
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={colors.textTertiary}
               value={emailAddress}
               onChangeText={setEmailAddress}
               keyboardType="email-address"

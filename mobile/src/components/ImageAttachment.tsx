@@ -52,13 +52,13 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
   },
   errorOverlay: {
-    backgroundColor: 'rgba(255,0,0,0.4)',
+    backgroundColor: colors.errorOverlay,
   },
   overlayText: {
     color: colors.surface,
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: colors.overlayDark,
     justifyContent: 'center',
     alignItems: 'center',
   },

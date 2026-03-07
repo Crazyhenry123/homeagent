@@ -214,7 +214,7 @@ export function RegisterScreen({navigation}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Email"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -226,7 +226,7 @@ export function RegisterScreen({navigation}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Password"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -267,7 +267,7 @@ export function RegisterScreen({navigation}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Verification Code"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={confirmationCode}
             onChangeText={setConfirmationCode}
             keyboardType="number-pad"
@@ -317,7 +317,7 @@ export function RegisterScreen({navigation}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Email"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -329,7 +329,7 @@ export function RegisterScreen({navigation}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Your Name"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={ownerDisplayName}
             onChangeText={setOwnerDisplayName}
             autoCapitalize="words"
@@ -339,7 +339,7 @@ export function RegisterScreen({navigation}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Password"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -349,7 +349,7 @@ export function RegisterScreen({navigation}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Confirm Password"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry
@@ -391,7 +391,7 @@ export function RegisterScreen({navigation}: Props) {
         <TextInput
           style={styles.input}
           placeholder="Invite Code"
-          placeholderTextColor="#8E8E93"
+          placeholderTextColor={colors.textTertiary}
           value={inviteCode}
           onChangeText={setInviteCode}
           autoCapitalize="characters"
@@ -402,7 +402,7 @@ export function RegisterScreen({navigation}: Props) {
         <TextInput
           style={styles.input}
           placeholder="Your Name"
-          placeholderTextColor="#8E8E93"
+          placeholderTextColor={colors.textTertiary}
           value={displayName}
           onChangeText={setDisplayName}
           autoCapitalize="words"

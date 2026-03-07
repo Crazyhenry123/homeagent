@@ -154,7 +154,7 @@ export function FamilyManageScreen({}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Family Name"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={familyName}
             onChangeText={setFamilyName}
             autoCapitalize="words"
@@ -216,7 +216,7 @@ export function FamilyManageScreen({}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Email address"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={inviteEmail}
             onChangeText={setInviteEmail}
             keyboardType="email-address"

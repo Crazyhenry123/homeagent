@@ -28,6 +28,8 @@ export const colors = {
   voiceDisabled: '#48484A',
   chevron: '#C7C7CC',
   overlay: 'rgba(0,0,0,0.4)',
+  overlayDark: 'rgba(0,0,0,0.6)',
+  errorOverlay: 'rgba(255,0,0,0.4)',
   disabledText: '#C7C7CC',
   disabledBackground: '#E5E5EA',
   separatorOpaque: '#C6C6C8',

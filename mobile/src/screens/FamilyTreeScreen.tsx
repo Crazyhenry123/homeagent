@@ -146,7 +146,7 @@ export function FamilyTreeScreen(_props: Props) {
           <Text style={styles.memberName}>{item.display_name}</Text>
           <View style={styles.relationshipBadge}>
             {isSaving ? (
-              <ActivityIndicator size="small" color="#007AFF" />
+              <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <Text
                 style={[

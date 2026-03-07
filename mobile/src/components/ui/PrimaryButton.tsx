@@ -33,10 +33,10 @@ export function PrimaryButton({
       style={[
         styles.button,
         bgStyle,
-        disabled && styles.buttonDisabled,
+        (disabled || loading) && styles.buttonDisabled,
       ]}
       onPress={onPress}
-      disabled={disabled}>
+      disabled={disabled || loading}>
       {loading ? (
         <ActivityIndicator color={indicatorColor} />
       ) : (
