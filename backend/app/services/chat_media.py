@@ -108,6 +108,22 @@ def create_upload(
     return {"media_id": media_id, "upload_url": upload_url}
 
 
+def upload_file_to_s3(media_id: str, file_data: bytes, content_type: str) -> None:
+    """Upload file bytes directly to S3 for a given media_id."""
+    item = get_media(media_id)
+    if not item:
+        raise ValueError(f"Media not found: {media_id}")
+
+    bucket = current_app.config["S3_HEALTH_DOCUMENTS_BUCKET"]
+    s3 = _get_s3_client()
+    s3.put_object(
+        Bucket=bucket,
+        Key=item["s3_key"],
+        Body=file_data,
+        ContentType=content_type,
+    )
+
+
 def get_media(media_id: str) -> dict | None:
     """Get a chat media record by ID."""
     table = get_table("ChatMedia")
