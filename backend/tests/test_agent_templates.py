@@ -326,15 +326,17 @@ def test_member_disable_agent(client):
         headers={"Authorization": f"Bearer {member_token}"},
     )
     assert resp.status_code == 200
-    assert resp.get_json()["success"] is True
+    assert resp.get_json()["enabled"] is False
 
-    # Verify health_advisor is gone (logistics_assistant still present as default)
+    # Verify health_advisor is disabled
     resp = client.get(
         "/api/agents/my",
         headers={"Authorization": f"Bearer {member_token}"},
     )
-    types = {c["agent_type"] for c in resp.get_json()["agent_configs"]}
-    assert "health_advisor" not in types
+    configs = resp.get_json()["agent_configs"]
+    ha = next((c for c in configs if c["agent_type"] == "health_advisor"), None)
+    assert ha is not None
+    assert ha["enabled"] is False
 
 
 def test_member_list_my_agents(client):

@@ -10,7 +10,7 @@ os.environ["AWS_ACCESS_KEY_ID"] = "testing"
 os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
 os.environ["ADMIN_INVITE_CODE"] = "FAMILY"
 os.environ["COGNITO_USER_POOL_ID"] = "us-east-1_TestPool"
-os.environ["COGNITO_CLIENT_ID"] = "test-client-id"
+os.environ["COGNITO_CLIENT_ID"] = "testclientid123"
 os.environ["COGNITO_REGION"] = "us-east-1"
 
 from app import create_app  # noqa: E402

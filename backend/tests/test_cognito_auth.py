@@ -315,7 +315,7 @@ def test_cognito_token_verification(mock_jwk, mock_jwt, mock_requests, app):
 
     # Set up Cognito config
     app.config["COGNITO_USER_POOL_ID"] = "us-east-1_TestPool"
-    app.config["COGNITO_CLIENT_ID"] = "test-client-id"
+    app.config["COGNITO_CLIENT_ID"] = "testclientid123"
     app.config["COGNITO_REGION"] = "us-east-1"
 
     # Create a test route with Cognito auth
@@ -456,7 +456,7 @@ def test_cognito_token_valid_but_no_dynamo_user(mock_jwk, mock_jwt, mock_request
 
     # Set up Cognito config
     app.config["COGNITO_USER_POOL_ID"] = "us-east-1_TestPool"
-    app.config["COGNITO_CLIENT_ID"] = "test-client-id"
+    app.config["COGNITO_CLIENT_ID"] = "testclientid123"
     app.config["COGNITO_REGION"] = "us-east-1"
 
     # Create a test route with Cognito auth

@@ -38,6 +38,14 @@ def _validate_password(password: str) -> str | None:
     """Validate password requirements. Returns error message or None."""
     if len(password) < _PASSWORD_MIN_LENGTH:
         return f"Password must be at least {_PASSWORD_MIN_LENGTH} characters"
+    if not re.search(r"[A-Z]", password):
+        return "Password must contain at least one uppercase letter"
+    if not re.search(r"[a-z]", password):
+        return "Password must contain at least one lowercase letter"
+    if not re.search(r"[0-9]", password):
+        return "Password must contain at least one number"
+    if not re.search(r"[^A-Za-z0-9]", password):
+        return "Password must contain at least one special character"
     return None
 
 
