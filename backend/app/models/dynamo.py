@@ -284,6 +284,12 @@ TABLE_DEFINITIONS = {
             "Enabled": True,
         },
     },
+    "OAuthAppCredentials": {
+        "KeySchema": [{"AttributeName": "provider", "KeyType": "HASH"}],
+        "AttributeDefinitions": [
+            {"AttributeName": "provider", "AttributeType": "S"},
+        ],
+    },
 }
 
 

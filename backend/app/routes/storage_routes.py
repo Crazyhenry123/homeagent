@@ -10,12 +10,33 @@ from urllib.parse import quote, urlencode
 
 from flask import Blueprint, current_app, g, jsonify, redirect, request
 
-from app.auth import require_auth
+from app.auth import require_admin, require_auth
 from app.models.dynamo import get_table
 
 logger = logging.getLogger(__name__)
 
 storage_bp = Blueprint("storage", __name__)
+
+
+def _get_oauth_credentials(provider_id: str) -> tuple[str, str]:
+    """Get OAuth client_id and client_secret for a provider.
+
+    Checks DynamoDB (admin-configured) first, falls back to env vars.
+    Returns (client_id, client_secret) — both empty strings if not configured.
+    """
+    try:
+        table = get_table("OAuthAppCredentials")
+        result = table.get_item(Key={"provider": provider_id})
+        item = result.get("Item")
+        if item and item.get("client_id"):
+            return item["client_id"], item.get("client_secret", "")
+    except Exception:
+        logger.debug("Failed to read OAuthAppCredentials for %s", provider_id)
+
+    prefix = provider_id.upper()
+    client_id = current_app.config.get(f"{prefix}_CLIENT_ID", "")
+    client_secret = current_app.config.get(f"{prefix}_CLIENT_SECRET", "")
+    return client_id, client_secret
 
 # Supported providers with metadata
 PROVIDERS: list[dict[str, Any]] = [
@@ -92,14 +113,13 @@ def list_providers():
     status = config.get("status", "active") if config else "active"
 
     # Enrich providers with oauth_configured status
+    is_admin = g.get("user_role") in ("admin", "owner")
     enriched: list[dict[str, Any]] = []
     for p in PROVIDERS:
         provider = dict(p)
         if p["requires_oauth"]:
-            prefix = p["id"].upper()
-            provider["oauth_configured"] = bool(
-                current_app.config.get(f"{prefix}_CLIENT_ID")
-            )
+            client_id, _ = _get_oauth_credentials(p["id"])
+            provider["oauth_configured"] = bool(client_id)
         else:
             provider["oauth_configured"] = True
         enriched.append(provider)
@@ -128,8 +148,7 @@ def connect_provider(provider_id: str):
     if not oauth_cfg:
         return jsonify({"error": "Provider not configured"}), 400
 
-    prefix = provider_id.upper()
-    client_id = current_app.config.get(f"{prefix}_CLIENT_ID", "")
+    client_id, _ = _get_oauth_credentials(provider_id)
     if not client_id:
         return jsonify({"error": f"{provider_id} OAuth not configured on server"}), 400
 
@@ -241,9 +260,7 @@ def oauth_callback(provider_id: str):
     if not oauth_cfg:
         return _callback_response(False, "Unknown provider")
 
-    prefix = provider_id.upper()
-    client_id = current_app.config.get(f"{prefix}_CLIENT_ID", "")
-    client_secret = current_app.config.get(f"{prefix}_CLIENT_SECRET", "")
+    client_id, client_secret = _get_oauth_credentials(provider_id)
 
     redirect_uri = request.base_url  # Same URL that received the callback
 
@@ -325,3 +342,74 @@ def test_connection():
     except Exception:
         latency_ms = int((time_mod.time() - start) * 1000)
         return jsonify({"reachable": False, "latency_ms": latency_ms})
+
+
+# ── Admin: OAuth app credential management ────────────────────────
+
+
+@storage_bp.route("/storage/admin/credentials", methods=["GET"])
+@require_auth
+@require_admin
+def list_credentials():
+    """List configured OAuth app credentials (client_id only, no secrets)."""
+    result: dict[str, dict[str, str]] = {}
+    for provider_id in ("google_drive", "onedrive", "dropbox", "box"):
+        client_id, _ = _get_oauth_credentials(provider_id)
+        if client_id:
+            # Mask all but last 4 chars
+            masked = "****" + client_id[-4:] if len(client_id) > 4 else "****"
+            result[provider_id] = {"client_id": masked, "configured": True}
+        else:
+            result[provider_id] = {"client_id": "", "configured": False}
+    return jsonify(result)
+
+
+@storage_bp.route("/storage/admin/credentials/<provider_id>", methods=["PUT"])
+@require_auth
+@require_admin
+def save_credentials(provider_id: str):
+    """Save OAuth app credentials for a provider (admin only)."""
+    if provider_id not in VALID_PROVIDER_IDS or provider_id == "local":
+        return jsonify({"error": "Invalid provider"}), 400
+
+    if not request.is_json:
+        return jsonify({"error": "JSON body required"}), 400
+
+    client_id = (request.json.get("client_id") or "").strip()
+    client_secret = (request.json.get("client_secret") or "").strip()
+
+    if not client_id or not client_secret:
+        return jsonify({"error": "Both client_id and client_secret are required"}), 400
+
+    table = get_table("OAuthAppCredentials")
+    table.put_item(Item={
+        "provider": provider_id,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "configured_by": g.user_id,
+        "configured_at": __import__("datetime").datetime.now(
+            __import__("datetime").timezone.utc
+        ).isoformat(),
+    })
+
+    logger.info(
+        "Admin %s configured OAuth credentials for %s", g.user_id, provider_id
+    )
+    return jsonify({"success": True, "provider": provider_id})
+
+
+@storage_bp.route("/storage/admin/credentials/<provider_id>", methods=["DELETE"])
+@require_auth
+@require_admin
+def delete_credentials(provider_id: str):
+    """Remove OAuth app credentials for a provider (admin only)."""
+    if provider_id not in VALID_PROVIDER_IDS or provider_id == "local":
+        return jsonify({"error": "Invalid provider"}), 400
+
+    table = get_table("OAuthAppCredentials")
+    table.delete_item(Key={"provider": provider_id})
+
+    logger.info(
+        "Admin %s removed OAuth credentials for %s", g.user_id, provider_id
+    )
+    return jsonify({"success": True, "provider": provider_id})

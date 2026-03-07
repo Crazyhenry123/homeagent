@@ -49,7 +49,33 @@ class OAuthTokenManager:
             return dynamodb.Table("OAuthTokens")
 
     def _get_config(self, provider: str) -> dict[str, str]:
-        """Return OAuth client_id / client_secret for *provider*."""
+        """Return OAuth client_id / client_secret for *provider*.
+
+        Checks DynamoDB (admin-configured) first, falls back to env vars.
+        """
+        # Try DynamoDB first
+        try:
+            table = self._get_table()
+            # Use the same DynamoDB resource but different table
+            dynamodb = table.meta.client
+            cred_table = boto3.resource(
+                "dynamodb",
+                region_name=dynamodb.meta.region_name,
+                endpoint_url=dynamodb.meta.endpoint_url
+                if hasattr(dynamodb.meta, "endpoint_url")
+                else None,
+            ).Table("OAuthAppCredentials")
+            result = cred_table.get_item(Key={"provider": provider})
+            item = result.get("Item")
+            if item and item.get("client_id"):
+                return {
+                    "client_id": item["client_id"],
+                    "client_secret": item.get("client_secret", ""),
+                }
+        except Exception:
+            logger.debug("Failed to read OAuthAppCredentials for %s", provider)
+
+        # Fall back to env vars / Flask config
         try:
             from flask import current_app  # noqa: WPS433
 
