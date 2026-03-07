@@ -6,6 +6,7 @@ import logging
 import secrets
 import time
 from typing import Any
+from urllib.parse import quote, urlencode
 
 from flask import Blueprint, current_app, g, jsonify, redirect, request
 
@@ -132,6 +133,14 @@ def connect_provider(provider_id: str):
     redirect_uri = request.json.get("redirect_uri", "") if request.is_json else ""
     if not redirect_uri:
         redirect_uri = request.host_url.rstrip("/") + f"/api/storage/oauth/callback/{provider_id}"
+    else:
+        # Validate redirect_uri is on our own host to prevent open redirects
+        from urllib.parse import urlparse
+
+        parsed = urlparse(redirect_uri)
+        expected_host = urlparse(request.host_url).hostname
+        if parsed.hostname != expected_host:
+            return jsonify({"error": "Invalid redirect_uri"}), 400
 
     params = {
         "client_id": client_id,
@@ -144,9 +153,7 @@ def connect_provider(provider_id: str):
     if oauth_cfg["scope"]:
         params["scope"] = oauth_cfg["scope"]
 
-    auth_url = oauth_cfg["auth_url"] + "?" + "&".join(
-        f"{k}={v}" for k, v in params.items()
-    )
+    auth_url = oauth_cfg["auth_url"] + "?" + urlencode(params)
 
     return jsonify({"auth_url": auth_url, "state": state})
 
@@ -191,14 +198,25 @@ def oauth_callback(provider_id: str):
     if not code or not state:
         return _callback_response(False, "Missing code or state")
 
-    # Validate state (CSRF)
+    # Validate and atomically consume state token (CSRF)
     state_table = get_table("OAuthState")
-    state_item = state_table.get_item(Key={"state": state}).get("Item")
+    try:
+        resp = state_table.delete_item(
+            Key={"state": state},
+            ConditionExpression="attribute_exists(#s)",
+            ExpressionAttributeNames={"#s": "state"},
+            ReturnValues="ALL_OLD",
+        )
+        state_item = resp.get("Attributes")
+    except state_table.meta.client.exceptions.ConditionalCheckFailedException:
+        state_item = None
+
     if not state_item:
         return _callback_response(False, "Invalid or expired state")
 
-    # Delete state token (single use)
-    state_table.delete_item(Key={"state": state})
+    # Check TTL expiry
+    if int(state_item.get("expires_at", 0)) < int(time.time()):
+        return _callback_response(False, "State token expired")
 
     if state_item.get("provider") != provider_id:
         return _callback_response(False, "Provider mismatch")
@@ -258,7 +276,7 @@ def _callback_response(success: bool, message: str = "") -> Any:
     status = "success" if success else "error"
     deep_link = f"homeagent://storage-connected?status={status}"
     if message:
-        deep_link += f"&message={message}"
+        deep_link += f"&message={quote(message)}"
 
     # If the request looks like a browser (Accept: text/html), redirect
     accept = request.headers.get("Accept", "")
