@@ -20,6 +20,13 @@ def _get_s3_client() -> "boto3.client":
     if endpoint:
         kwargs["endpoint_url"] = endpoint
         kwargs["config"] = boto3.session.Config(s3={"addressing_style": "path"})
+        # Use local S3 credentials (MinIO) when endpoint is overridden
+        kwargs["aws_access_key_id"] = current_app.config.get(
+            "S3_ACCESS_KEY_ID", "local"
+        )
+        kwargs["aws_secret_access_key"] = current_app.config.get(
+            "S3_SECRET_ACCESS_KEY", "locallocal"
+        )
     return boto3.client("s3", **kwargs)
 
 
@@ -39,6 +46,12 @@ def _get_presigned_s3_client() -> "boto3.client":
             region_name=current_app.config["AWS_REGION"],
             endpoint_url=presigned_endpoint,
             config=boto3.session.Config(s3={"addressing_style": "path"}),
+            aws_access_key_id=current_app.config.get(
+                "S3_ACCESS_KEY_ID", "local"
+            ),
+            aws_secret_access_key=current_app.config.get(
+                "S3_SECRET_ACCESS_KEY", "locallocal"
+            ),
         )
     return _get_s3_client()
 
