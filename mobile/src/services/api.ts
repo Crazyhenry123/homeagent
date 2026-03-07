@@ -408,6 +408,39 @@ export async function uploadChatImage(
   });
 }
 
+export async function uploadMediaDirect(
+  uri: string,
+  contentType: string,
+): Promise<{media_id: string}> {
+  const h = await headers();
+  delete h['Content-Type']; // Let fetch set multipart boundary
+
+  const formData = new FormData();
+  const filename = uri.split('/').pop() || 'file';
+  // React Native FormData accepts {uri, type, name} objects
+  formData.append('file', {
+    uri,
+    type: contentType,
+    name: filename,
+  } as unknown as Blob);
+
+  const response = await fetch(`${BASE_URL}/api/chat/upload`, {
+    method: 'POST',
+    headers: h,
+    body: formData,
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      emitAuthExpired();
+    }
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || `Upload failed: ${response.status}`);
+  }
+
+  return response.json() as Promise<{media_id: string}>;
+}
+
 // --- Admin Delete Member ---
 
 export async function deleteMember(userId: string): Promise<void> {

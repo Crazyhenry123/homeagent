@@ -1,49 +1,27 @@
-import {uploadAsync, FileSystemUploadType} from 'expo-file-system/legacy';
-import {uploadChatImage} from './api';
+import {uploadMediaDirect} from './api';
 
 /**
- * Upload an image for chat: get a presigned URL from the backend,
- * then PUT the file directly to S3.
+ * Upload an image for chat via the backend proxy.
+ * The backend stores the file to S3 directly, avoiding presigned URL
+ * reachability issues (e.g., phone can't reach MinIO in local dev).
  */
 export async function uploadImage(
   uri: string,
   contentType: string,
-  fileSize: number,
+  _fileSize: number,
 ): Promise<string> {
-  // Step 1: Get presigned upload URL via shared API client
-  const {media_id, upload_url} = await uploadChatImage(contentType, fileSize);
-
-  // Step 2: Upload file directly to S3 via presigned URL
-  await uploadAsync(upload_url, uri, {
-    httpMethod: 'PUT',
-    headers: {
-      'Content-Type': contentType,
-    },
-    uploadType: FileSystemUploadType.BINARY_CONTENT,
-  });
-
+  const {media_id} = await uploadMediaDirect(uri, contentType);
   return media_id;
 }
 
 /**
- * Upload an audio file for chat: get a presigned URL from the backend,
- * then PUT the file directly to S3.
+ * Upload an audio file for chat via the backend proxy.
  */
 export async function uploadAudio(
   uri: string,
-  fileSize: number,
+  _fileSize: number,
 ): Promise<string> {
-  const contentType = 'audio/wav';
-  const {media_id, upload_url} = await uploadChatImage(contentType, fileSize);
-
-  await uploadAsync(upload_url, uri, {
-    httpMethod: 'PUT',
-    headers: {
-      'Content-Type': contentType,
-    },
-    uploadType: FileSystemUploadType.BINARY_CONTENT,
-  });
-
+  const {media_id} = await uploadMediaDirect(uri, 'audio/wav');
   return media_id;
 }
 
