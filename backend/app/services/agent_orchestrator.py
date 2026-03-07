@@ -8,11 +8,23 @@ from typing import Generator
 from flask import current_app
 
 from app.services.bedrock import build_image_content_block
+from app.services.family import get_family_settings, get_user_family_id
 from app.services.family_memory import get_family_shared_context
 from app.services.family_tree import build_family_context
 from app.services.profile import get_profile
 
 logger = logging.getLogger(__name__)
+
+
+def _is_web_search_enabled(user_id: str) -> bool:
+    """Check if web search is enabled — server config AND family setting."""
+    if not current_app.config.get("WEB_SEARCH_ENABLED", True):
+        return False
+    family_id = get_user_family_id(user_id)
+    if not family_id:
+        return True  # No family yet, use server default
+    settings = get_family_settings(family_id)
+    return settings.get("web_search_enabled", True)
 
 _executor = ThreadPoolExecutor(max_workers=4)
 
@@ -135,7 +147,7 @@ def stream_agent_chat(
 
     # Add default tools (time + search) available to every agent session
     default_tools: list = [get_current_time]
-    if current_app.config.get("WEB_SEARCH_ENABLED", True):
+    if _is_web_search_enabled(user_id):
         default_tools.append(web_search)
     tools = default_tools + (tools or [])
 
