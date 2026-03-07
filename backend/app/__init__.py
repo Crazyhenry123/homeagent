@@ -22,6 +22,7 @@ from app.routes.permission_routes import permission_bp
 from app.routes.profiles import admin_profiles_bp, profiles_bp
 from app.routes.session_routes import session_bp
 from app.routes.storage_routes import storage_bp
+from app.routes.storage_migration_routes import storage_migration_bp
 from app.services.agent_template import seed_builtin_templates
 
 
@@ -57,6 +58,7 @@ def create_app(config: Config | None = None) -> Flask:
     app.register_blueprint(memory_bp, url_prefix="/api")
     app.register_blueprint(session_bp, url_prefix="/api")
     app.register_blueprint(storage_bp, url_prefix="/api")
+    app.register_blueprint(storage_migration_bp, url_prefix="/api")
 
     # Voice WebSocket
     if app.config.get("VOICE_ENABLED"):

@@ -304,6 +304,7 @@ class DataStack(cdk.Stack):
             time_to_live_attribute="expires_at",
         )
 
+
         # S3 bucket for health documents
         self.documents_bucket = s3.Bucket(
             self,
