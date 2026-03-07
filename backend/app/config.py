@@ -53,3 +53,6 @@ class Config:
     )
     SES_ENABLED: bool = os.environ.get("SES_ENABLED", "false").lower() == "true"
     SES_FROM_EMAIL: str = os.environ.get("SES_FROM_EMAIL", "")
+    WEB_SEARCH_ENABLED: bool = (
+        os.environ.get("WEB_SEARCH_ENABLED", "false").lower() == "true"
+    )

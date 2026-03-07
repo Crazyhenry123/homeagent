@@ -2,6 +2,7 @@ import asyncio
 import logging
 import queue
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from typing import Generator
 
 from flask import current_app
@@ -17,11 +18,15 @@ _executor = ThreadPoolExecutor(max_workers=4)
 
 def _build_system_prompt(user_id: str, base_prompt: str) -> str:
     """Build a personalized system prompt by incorporating user profile data."""
+    parts = [base_prompt]
+
+    # Always inject current time for temporal awareness
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC (%A)")
+    parts.append(f"\nCurrent date and time: {now}.")
+
     profile = get_profile(user_id)
     if not profile:
-        return base_prompt
-
-    parts = [base_prompt]
+        return " ".join(parts)
 
     display_name = profile.get("display_name", "")
     if display_name:
@@ -87,6 +92,8 @@ def stream_agent_chat(
     from strands.models import BedrockModel
 
     from app.agents.personal import build_sub_agent_tools
+    from app.agents.search_tool import web_search
+    from app.agents.time_tool import get_current_time
     from app.services.memory import create_session_manager
 
     model_id = current_app.config["BEDROCK_MODEL_ID"]
@@ -119,6 +126,20 @@ def stream_agent_chat(
     # Build sub-agent tools from user's agent configs
     if tools is None:
         tools = build_sub_agent_tools(user_id=user_id, model_id=model_id)
+
+    # Add default tools (time + search) available to every agent session
+    default_tools: list = [get_current_time]
+    if current_app.config.get("WEB_SEARCH_ENABLED", True):
+        default_tools.append(web_search)
+    tools = default_tools + (tools or [])
+
+    # Build dynamic tool hint based on actually-enabled tools
+    tool_names = [t.tool_name if hasattr(t, "tool_name") else t.__name__ for t in default_tools]
+    tool_hint = (
+        f"\nYou have access to tools: {', '.join(tool_names)}. "
+        "Use them proactively when relevant."
+    )
+    personalized_prompt += tool_hint
 
     # Set up AgentCore Memory session manager if configured
     session_manager = None
