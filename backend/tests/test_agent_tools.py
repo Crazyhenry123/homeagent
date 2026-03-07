@@ -32,8 +32,9 @@ class TestWebSearchTool:
     def test_search_request_failure_no_query_leak(self, mock_get):
         from app.agents.search_tool import web_search
 
-        mock_get.side_effect = Exception("Network error")
-        result = web_search.fn(query="sensitive health query", max_results=3)
+        import requests as req
+        mock_get.side_effect = req.RequestException("Network error")
+        result = web_search._tool_func(query="sensitive health query", max_results=3)
         assert "temporarily unavailable" in result.lower()
         assert "sensitive health query" not in result
 
@@ -47,7 +48,7 @@ class TestWebSearchTool:
         mock_resp.raise_for_status = MagicMock()
         mock_get.return_value = mock_resp
 
-        result = web_search.fn(query="xyznonexistent", max_results=3)
+        result = web_search._tool_func(query="xyznonexistent", max_results=3)
         assert "No results" in result
 
     @patch("app.agents.search_tool.requests.get")
@@ -66,7 +67,7 @@ class TestWebSearchTool:
         mock_resp.raise_for_status = MagicMock()
         mock_get.return_value = mock_resp
 
-        result = web_search.fn(query="test", max_results=5)
+        result = web_search._tool_func(query="test", max_results=5)
         assert "Example Title" in result
         assert "snippet about the topic" in result
 

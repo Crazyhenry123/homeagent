@@ -118,10 +118,15 @@ def test_build_system_prompt_with_profile(app):
 
 
 def test_build_system_prompt_no_profile(app):
-    """Test that system prompt falls back to base when no profile exists."""
+    """Test that system prompt falls back to base when no profile exists.
+
+    Note: time is always injected even without a profile, so the prompt
+    will contain the base prompt plus the current date/time line.
+    """
     from app.services.agent_orchestrator import _build_system_prompt
 
     with app.app_context():
         base = "You are a helpful assistant."
         prompt = _build_system_prompt("nonexistent-user", base)
-        assert prompt == base
+        assert prompt.startswith(base)
+        assert "Current date and time:" in prompt
