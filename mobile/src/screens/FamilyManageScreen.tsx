@@ -19,6 +19,7 @@ import {
 import {useSession} from '../store';
 import type {RootStackParamList} from '../navigation/AppNavigator';
 import type {FamilyInvite} from '../types';
+import {colors} from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FamilyManage'>;
 
@@ -135,7 +136,7 @@ export function FamilyManageScreen({}: Props) {
   if (session.status === 'loading' || loadingInvites) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -153,7 +154,7 @@ export function FamilyManageScreen({}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Family Name"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={familyName}
             onChangeText={setFamilyName}
             autoCapitalize="words"
@@ -215,7 +216,7 @@ export function FamilyManageScreen({}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Email address"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={inviteEmail}
             onChangeText={setInviteEmail}
             keyboardType="email-address"
@@ -285,97 +286,78 @@ export function FamilyManageScreen({}: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background,
   },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   familyInfo: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     padding: 20,
     alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.separator,
   },
   familyName: {
     fontSize: 22,
     fontWeight: '600',
-    color: '#000000',
+    color: colors.textPrimary,
   },
   familyMeta: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     marginTop: 4,
-  },
-  sectionHeader: {
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 8,
-  },
-  sectionHeaderText: {
-    fontSize: 13,
-    color: '#8E8E93',
-    fontWeight: '500',
-    letterSpacing: 0.5,
   },
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.separator,
   },
   memberInfo: {
     flex: 1,
+    marginLeft: 12,
   },
   memberName: {
     fontSize: 16,
-    color: '#000000',
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   memberRole: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     marginTop: 2,
     textTransform: 'capitalize',
   },
-  emptyState: {
-    padding: 32,
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#8E8E93',
-  },
   inviteButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.separator,
   },
   inviteButtonText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: colors.primary,
     fontWeight: '500',
   },
   inviteInputContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     padding: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.separator,
   },
   input: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background,
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#000000',
+    color: colors.textPrimary,
     marginBottom: 12,
   },
   inviteButtonRow: {
@@ -389,44 +371,44 @@ const styles = StyleSheet.create({
   },
   cancelInputButtonText: {
     fontSize: 16,
-    color: '#8E8E93',
+    color: colors.textTertiary,
   },
   sendInviteButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.primary,
     borderRadius: 8,
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
   sendInviteButtonText: {
     fontSize: 16,
-    color: '#FFFFFF',
+    color: colors.surface,
     fontWeight: '600',
   },
   inviteRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.separator,
   },
   inviteInfo: {
     flex: 1,
   },
   inviteEmail: {
     fontSize: 16,
-    color: '#000000',
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   inviteCode: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     marginTop: 2,
   },
   cancelText: {
     fontSize: 14,
-    color: '#FF3B30',
+    color: colors.destructive,
     fontWeight: '500',
   },
   createFamilySection: {
@@ -436,25 +418,45 @@ const styles = StyleSheet.create({
   noFamilyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000000',
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   noFamilySubtext: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     marginBottom: 24,
   },
+  sectionHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 8,
+  },
+  sectionHeaderText: {
+    fontSize: 13,
+    color: colors.textTertiary,
+    fontWeight: '500' as const,
+    letterSpacing: 0.5,
+  },
+  emptyState: {
+    padding: 32,
+    alignItems: 'center' as const,
+    backgroundColor: colors.surface,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: colors.textTertiary,
+  },
   createButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.primary,
     borderRadius: 10,
     paddingHorizontal: 24,
     paddingVertical: 14,
-    width: '100%',
-    alignItems: 'center',
+    width: '100%' as const,
+    alignItems: 'center' as const,
   },
   createButtonText: {
     fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
+    color: colors.surface,
+    fontWeight: '600' as const,
   },
 });

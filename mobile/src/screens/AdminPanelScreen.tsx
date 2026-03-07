@@ -10,6 +10,7 @@ import {
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {generateInviteCode} from '../services/api';
 import type {RootStackParamList} from '../navigation/AppNavigator';
+import {colors} from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AdminPanel'>;
 
@@ -126,7 +127,7 @@ export function AdminPanelScreen({navigation}: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background,
   },
   sectionHeader: {
     paddingHorizontal: 16,
@@ -135,16 +136,16 @@ const styles = StyleSheet.create({
   },
   sectionHeaderText: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     fontWeight: '500',
     letterSpacing: 0.5,
   },
   actionRow: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.separator,
   },
   actionRowContent: {
     flexDirection: 'row',
@@ -161,17 +162,17 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 16,
-    color: '#000000',
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   actionSubtext: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     marginTop: 2,
   },
   chevron: {
     fontSize: 20,
-    color: '#C7C7CC',
+    color: colors.chevron,
     marginLeft: 8,
   },
 });

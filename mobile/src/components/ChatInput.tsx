@@ -18,6 +18,7 @@ import * as Haptics from 'expo-haptics';
 import {ImageAttachment} from './ImageAttachment';
 import {VoiceButton} from './VoiceButton';
 import {getContentType, uploadAudio} from '../services/chatMedia';
+import {colors} from '../theme';
 import type {ChatMediaUpload} from '../types';
 
 interface Props {
@@ -201,7 +202,7 @@ export function ChatInput({onSend, disabled}: Props) {
       )}
       {recording && (
         <View style={styles.recordingIndicator}>
-          <Ionicons name="radio" size={14} color="#FF3B30" style={{marginRight: 6}} />
+          <Ionicons name="radio" size={14} color={colors.destructive} style={{marginRight: 6}} />
           <Text style={styles.recordingText}>Recording... Tap mic to stop & send</Text>
         </View>
       )}
@@ -213,7 +214,7 @@ export function ChatInput({onSend, disabled}: Props) {
           <Ionicons
             name="image-outline"
             size={22}
-            color={disabled || recording ? '#C7C7CC' : '#007AFF'}
+            color={disabled || recording ? colors.disabledText : colors.primary}
           />
         </TouchableOpacity>
         <TextInput
@@ -221,7 +222,7 @@ export function ChatInput({onSend, disabled}: Props) {
           value={text}
           onChangeText={setText}
           placeholder="Type a message..."
-          placeholderTextColor="#3C3C43"
+          placeholderTextColor={colors.textSecondary}
           multiline
           maxLength={4000}
           editable={!disabled && !recording}
@@ -233,7 +234,7 @@ export function ChatInput({onSend, disabled}: Props) {
             style={[styles.sendButton, !showSend && styles.sendButtonDisabled]}
             onPress={handleSend}
             disabled={!showSend || recording}>
-            <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
+            <Ionicons name="arrow-up" size={20} color={colors.surface} />
           </TouchableOpacity>
         ) : (
           <VoiceButton
@@ -250,8 +251,8 @@ export function ChatInput({onSend, disabled}: Props) {
 const styles = StyleSheet.create({
   wrapper: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#C6C6C8',
-    backgroundColor: '#FFFFFF',
+    borderTopColor: colors.separatorOpaque,
+    backgroundColor: colors.surface,
   },
   attachmentRow: {
     maxHeight: 80,
@@ -268,7 +269,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   recordingText: {
-    color: '#FF3B30',
+    color: colors.destructive,
     fontSize: 13,
     fontWeight: '500',
   },
@@ -282,7 +283,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#E9E9EB',
+    backgroundColor: colors.assistantBubble,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 6,
@@ -293,23 +294,23 @@ const styles = StyleSheet.create({
     maxHeight: 120,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#C6C6C8',
+    borderColor: colors.separatorOpaque,
     paddingHorizontal: 14,
     paddingVertical: 8,
     fontSize: 16,
-    backgroundColor: '#F9F9F9',
-    color: '#000000',
+    backgroundColor: colors.surfaceSecondary,
+    color: colors.textPrimary,
   },
   sendButton: {
     marginLeft: 8,
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: '#E5E5EA',
+    backgroundColor: colors.disabledBackground,
   },
 });

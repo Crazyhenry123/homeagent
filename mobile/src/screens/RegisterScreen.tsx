@@ -16,6 +16,7 @@ import {saveToken} from '../services/auth';
 import {signUp, confirmSignUp, signIn} from '../services/cognitoAuth';
 import {useSession} from '../store';
 import type {RootStackParamList} from '../navigation/AppNavigator';
+import {colors} from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
@@ -213,7 +214,7 @@ export function RegisterScreen({navigation}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Email"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -225,7 +226,7 @@ export function RegisterScreen({navigation}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Password"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -266,7 +267,7 @@ export function RegisterScreen({navigation}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Verification Code"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={confirmationCode}
             onChangeText={setConfirmationCode}
             keyboardType="number-pad"
@@ -316,7 +317,7 @@ export function RegisterScreen({navigation}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Email"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -328,7 +329,7 @@ export function RegisterScreen({navigation}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Your Name"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={ownerDisplayName}
             onChangeText={setOwnerDisplayName}
             autoCapitalize="words"
@@ -338,7 +339,7 @@ export function RegisterScreen({navigation}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Password"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -348,7 +349,7 @@ export function RegisterScreen({navigation}: Props) {
           <TextInput
             style={styles.input}
             placeholder="Confirm Password"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textTertiary}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry
@@ -390,7 +391,7 @@ export function RegisterScreen({navigation}: Props) {
         <TextInput
           style={styles.input}
           placeholder="Invite Code"
-          placeholderTextColor="#8E8E93"
+          placeholderTextColor={colors.textTertiary}
           value={inviteCode}
           onChangeText={setInviteCode}
           autoCapitalize="characters"
@@ -401,7 +402,7 @@ export function RegisterScreen({navigation}: Props) {
         <TextInput
           style={styles.input}
           placeholder="Your Name"
-          placeholderTextColor="#8E8E93"
+          placeholderTextColor={colors.textTertiary}
           value={displayName}
           onChangeText={setDisplayName}
           autoCapitalize="words"
@@ -430,7 +431,7 @@ export function RegisterScreen({navigation}: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   content: {
     flex: 1,
@@ -447,59 +448,59 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     textAlign: 'center',
-    color: '#000000',
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
-    color: '#8E8E93',
+    color: colors.textTertiary,
     marginBottom: 32,
   },
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: '#C6C6C8',
+    borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 16,
     fontSize: 16,
     marginBottom: 16,
-    color: '#000000',
-    backgroundColor: '#F9F9F9',
+    color: colors.textPrimary,
+    backgroundColor: colors.surfaceSecondary,
   },
   passwordHint: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     textAlign: 'center',
     marginBottom: 16,
   },
   button: {
     height: 48,
     borderRadius: 10,
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
   },
   secondaryButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 2,
-    borderColor: '#007AFF',
+    borderColor: colors.primary,
   },
   buttonDisabled: {
-    backgroundColor: '#B0B0B0',
+    backgroundColor: colors.disabledBackground,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: colors.surface,
     fontSize: 17,
     fontWeight: '600',
   },
   secondaryButtonText: {
-    color: '#007AFF',
+    color: colors.primary,
   },
   orText: {
     textAlign: 'center',
-    color: '#8E8E93',
+    color: colors.textTertiary,
     fontSize: 14,
     marginVertical: 12,
   },
@@ -508,7 +509,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   linkText: {
-    color: '#007AFF',
+    color: colors.primary,
     fontSize: 15,
   },
 });

@@ -19,6 +19,7 @@ import {
 import {useSession} from '../store';
 import type {RootStackParamList} from '../navigation/AppNavigator';
 import type {MemberProfile, RelationshipType} from '../types';
+import {colors} from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FamilyTree'>;
 
@@ -116,7 +117,7 @@ export function FamilyTreeScreen(_props: Props) {
   if (loading) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -145,7 +146,7 @@ export function FamilyTreeScreen(_props: Props) {
           <Text style={styles.memberName}>{item.display_name}</Text>
           <View style={styles.relationshipBadge}>
             {isSaving ? (
-              <ActivityIndicator size="small" color="#007AFF" />
+              <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <Text
                 style={[
@@ -234,7 +235,7 @@ export function FamilyTreeScreen(_props: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background,
   },
   centered: {
     flex: 1,
@@ -242,38 +243,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 32,
   },
-  sectionHeader: {
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 4,
-  },
-  sectionHeaderText: {
-    fontSize: 13,
-    color: '#8E8E93',
-    fontWeight: '500',
-    letterSpacing: 0.5,
-  },
   hint: {
     paddingHorizontal: 16,
     paddingBottom: 12,
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.textTertiary,
   },
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.separator,
   },
   memberInfo: {
     flex: 1,
+    marginLeft: 12,
   },
   memberName: {
     fontSize: 16,
-    color: '#000000',
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   relationshipBadge: {
@@ -281,29 +272,19 @@ const styles = StyleSheet.create({
   },
   relationshipLabel: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: colors.textTertiary,
   },
   relationshipLabelActive: {
-    color: '#007AFF',
+    color: colors.primary,
     fontWeight: '500',
-  },
-  chevron: {
-    fontSize: 20,
-    color: '#C7C7CC',
-    marginLeft: 8,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: '#8E8E93',
-    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 14,
     borderTopRightRadius: 14,
   },
@@ -314,16 +295,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.separator,
   },
   modalTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#000000',
+    color: colors.textPrimary,
   },
   modalDone: {
     fontSize: 17,
-    color: '#007AFF',
+    color: colors.primary,
   },
   modalOption: {
     flexDirection: 'row',
@@ -331,23 +312,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.separator,
   },
   modalOptionSelected: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background,
   },
   modalOptionText: {
     flex: 1,
     fontSize: 16,
-    color: '#000000',
+    color: colors.textPrimary,
   },
   modalOptionTextSelected: {
-    color: '#007AFF',
+    color: colors.primary,
     fontWeight: '600',
+  },
+  sectionHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 4,
+  },
+  sectionHeaderText: {
+    fontSize: 13,
+    color: colors.textTertiary,
+    fontWeight: '500' as const,
+    letterSpacing: 0.5,
+  },
+  chevron: {
+    fontSize: 20,
+    color: colors.chevron,
+    marginLeft: 8,
+  },
+  emptyText: {
+    fontSize: 15,
+    color: colors.textTertiary,
+    textAlign: 'center' as const,
   },
   checkmark: {
     fontSize: 17,
-    color: '#007AFF',
-    fontWeight: '600',
+    color: colors.primary,
+    fontWeight: '600' as const,
   },
 });

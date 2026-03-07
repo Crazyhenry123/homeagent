@@ -13,6 +13,7 @@ import {listProfiles} from '../services/api';
 import {useSession} from '../store';
 import type {RootStackParamList} from '../navigation/AppNavigator';
 import type {MemberProfile} from '../types';
+import {colors} from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AdminMembers'>;
 
@@ -61,14 +62,14 @@ export function AdminMembersScreen({navigation}: Props) {
           {item.family_role || 'No role set'} · {item.role}
         </Text>
       </View>
-      <Text style={styles.chevron}>›</Text>
+      <Text style={{fontSize: 20, color: colors.chevron, marginLeft: 8}}>›</Text>
     </TouchableOpacity>
   );
 
   if (loading) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -76,7 +77,7 @@ export function AdminMembersScreen({navigation}: Props) {
   if (userRole && userRole !== 'admin' && userRole !== 'owner') {
     return (
       <View style={[styles.container, styles.centered]}>
-        <Text style={styles.emptyText}>Access denied. Admin role required.</Text>
+        <Text style={{fontSize: 16, color: colors.textTertiary}}>Access denied. Admin role required.</Text>
       </View>
     );
   }
@@ -88,8 +89,8 @@ export function AdminMembersScreen({navigation}: Props) {
         keyExtractor={item => item.user_id}
         renderItem={renderItem}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No family members yet</Text>
+          <View style={{padding: 32, alignItems: 'center'} as const}>
+            <Text style={{fontSize: 16, color: colors.textTertiary}}>No family members yet</Text>
           </View>
         }
       />
@@ -100,7 +101,7 @@ export function AdminMembersScreen({navigation}: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background,
   },
   centered: {
     justifyContent: 'center',
@@ -109,36 +110,24 @@ const styles = StyleSheet.create({
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.separator,
   },
   memberInfo: {
     flex: 1,
+    marginLeft: 12,
   },
   memberName: {
     fontSize: 16,
-    color: '#000000',
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   memberDetail: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     marginTop: 2,
-  },
-  chevron: {
-    fontSize: 20,
-    color: '#C7C7CC',
-    marginLeft: 8,
-  },
-  emptyState: {
-    padding: 32,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#8E8E93',
   },
 });

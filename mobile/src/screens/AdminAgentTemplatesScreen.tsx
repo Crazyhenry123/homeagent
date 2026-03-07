@@ -18,6 +18,7 @@ import {
   listAgentTemplates,
   updateAgentTemplate,
 } from '../services/api';
+import {colors} from '../theme';
 
 export function AdminAgentTemplatesScreen() {
   const [templates, setTemplates] = useState<AgentTemplate[]>([]);
@@ -162,7 +163,7 @@ export function AdminAgentTemplatesScreen() {
   if (loading) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -259,14 +260,14 @@ export function AdminAgentTemplatesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background,
   },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   row: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     padding: 16,
     marginHorizontal: 16,
     marginTop: 12,
@@ -280,33 +281,33 @@ const styles = StyleSheet.create({
   rowName: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#000000',
+    color: colors.textPrimary,
     flex: 1,
   },
   badge: {
-    backgroundColor: '#E5E5EA',
+    backgroundColor: colors.badgeBackground,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
   },
   badgeText: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.badgeText,
     fontWeight: '500',
   },
   rowSlug: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     marginBottom: 4,
   },
   rowDescription: {
     fontSize: 14,
-    color: '#3C3C43',
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   rowAvailability: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.textTertiary,
   },
   deleteButton: {
     marginTop: 8,
@@ -314,11 +315,11 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     fontSize: 14,
-    color: '#FF3B30',
+    color: colors.destructive,
   },
   emptyText: {
     textAlign: 'center',
-    color: '#8E8E93',
+    color: colors.textTertiary,
     fontSize: 16,
     marginTop: 48,
   },
@@ -326,31 +327,31 @@ const styles = StyleSheet.create({
     margin: 16,
     height: 48,
     borderRadius: 10,
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   addButtonText: {
-    color: '#FFFFFF',
+    color: colors.surface,
     fontSize: 17,
     fontWeight: '600',
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.separator,
   },
   modalCancel: {
     fontSize: 17,
-    color: '#007AFF',
+    color: colors.primary,
   },
   modalTitle: {
     fontSize: 17,
@@ -358,7 +359,7 @@ const styles = StyleSheet.create({
   },
   modalSave: {
     fontSize: 17,
-    color: '#007AFF',
+    color: colors.primary,
     fontWeight: '600',
   },
   modalBody: {
@@ -366,22 +367,22 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     fontWeight: '500',
     marginTop: 16,
     marginBottom: 6,
     letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 10,
     padding: 12,
     fontSize: 16,
-    color: '#000000',
+    color: colors.textPrimary,
   },
   inputDisabled: {
-    backgroundColor: '#E5E5EA',
-    color: '#8E8E93',
+    backgroundColor: colors.separator,
+    color: colors.textTertiary,
   },
   multilineInput: {
     minHeight: 60,
@@ -393,7 +394,7 @@ const styles = StyleSheet.create({
   },
   readOnlyNote: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     marginTop: 4,
     fontStyle: 'italic',
   },
@@ -401,30 +402,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 10,
     padding: 12,
   },
   toggleLabel: {
     fontSize: 16,
-    color: '#000000',
+    color: colors.textPrimary,
   },
   toggle: {
     width: 51,
     height: 31,
     borderRadius: 16,
-    backgroundColor: '#E5E5EA',
+    backgroundColor: colors.separator,
     justifyContent: 'center',
     padding: 2,
   },
   toggleActive: {
-    backgroundColor: '#34C759',
+    backgroundColor: colors.success,
   },
   toggleKnob: {
     width: 27,
     height: 27,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   toggleKnobActive: {
     alignSelf: 'flex-end',

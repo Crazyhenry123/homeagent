@@ -1,6 +1,7 @@
 import React from 'react';
 import {Image, StyleSheet, Text, View} from 'react-native';
 import type {MediaInfo, Message} from '../types';
+import {colors} from '../theme';
 
 interface DisplayMedia {
   uri: string;
@@ -74,11 +75,11 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   userBubble: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.userBubble,
     borderBottomRightRadius: 4,
   },
   assistantBubble: {
-    backgroundColor: '#E9E9EB',
+    backgroundColor: colors.assistantBubble,
     borderBottomLeftRadius: 4,
   },
   text: {
@@ -86,10 +87,10 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   userText: {
-    color: '#FFFFFF',
+    color: colors.userBubbleText,
   },
   assistantText: {
-    color: '#000000',
+    color: colors.assistantBubbleText,
   },
   imageRow: {
     flexDirection: 'row',
