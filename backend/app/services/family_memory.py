@@ -97,10 +97,15 @@ def _get_family_member_ids(user_id: str) -> list[str]:
     members_result = table.query(
         KeyConditionExpression=Key("family_id").eq(family_id)
     )
+    all_members = list(members_result.get("Items", []))
+    while "LastEvaluatedKey" in members_result:
+        members_result = table.query(
+            KeyConditionExpression=Key("family_id").eq(family_id),
+            ExclusiveStartKey=members_result["LastEvaluatedKey"],
+        )
+        all_members.extend(members_result.get("Items", []))
     member_ids = [
-        m["user_id"]
-        for m in members_result.get("Items", [])
-        if m["user_id"] != user_id
+        m["user_id"] for m in all_members if m["user_id"] != user_id
     ]
     return member_ids
 
