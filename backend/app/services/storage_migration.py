@@ -94,22 +94,21 @@ class StorageMigrator:
 
         try:
             # Phase 1: Count
+            key_cond = {"user_id": user_id}
             for collection in MIGRATED_COLLECTIONS:
-                records = source.query_records(user_id, collection)
+                records = source.query_records(collection, key_cond)
                 progress.total_records += len(records)
 
             # Count files (health documents with associated files)
-            doc_records = source.query_records(user_id, "health_documents_meta")
+            doc_records = source.query_records("health_documents_meta", key_cond)
             progress.total_files = len(doc_records)  # Each doc may have a file
 
             # Phase 2: Migrate structured records
             for collection in MIGRATED_COLLECTIONS:
-                records = source.query_records(user_id, collection)
+                records = source.query_records(collection, key_cond)
                 for record in records:
                     try:
-                        # Determine record ID field
-                        record_id = self._get_record_id(collection, record)
-                        target.put_record(user_id, collection, record_id, record)
+                        target.put_record(collection, record)
                         progress.migrated_records += 1
                         if progress_callback:
                             progress_callback(
@@ -128,10 +127,10 @@ class StorageMigrator:
                 try:
                     s3_key = doc.get("s3_key", "")
                     if s3_key:
-                        file_data = source.get_file(user_id, s3_key)
+                        file_data = source.get_file(s3_key)
                         if file_data:
-                            data, content_type = file_data
-                            target.put_file(user_id, s3_key, data, content_type)
+                            content_type = doc.get("content_type", "application/octet-stream")
+                            target.put_file(s3_key, file_data, content_type=content_type)
                             progress.migrated_files += 1
                 except Exception as e:
                     progress.errors.append(
@@ -182,9 +181,10 @@ class StorageMigrator:
             "collections": {},
         }
 
+        key_cond = {"user_id": user_id}
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
             for collection in MIGRATED_COLLECTIONS:
-                records = source.query_records(user_id, collection)
+                records = source.query_records(collection, key_cond)
                 manifest["collections"][collection] = len(records)
                 for record in records:
                     record_id = self._get_record_id(collection, record)
@@ -192,18 +192,17 @@ class StorageMigrator:
                     zf.writestr(path, json.dumps(record, default=str, indent=2))
 
             # Export document files
-            doc_records = source.query_records(user_id, "health_documents_meta")
+            doc_records = source.query_records("health_documents_meta", key_cond)
             file_count = 0
             for doc in doc_records:
                 s3_key = doc.get("s3_key", "")
                 if s3_key:
-                    file_data = source.get_file(user_id, s3_key)
+                    file_data = source.get_file(s3_key)
                     if file_data:
-                        data, content_type = file_data
                         filename = doc.get("filename", "unknown")
                         doc_id = doc.get("document_id", "unknown")
                         path = f"homeagent_export/health_documents_files/{doc_id}/{filename}"
-                        zf.writestr(path, data)
+                        zf.writestr(path, file_data)
                         file_count += 1
 
             manifest["file_count"] = file_count
@@ -282,8 +281,7 @@ class StorageMigrator:
                                 )
                                 continue
                             data = json.loads(zf.read(filepath))
-                            record_id = self._get_record_id(collection, data)
-                            target.put_record(user_id, collection, record_id, data)
+                            target.put_record(collection, data)
                             progress.migrated_records += 1
                         except Exception as e:
                             progress.errors.append(f"Import error {filepath}: {e}")
@@ -311,7 +309,7 @@ class StorageMigrator:
                         # Reconstruct s3_key from path
                         rel_path = filepath[len("homeagent_export/"):]
                         target.put_file(
-                            user_id, rel_path, data, "application/octet-stream"
+                            rel_path, data, content_type="application/octet-stream"
                         )
                         progress.migrated_files += 1
                     except Exception as e:
@@ -351,14 +349,22 @@ class StorageMigrator:
         target: StorageProvider,
     ) -> bool:
         """Spot-check that migrated records exist in target."""
+        key_cond = {"user_id": user_id}
+        key_field_map = {
+            "health_records": "record_id",
+            "health_observations": "observation_id",
+            "health_documents_meta": "document_id",
+        }
         for collection in MIGRATED_COLLECTIONS:
-            source_records = source.query_records(user_id, collection)
+            source_records = source.query_records(collection, key_cond)
             if not source_records:
                 continue
+            id_field = key_field_map.get(collection, "record_id")
             # Check first and last record
             for record in [source_records[0], source_records[-1]]:
-                record_id = self._get_record_id(collection, record)
-                target_record = target.get_record(user_id, collection, record_id)
+                record_id = record.get(id_field, "")
+                key = {"user_id": user_id, id_field: record_id}
+                target_record = target.get_record(collection, key)
                 if target_record is None:
                     return False
         return True
