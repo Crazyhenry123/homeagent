@@ -54,8 +54,10 @@ export function SettingsScreen({navigation}: Props) {
       .finally(() => setSharingLoading(false));
   }, []);
 
+  type BooleanSharingField = 'share_profile' | 'share_interests' | 'share_health_notes' | 'share_conversation_insights';
+
   const handleSharingToggle = useCallback(
-    async (field: keyof MemorySharingConfig, value: boolean) => {
+    async (field: BooleanSharingField, value: boolean) => {
       if (!sharingConfig) return;
       const updated = {...sharingConfig, [field]: value};
       setSharingConfig(updated);

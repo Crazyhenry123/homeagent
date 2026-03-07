@@ -252,6 +252,18 @@ class DataStack(cdk.Stack):
             time_to_live_attribute="expires_at",
         )
 
+        # MemorySharingConfig table
+        self.tables["MemorySharingConfig"] = dynamodb.Table(
+            self,
+            "MemorySharingConfigTable",
+            table_name="MemorySharingConfig",
+            partition_key=dynamodb.Attribute(
+                name="user_id", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+        )
+
         # S3 bucket for health documents
         self.documents_bucket = s3.Bucket(
             self,

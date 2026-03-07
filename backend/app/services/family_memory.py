@@ -80,6 +80,12 @@ def _get_family_member_ids(user_id: str) -> list[str]:
 
     result = table.scan(FilterExpression=Attr("user_id").eq(user_id))
     items = result.get("Items", [])
+    while "LastEvaluatedKey" in result:
+        result = table.scan(
+            FilterExpression=Attr("user_id").eq(user_id),
+            ExclusiveStartKey=result["LastEvaluatedKey"],
+        )
+        items.extend(result.get("Items", []))
     if not items:
         return []
 
