@@ -26,6 +26,7 @@ export async function streamChat(
   onError: (error: Error) => void,
   signal?: AbortSignal,
   media?: string[],
+  isVoice?: boolean,
 ): Promise<void> {
   const token = await getAuthToken();
 
@@ -35,6 +36,9 @@ export async function streamChat(
   }
   if (media && media.length > 0) {
     body.media = media;
+  }
+  if (isVoice) {
+    body.is_voice = true;
   }
 
   return new Promise<void>(resolve => {

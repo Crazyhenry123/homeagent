@@ -1,4 +1,4 @@
-import React, {useState, useCallback, useRef} from 'react';
+import React, {useState, useCallback, useRef, useEffect} from 'react';
 import {
   Alert,
   Platform,
@@ -10,16 +10,19 @@ import {
   Text,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {Audio} from 'expo-av';
 import {getInfoAsync} from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from 'expo-speech-recognition';
 import {ImageAttachment} from './ImageAttachment';
 import {VoiceButton} from './VoiceButton';
-import {getContentType, uploadAudio} from '../services/chatMedia';
+import {getContentType} from '../services/chatMedia';
 import type {ChatMediaUpload} from '../types';
 
 interface Props {
-  onSend: (message: string, attachments: ChatMediaUpload[]) => void;
+  onSend: (message: string, attachments: ChatMediaUpload[], isVoice?: boolean) => void;
   disabled?: boolean;
 }
 
@@ -27,8 +30,46 @@ export function ChatInput({onSend, disabled}: Props) {
   const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState<ChatMediaUpload[]>([]);
-  const [recording, setRecording] = useState(false);
-  const recordingRef = useRef<Audio.Recording | null>(null);
+  const [recognizing, setRecognizing] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState('');
+  // Track whether we got a final result so we can auto-send
+  const finalTranscriptRef = useRef<string | null>(null);
+
+  useSpeechRecognitionEvent('start', () => {
+    setRecognizing(true);
+    setVoiceTranscript('');
+    finalTranscriptRef.current = null;
+  });
+
+  useSpeechRecognitionEvent('end', () => {
+    setRecognizing(false);
+    // Auto-send on end if we have a final transcript
+    const transcript = finalTranscriptRef.current;
+    if (transcript && transcript.trim()) {
+      onSend(transcript.trim(), [], true);
+      setText('');
+      setVoiceTranscript('');
+    }
+    finalTranscriptRef.current = null;
+  });
+
+  useSpeechRecognitionEvent('result', (event) => {
+    const result = event.results[0]?.transcript || '';
+    setVoiceTranscript(result);
+    if (event.isFinal) {
+      finalTranscriptRef.current = result;
+    }
+  });
+
+  useSpeechRecognitionEvent('error', (event) => {
+    console.error('[Speech] error:', event.error, event.message);
+    setRecognizing(false);
+    setVoiceTranscript('');
+    finalTranscriptRef.current = null;
+    if (event.error !== 'no-speech') {
+      Alert.alert('Voice Error', event.message || 'Speech recognition failed.');
+    }
+  });
 
   const handleSend = () => {
     const trimmed = text.trim();
@@ -53,7 +94,6 @@ export function ChatInput({onSend, disabled}: Props) {
 
     if (result.canceled || !result.assets) return;
 
-    // Build attachments, resolving file size when not provided by the picker
     const newAttachments: ChatMediaUpload[] = [];
     for (const asset of result.assets) {
       let size = asset.fileSize || 0;
@@ -62,7 +102,7 @@ export function ChatInput({onSend, disabled}: Props) {
           const info = await getInfoAsync(asset.uri);
           size = info.exists ? (info.size ?? 0) : 0;
         } catch {
-          // Fall through with size 0; backend will reject if still 0
+          // Fall through with size 0
         }
       }
       newAttachments.push({
@@ -82,108 +122,37 @@ export function ChatInput({onSend, disabled}: Props) {
   }, []);
 
   const handleVoicePress = useCallback(async () => {
-    if (recording) {
-      // Stop recording and send
-      if (!recordingRef.current) return;
-      try {
-        await recordingRef.current.stopAndUnloadAsync();
-        const uri = recordingRef.current.getURI();
-        recordingRef.current = null;
-        setRecording(false);
-        // Release microphone
-        await Audio.setAudioModeAsync({allowsRecordingIOS: false});
-
-        if (!uri) {
-          Alert.alert('Error', 'Failed to save recording.');
-          return;
-        }
-
-        // Get file info for size
-        const fileInfo = await getInfoAsync(uri);
-        const fileSize = fileInfo.exists ? (fileInfo.size ?? 0) : 0;
-
-        // Upload audio via presigned URL and send as attachment
-        const mediaId = await uploadAudio(uri, fileSize);
-        const audioAttachment: ChatMediaUpload = {
-          localId: `audio-${Date.now()}`,
-          uri,
-          contentType: 'audio/wav',
-          fileSize,
-          mediaId,
-          status: 'uploaded',
-        };
-        onSend(text.trim(), [audioAttachment]);
-        setText('');
-        setAttachments([]);
-      } catch (error) {
-        console.error('[Voice] Failed to process recording:', error);
-        setRecording(false);
-        recordingRef.current = null;
-        // Reset audio mode so microphone is released
-        Audio.setAudioModeAsync({allowsRecordingIOS: false}).catch(() => {});
-        Alert.alert('Error', `Failed to process recording: ${error instanceof Error ? error.message : String(error)}`);
-      }
+    if (recognizing) {
+      // Stop recognition — will trigger 'end' event which auto-sends
+      ExpoSpeechRecognitionModule.stop();
     } else {
-      // Start recording
-      try {
-        const permission = await Audio.requestPermissionsAsync();
-        if (!permission.granted) {
-          Alert.alert(
-            'Permission required',
-            'Microphone access is needed to record voice messages.',
-          );
-          return;
-        }
-
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: true,
-          playsInSilentModeIOS: true,
-        });
-
-        // Use a WAV-compatible preset so the backend receives audio/wav
-        const wavPreset: Audio.RecordingOptions = {
-          isMeteringEnabled: false,
-          android: {
-            extension: '.wav',
-            outputFormat: Audio.AndroidOutputFormat.DEFAULT,
-            audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
-            sampleRate: 44100,
-            numberOfChannels: 1,
-            bitRate: 128000,
-          },
-          ios: {
-            extension: '.wav',
-            outputFormat: Audio.IOSOutputFormat.LINEARPCM,
-            audioQuality: Audio.IOSAudioQuality.HIGH,
-            sampleRate: 44100,
-            numberOfChannels: 1,
-            bitRate: 128000,
-            linearPCMBitDepth: 16,
-            linearPCMIsBigEndian: false,
-            linearPCMIsFloat: false,
-          },
-          web: {
-            mimeType: 'audio/wav',
-            bitsPerSecond: 128000,
-          },
-        };
-        const {recording: newRecording} = await Audio.Recording.createAsync(
-          wavPreset,
+      // Request permissions and start
+      const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!result.granted) {
+        Alert.alert(
+          'Permission required',
+          'Microphone access is needed for voice input.',
         );
-        recordingRef.current = newRecording;
-        setRecording(true);
-      } catch (error) {
-        // Reset audio mode in case setAudioModeAsync succeeded but createAsync failed
-        Audio.setAudioModeAsync({allowsRecordingIOS: false}).catch(() => {});
-        Alert.alert('Error', 'Failed to start recording. Please try again.');
+        return;
       }
+
+      ExpoSpeechRecognitionModule.start({
+        lang: 'en-US',
+        interimResults: true,
+        continuous: true,
+        addsPunctuation: true,
+        iosTaskHint: 'dictation',
+        iosCategory: {
+          category: 'playAndRecord',
+          categoryOptions: ['defaultToSpeaker', 'allowBluetooth'],
+          mode: 'measurement',
+        },
+      });
     }
-  }, [recording, text, onSend]);
+  }, [recognizing]);
 
   const canSend = (text.trim().length > 0 || attachments.length > 0) && !disabled;
 
-  // On iOS, add safe area bottom inset + extra padding for thumb reach.
-  // On Android, just add a reasonable default padding.
   const bottomPadding =
     Platform.OS === 'ios' ? insets.bottom + 12 : 20;
 
@@ -204,18 +173,27 @@ export function ChatInput({onSend, disabled}: Props) {
           ))}
         </ScrollView>
       )}
-      {recording && (
+      {recognizing && (
         <View style={styles.recordingIndicator}>
           <Text style={styles.recordingDot}>●</Text>
-          <Text style={styles.recordingText}>Recording... Tap mic to stop</Text>
+          <Text style={styles.recordingText}>
+            {voiceTranscript
+              ? 'Listening... Tap mic to send'
+              : 'Listening... Speak now'}
+          </Text>
         </View>
       )}
+      {recognizing && voiceTranscript ? (
+        <View style={styles.transcriptPreview}>
+          <Text style={styles.transcriptText}>{voiceTranscript}</Text>
+        </View>
+      ) : null}
       <View style={styles.container}>
         <TouchableOpacity
           style={styles.attachButton}
           onPress={handlePickImage}
-          disabled={disabled || recording}>
-          <Text style={[styles.attachIcon, (disabled || recording) && styles.attachIconDisabled]}>
+          disabled={disabled || recognizing}>
+          <Text style={[styles.attachIcon, (disabled || recognizing) && styles.attachIconDisabled]}>
             +
           </Text>
         </TouchableOpacity>
@@ -227,20 +205,20 @@ export function ChatInput({onSend, disabled}: Props) {
           placeholderTextColor="#8E8E93"
           multiline
           maxLength={4000}
-          editable={!disabled && !recording}
+          editable={!disabled && !recognizing}
           onSubmitEditing={handleSend}
           blurOnSubmit={false}
         />
         <TouchableOpacity
           style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
           onPress={handleSend}
-          disabled={!canSend || recording}>
+          disabled={!canSend || recognizing}>
           <Text style={styles.sendText}>Send</Text>
         </TouchableOpacity>
         <VoiceButton
           onPress={handleVoicePress}
           disabled={disabled}
-          recording={recording}
+          recording={recognizing}
         />
       </View>
     </View>
@@ -276,6 +254,16 @@ const styles = StyleSheet.create({
     color: '#FF3B30',
     fontSize: 13,
     fontWeight: '500',
+  },
+  transcriptPreview: {
+    paddingHorizontal: 14,
+    paddingTop: 6,
+    paddingBottom: 2,
+  },
+  transcriptText: {
+    color: '#333',
+    fontSize: 15,
+    fontStyle: 'italic',
   },
   container: {
     flexDirection: 'row',
