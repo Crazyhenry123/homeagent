@@ -91,8 +91,21 @@ def list_providers():
     current = config.get("provider", "local") if config else "local"
     status = config.get("status", "active") if config else "active"
 
+    # Enrich providers with oauth_configured status
+    enriched: list[dict[str, Any]] = []
+    for p in PROVIDERS:
+        provider = dict(p)
+        if p["requires_oauth"]:
+            prefix = p["id"].upper()
+            provider["oauth_configured"] = bool(
+                current_app.config.get(f"{prefix}_CLIENT_ID")
+            )
+        else:
+            provider["oauth_configured"] = True
+        enriched.append(provider)
+
     return jsonify({
-        "providers": PROVIDERS,
+        "providers": enriched,
         "current_provider": current,
         "current_status": status,
     })
