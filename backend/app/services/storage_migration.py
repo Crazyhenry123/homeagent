@@ -4,6 +4,8 @@ from __future__ import annotations
 import io
 import json
 import logging
+import os
+import threading
 import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -51,14 +53,21 @@ class MigrationProgress:
         }
 
 
+# Limits for ZIP import to prevent zip bombs
+_MAX_DECOMPRESSED_SIZE = 500 * 1024 * 1024  # 500 MB total
+_MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB per file
+
+
 class StorageMigrator:
     """Handles data migration between storage providers."""
 
     def __init__(self) -> None:
         self._progress: dict[str, MigrationProgress] = {}
+        self._lock = threading.Lock()
 
     def get_progress(self, user_id: str) -> MigrationProgress | None:
-        return self._progress.get(user_id)
+        with self._lock:
+            return self._progress.get(user_id)
 
     def migrate(
         self,
@@ -80,7 +89,8 @@ class StorageMigrator:
             status="in_progress",
             started_at=datetime.now(timezone.utc).isoformat(),
         )
-        self._progress[user_id] = progress
+        with self._lock:
+            self._progress[user_id] = progress
 
         try:
             # Phase 1: Count
@@ -146,7 +156,8 @@ class StorageMigrator:
             logger.exception("Migration failed for user %s", user_id)
 
         progress.completed_at = datetime.now(timezone.utc).isoformat()
-        self._progress[user_id] = progress
+        with self._lock:
+            self._progress[user_id] = progress
         return progress
 
     def export_data(self, user_id: str, source: StorageProvider) -> bytes:
@@ -203,6 +214,20 @@ class StorageMigrator:
 
         return buffer.getvalue()
 
+    @staticmethod
+    def _safe_zip_path(filepath: str, expected_prefix: str) -> str | None:
+        """Normalize a ZIP entry path and verify it stays within the expected prefix.
+
+        Returns the normalized path, or None if traversal is detected.
+        """
+        normalized = os.path.normpath(filepath)
+        # Reject absolute paths or paths escaping the prefix
+        if os.path.isabs(normalized) or normalized.startswith(".."):
+            return None
+        if not normalized.startswith(os.path.normpath(expected_prefix)):
+            return None
+        return filepath  # Return original (used as ZIP key)
+
     def import_data(
         self, user_id: str, target: StorageProvider, archive_data: bytes
     ) -> MigrationProgress:
@@ -215,6 +240,17 @@ class StorageMigrator:
         try:
             buffer = io.BytesIO(archive_data)
             with zipfile.ZipFile(buffer, "r") as zf:
+                # Check total decompressed size (zip bomb protection)
+                total_size = sum(info.file_size for info in zf.infolist())
+                if total_size > _MAX_DECOMPRESSED_SIZE:
+                    progress.status = "failed"
+                    progress.errors.append(
+                        f"Archive too large when decompressed "
+                        f"({total_size} bytes > {_MAX_DECOMPRESSED_SIZE} limit)"
+                    )
+                    progress.completed_at = datetime.now(timezone.utc).isoformat()
+                    return progress
+
                 # Read manifest to validate archive structure
                 try:
                     zf.read("homeagent_export/manifest.json")
@@ -231,12 +267,20 @@ class StorageMigrator:
                     files = [
                         f
                         for f in zf.namelist()
-                        if f.startswith(prefix) and f.endswith(".json")
+                        if f.startswith(prefix)
+                        and f.endswith(".json")
+                        and self._safe_zip_path(f, prefix) is not None
                     ]
                     progress.total_records += len(files)
 
                     for filepath in files:
                         try:
+                            info = zf.getinfo(filepath)
+                            if info.file_size > _MAX_FILE_SIZE:
+                                progress.errors.append(
+                                    f"Skipped {filepath}: exceeds per-file size limit"
+                                )
+                                continue
                             data = json.loads(zf.read(filepath))
                             record_id = self._get_record_id(collection, data)
                             target.put_record(user_id, collection, record_id, data)
@@ -249,12 +293,20 @@ class StorageMigrator:
                 file_entries = [
                     f
                     for f in zf.namelist()
-                    if f.startswith(file_prefix) and not f.endswith("/")
+                    if f.startswith(file_prefix)
+                    and not f.endswith("/")
+                    and self._safe_zip_path(f, file_prefix) is not None
                 ]
                 progress.total_files = len(file_entries)
 
                 for filepath in file_entries:
                     try:
+                        info = zf.getinfo(filepath)
+                        if info.file_size > _MAX_FILE_SIZE:
+                            progress.errors.append(
+                                f"Skipped {filepath}: exceeds per-file size limit"
+                            )
+                            continue
                         data = zf.read(filepath)
                         # Reconstruct s3_key from path
                         rel_path = filepath[len("homeagent_export/"):]
@@ -275,14 +327,22 @@ class StorageMigrator:
         return progress
 
     def _get_record_id(self, collection: str, record: dict) -> str:
-        """Extract the record ID field based on collection type."""
-        if collection == "health_records":
-            return record.get("record_id", "")
-        elif collection == "health_observations":
-            return record.get("observation_id", "")
-        elif collection == "health_documents_meta":
-            return record.get("document_id", "")
-        return record.get("record_id", record.get("id", ""))
+        """Extract the record ID field based on collection type.
+
+        Raises ValueError if the expected ID field is missing.
+        """
+        field_map = {
+            "health_records": "record_id",
+            "health_observations": "observation_id",
+            "health_documents_meta": "document_id",
+        }
+        id_field = field_map.get(collection, "record_id")
+        record_id = record.get(id_field) or record.get("id", "")
+        if not record_id:
+            raise ValueError(
+                f"Record missing ID field '{id_field}' in collection {collection}"
+            )
+        return record_id
 
     def _verify_migration(
         self,

@@ -44,27 +44,18 @@ def start_migration() -> tuple[Response, int] | Response:
     if current and current.status == "in_progress":
         return jsonify({"error": "Migration already in progress"}), 409
 
-    # Update storage config status to "migrating"
-    try:
-        from app.services.storage_config import update_storage_status
-
-        update_storage_status(user_id, "migrating")
-    except ImportError:
-        pass  # storage_config service not yet available
-
-    # Get source and target providers
-    # For now, return a placeholder since full provider resolution needs the storage module
+    # Get source and target providers (validate before changing status)
     try:
         from app.storage.provider_factory import get_storage_provider
 
         source = get_storage_provider(user_id)
 
         # Create target provider
-        from app.storage.local_provider import LocalProvider
-        from app.storage.google_drive_provider import GoogleDriveProvider
-        from app.storage.onedrive_provider import OneDriveProvider
-        from app.storage.dropbox_provider import DropboxProvider
         from app.storage.box_provider import BoxProvider
+        from app.storage.dropbox_provider import DropboxProvider
+        from app.storage.google_drive_provider import GoogleDriveProvider
+        from app.storage.local_provider import LocalProvider
+        from app.storage.onedrive_provider import OneDriveProvider
 
         provider_map: dict[str, type] = {
             "local": LocalProvider,
@@ -92,6 +83,14 @@ def start_migration() -> tuple[Response, int] | Response:
             }
         ), 202
 
+    # Update storage config status to "migrating" (after provider validation)
+    try:
+        from app.services.storage_config import update_storage_status
+
+        update_storage_status(user_id, "migrating")
+    except ImportError:
+        pass
+
     # Run migration in background thread
     def run_migration() -> None:
         try:
@@ -108,16 +107,20 @@ def start_migration() -> tuple[Response, int] | Response:
                     from app.services.storage_config import update_storage_status
 
                     update_storage_status(user_id, "error")
-                except (ImportError, Exception):
+                except ImportError:
                     pass
+                except Exception:
+                    logger.warning("Failed to update storage status to error", exc_info=True)
         except Exception:
             logger.exception("Background migration failed for user %s", user_id)
             try:
                 from app.services.storage_config import update_storage_status
 
                 update_storage_status(user_id, "error")
-            except (ImportError, Exception):
+            except ImportError:
                 pass
+            except Exception:
+                logger.warning("Failed to update storage status after failure", exc_info=True)
 
     thread = threading.Thread(target=run_migration, daemon=True)
     thread.start()
