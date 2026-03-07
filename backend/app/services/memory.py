@@ -1,7 +1,12 @@
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import current_app
+
+if TYPE_CHECKING:
+    from bedrock_agentcore.memory.integrations.strands.session_manager import (
+        AgentCoreMemorySessionManager,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +66,7 @@ def retrieve_long_term_memories(user_id: str, query: str) -> str:
 def create_session_manager(
     user_id: str,
     conversation_id: str,
-) -> object | None:
+) -> "AgentCoreMemorySessionManager | None":
     """Create an AgentCore Memory session manager for a user.
 
     Uses the user_id as actor_id for per-user persistent memory, and
