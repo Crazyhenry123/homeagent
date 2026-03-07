@@ -30,6 +30,7 @@ def _get_chat_stream(
     user_id: str,
     conversation_id: str | None = None,
     images: list[dict] | None = None,
+    is_voice_message: bool = False,
 ):
     """Return the appropriate chat stream based on feature flag."""
     if current_app.config.get("USE_AGENT_ORCHESTRATOR"):
@@ -40,6 +41,7 @@ def _get_chat_stream(
             user_id=user_id,
             conversation_id=conversation_id,
             images=images,
+            is_voice_message=is_voice_message,
         )
     return stream_chat(messages, images=images)
 
@@ -63,6 +65,7 @@ def chat():
     # Resolve media attachments to S3 URIs
     images = None
     media_metadata = None
+    is_voice_message = False
     if media_ids:
         try:
             all_media = resolve_media_for_message(media_ids, g.user_id)
@@ -71,15 +74,17 @@ def chat():
                 for mid, m in zip(media_ids, all_media)
             ]
 
-            # Transcribe audio items and prepend to user message
+            # Transcribe audio items — send clean text (no wrapper)
             audio_items = [m for m in all_media if m["media_type"] == "audio"]
+            if audio_items:
+                is_voice_message = True
             for audio in audio_items:
                 try:
                     transcription = transcribe_audio(audio["s3_uri"])
                     user_message = (
-                        f"[Voice message]: {transcription}\n\n{user_message}"
+                        f"{transcription}\n\n{user_message}"
                         if user_message
-                        else f"[Voice message]: {transcription}"
+                        else transcription
                     )
                 except Exception:
                     import logging
@@ -87,11 +92,11 @@ def chat():
                         "Audio transcription failed, sending as untranscribed",
                         exc_info=True,
                     )
-                    user_message = (
-                        f"[Voice message attached but could not be transcribed]\n\n{user_message}"
-                        if user_message
-                        else "[Voice message attached but could not be transcribed]"
-                    )
+                    if not user_message:
+                        user_message = (
+                            "I sent a voice message but it could not be "
+                            "understood. Please ask me to repeat."
+                        )
 
             # Only pass image media to Bedrock (Claude doesn't accept audio)
             images = [m for m in all_media if m["media_type"] == "image"] or None
@@ -106,8 +111,11 @@ def chat():
         if conv["user_id"] != g.user_id:
             return jsonify({"error": "Not your conversation"}), 403
     else:
-        # Auto-title from first message (use readable fallback for voice/image-only)
-        if user_message and not user_message.startswith("[Voice message"):
+        # Auto-title from first message
+        if is_voice_message and user_message:
+            # Voice: use transcription as title (truncated)
+            title = user_message[:50] + ("..." if len(user_message) > 50 else "")
+        elif user_message:
             title = user_message[:50] + ("..." if len(user_message) > 50 else "")
         elif media_ids:
             has_audio = any(
@@ -138,7 +146,7 @@ def chat():
         full_content = ""
         total_tokens = 0
 
-        for chunk in _get_chat_stream(messages, g.user_id, conversation_id, images):
+        for chunk in _get_chat_stream(messages, g.user_id, conversation_id, images, is_voice_message):
             if chunk["type"] == "text_delta":
                 event_data = json.dumps(
                     {
