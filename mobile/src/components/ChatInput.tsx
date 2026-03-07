@@ -53,13 +53,26 @@ export function ChatInput({onSend, disabled}: Props) {
 
     if (result.canceled || !result.assets) return;
 
-    const newAttachments: ChatMediaUpload[] = result.assets.map(asset => ({
-      localId: `img-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      uri: asset.uri,
-      contentType: asset.mimeType || getContentType(asset.uri),
-      fileSize: asset.fileSize || 0,
-      status: 'pending' as const,
-    }));
+    // Build attachments, resolving file size when not provided by the picker
+    const newAttachments: ChatMediaUpload[] = [];
+    for (const asset of result.assets) {
+      let size = asset.fileSize || 0;
+      if (size <= 0) {
+        try {
+          const info = await getInfoAsync(asset.uri);
+          size = info.exists ? (info.size ?? 0) : 0;
+        } catch {
+          // Fall through with size 0; backend will reject if still 0
+        }
+      }
+      newAttachments.push({
+        localId: `img-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        uri: asset.uri,
+        contentType: asset.mimeType || getContentType(asset.uri),
+        fileSize: size,
+        status: 'pending' as const,
+      });
+    }
 
     setAttachments(prev => [...prev, ...newAttachments].slice(0, 5));
   }, [attachments.length]);
@@ -77,6 +90,8 @@ export function ChatInput({onSend, disabled}: Props) {
         const uri = recordingRef.current.getURI();
         recordingRef.current = null;
         setRecording(false);
+        // Release microphone
+        await Audio.setAudioModeAsync({allowsRecordingIOS: false});
 
         if (!uri) {
           Alert.alert('Error', 'Failed to save recording.');
@@ -104,6 +119,8 @@ export function ChatInput({onSend, disabled}: Props) {
         console.error('[Voice] Failed to process recording:', error);
         setRecording(false);
         recordingRef.current = null;
+        // Reset audio mode so microphone is released
+        Audio.setAudioModeAsync({allowsRecordingIOS: false}).catch(() => {});
         Alert.alert('Error', `Failed to process recording: ${error instanceof Error ? error.message : String(error)}`);
       }
     } else {
@@ -123,12 +140,41 @@ export function ChatInput({onSend, disabled}: Props) {
           playsInSilentModeIOS: true,
         });
 
+        // Use a WAV-compatible preset so the backend receives audio/wav
+        const wavPreset: Audio.RecordingOptions = {
+          isMeteringEnabled: false,
+          android: {
+            extension: '.wav',
+            outputFormat: Audio.AndroidOutputFormat.DEFAULT,
+            audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
+            sampleRate: 44100,
+            numberOfChannels: 1,
+            bitRate: 128000,
+          },
+          ios: {
+            extension: '.wav',
+            outputFormat: Audio.IOSOutputFormat.LINEARPCM,
+            audioQuality: Audio.IOSAudioQuality.HIGH,
+            sampleRate: 44100,
+            numberOfChannels: 1,
+            bitRate: 128000,
+            linearPCMBitDepth: 16,
+            linearPCMIsBigEndian: false,
+            linearPCMIsFloat: false,
+          },
+          web: {
+            mimeType: 'audio/wav',
+            bitsPerSecond: 128000,
+          },
+        };
         const {recording: newRecording} = await Audio.Recording.createAsync(
-          Audio.RecordingOptionsPresets.HIGH_QUALITY,
+          wavPreset,
         );
         recordingRef.current = newRecording;
         setRecording(true);
       } catch (error) {
+        // Reset audio mode in case setAudioModeAsync succeeded but createAsync failed
+        Audio.setAudioModeAsync({allowsRecordingIOS: false}).catch(() => {});
         Alert.alert('Error', 'Failed to start recording. Please try again.');
       }
     }

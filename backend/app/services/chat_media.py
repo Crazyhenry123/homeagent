@@ -23,6 +23,26 @@ def _get_s3_client() -> "boto3.client":
     return boto3.client("s3", **kwargs)
 
 
+def _get_presigned_s3_client() -> "boto3.client":
+    """Get S3 client configured for presigned URL generation.
+
+    Uses S3_PRESIGNED_ENDPOINT if set (for local dev where the Docker-internal
+    hostname differs from the externally-reachable address), falling back to
+    the regular S3 client.
+    """
+    presigned_endpoint = current_app.config.get("S3_PRESIGNED_ENDPOINT")
+    if presigned_endpoint:
+        if not presigned_endpoint.startswith(("http://", "https://")):
+            raise ValueError(f"S3_PRESIGNED_ENDPOINT must be an HTTP(S) URL, got: {presigned_endpoint}")
+        return boto3.client(
+            "s3",
+            region_name=current_app.config["AWS_REGION"],
+            endpoint_url=presigned_endpoint,
+            config=boto3.session.Config(s3={"addressing_style": "path"}),
+        )
+    return _get_s3_client()
+
+
 def create_upload(
     user_id: str, content_type: str, file_size: int
 ) -> dict:
@@ -72,9 +92,9 @@ def create_upload(
     }
     table.put_item(Item=item)
 
-    # Generate presigned PUT URL
+    # Generate presigned PUT URL (use presigned client for correct hostname)
     bucket = current_app.config["S3_HEALTH_DOCUMENTS_BUCKET"]
-    s3 = _get_s3_client()
+    s3 = _get_presigned_s3_client()
     upload_url = s3.generate_presigned_url(
         "put_object",
         Params={
@@ -140,7 +160,7 @@ def resolve_media_for_message(
         # Verify the file was actually uploaded to S3
         try:
             s3.head_object(Bucket=bucket, Key=item["s3_key"])
-        except s3.exceptions.ClientError:
+        except Exception:
             raise ValueError(f"Media not yet uploaded: {mid}")
 
         # Determine media type and format

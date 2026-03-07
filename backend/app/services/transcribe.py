@@ -10,16 +10,13 @@ from flask import current_app
 
 logger = logging.getLogger(__name__)
 
-_client = None
+TRANSCRIPTION_TIMEOUT_SECONDS = 120
 
 
 def _get_client():
-    global _client
-    if _client is None:
-        _client = boto3.client(
-            "transcribe", region_name=current_app.config["AWS_REGION"]
-        )
-    return _client
+    return boto3.client(
+        "transcribe", region_name=current_app.config["AWS_REGION"]
+    )
 
 
 def _get_s3_client():
@@ -40,7 +37,7 @@ def transcribe_audio(s3_uri: str) -> str:
         Transcribed text string.
 
     Raises:
-        RuntimeError: If transcription job fails.
+        RuntimeError: If transcription job fails or times out.
     """
     client = _get_client()
     bucket = current_app.config["S3_HEALTH_DOCUMENTS_BUCKET"]
@@ -56,8 +53,9 @@ def transcribe_audio(s3_uri: str) -> str:
         OutputKey=output_key,
     )
 
-    # Poll until complete (short clips typically finish in a few seconds)
-    while True:
+    # Poll until complete with timeout
+    deadline = time.monotonic() + TRANSCRIPTION_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
         resp = client.get_transcription_job(TranscriptionJobName=job_name)
         status = resp["TranscriptionJob"]["TranscriptionJobStatus"]
 
@@ -69,12 +67,18 @@ def transcribe_audio(s3_uri: str) -> str:
             raise RuntimeError(f"Transcription failed: {reason}")
 
         time.sleep(1)
+    else:
+        logger.error("Transcription job %s timed out after %ds", job_name, TRANSCRIPTION_TIMEOUT_SECONDS)
+        raise RuntimeError(f"Transcription timed out after {TRANSCRIPTION_TIMEOUT_SECONDS}s")
 
     # Fetch the transcript JSON from our own bucket
     s3 = _get_s3_client()
     obj = s3.get_object(Bucket=bucket, Key=output_key)
     transcript_data = json.loads(obj["Body"].read().decode("utf-8"))
     text = transcript_data["results"]["transcripts"][0]["transcript"]
+
+    if not text or not text.strip():
+        raise RuntimeError("Transcription returned empty result")
 
     # Clean up transcript output and transcription job
     try:

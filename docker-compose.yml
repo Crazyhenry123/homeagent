@@ -17,6 +17,7 @@ services:
       - HEALTH_EXTRACTION_MODEL_ID=us.anthropic.claude-haiku-4-5-20251001-v1:0
       - S3_HEALTH_DOCUMENTS_BUCKET=health-documents
       - S3_ENDPOINT=http://minio:9000
+      - S3_PRESIGNED_ENDPOINT=${S3_PRESIGNED_ENDPOINT:-http://localhost:9000}
       - VOICE_ENABLED=true
       - VOICE_MODEL_ID=amazon.nova-sonic-v1:0
       - COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID}
