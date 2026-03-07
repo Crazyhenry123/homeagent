@@ -7,13 +7,6 @@ from strands import tool
 
 logger = logging.getLogger(__name__)
 
-_SEARCH_ENABLED = True
-
-
-def set_search_enabled(enabled: bool) -> None:
-    global _SEARCH_ENABLED
-    _SEARCH_ENABLED = enabled
-
 
 @tool(
     name="web_search",
@@ -31,9 +24,6 @@ def web_search(query: str, max_results: int = 5) -> str:
         query: The search query string.
         max_results: Maximum number of results to return (1-10, default 5).
     """
-    if not _SEARCH_ENABLED:
-        return "Web search is currently disabled."
-
     max_results = max(1, min(10, max_results))
 
     try:
@@ -51,7 +41,7 @@ def web_search(query: str, max_results: int = 5) -> str:
         resp.raise_for_status()
     except requests.RequestException:
         logger.exception("Web search request failed for query: %s", query)
-        return f"Web search failed for query: {query}. Please try again later."
+        return "Web search is temporarily unavailable. Please try again later."
 
     # Parse results from DuckDuckGo HTML response
     results = _parse_ddg_html(resp.text, max_results)
@@ -81,7 +71,6 @@ def _parse_ddg_html(html: str, max_results: int) -> list[dict]:
         class DDGParser(HTMLParser):
             def __init__(self):
                 super().__init__()
-                self.in_result = False
                 self.in_title = False
                 self.in_snippet = False
                 self.current: dict = {}

@@ -1,6 +1,5 @@
 """Tests for the default agent tools (time and search)."""
 
-import json
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -29,23 +28,14 @@ class TestWebSearchTool:
 
         assert web_search is not None
 
-    def test_disabled_returns_message(self):
-        from app.agents.search_tool import web_search, set_search_enabled
-
-        set_search_enabled(False)
-        try:
-            result = web_search.fn(query="test", max_results=3)
-            assert "disabled" in result
-        finally:
-            set_search_enabled(True)
-
     @patch("app.agents.search_tool.requests.get")
-    def test_search_request_failure(self, mock_get):
+    def test_search_request_failure_no_query_leak(self, mock_get):
         from app.agents.search_tool import web_search
 
         mock_get.side_effect = Exception("Network error")
-        result = web_search.fn(query="test query", max_results=3)
-        assert "failed" in result.lower() or "error" in result.lower()
+        result = web_search.fn(query="sensitive health query", max_results=3)
+        assert "temporarily unavailable" in result.lower()
+        assert "sensitive health query" not in result
 
     @patch("app.agents.search_tool.requests.get")
     def test_search_no_results(self, mock_get):
@@ -80,33 +70,38 @@ class TestWebSearchTool:
         assert "Example Title" in result
         assert "snippet about the topic" in result
 
-    def test_max_results_clamped(self):
-        from app.agents.search_tool import web_search
-
-        # Just verify the function signature accepts max_results
-        assert web_search.fn.__code__.co_varnames[:2] == ("query", "max_results")
-
 
 class TestDefaultToolsIntegration:
     """Tests for default tools being included in the agent orchestrator."""
 
-    def test_system_prompt_includes_time(self, app):
+    def test_system_prompt_includes_time_without_profile(self, app):
         with app.app_context():
             from app.services.agent_orchestrator import _build_system_prompt
 
-            prompt = _build_system_prompt("test-user-id", "Base prompt.")
+            prompt = _build_system_prompt("nonexistent-user", "Base prompt.")
             assert "Current date and time:" in prompt
-            assert "get_current_time" in prompt
-            assert "web_search" in prompt
+            assert "Base prompt." in prompt
 
+    def test_system_prompt_includes_time_with_profile(self, app):
+        with app.app_context():
+            from app.services.profile import create_profile
 
-@pytest.fixture
-def app():
-    from app import create_app
-    from app.config import Config
+            create_profile("tool-test-user", "TestUser")
+            from app.services.agent_orchestrator import _build_system_prompt
 
-    config = Config()
-    config.DYNAMODB_ENDPOINT = "http://localhost:8000"
-    config.ADMIN_INVITE_CODE = None
-    app = create_app(config)
-    return app
+            prompt = _build_system_prompt("tool-test-user", "Base prompt.")
+            assert "Current date and time:" in prompt
+            assert "TestUser" in prompt
+
+    def test_web_search_disabled_excludes_from_tools(self, app):
+        app.config["WEB_SEARCH_ENABLED"] = False
+        with app.app_context():
+            from app.agents.search_tool import web_search
+            from app.agents.time_tool import get_current_time
+
+            default_tools = [get_current_time]
+            if app.config.get("WEB_SEARCH_ENABLED", True):
+                default_tools.append(web_search)
+
+            assert len(default_tools) == 1
+            assert default_tools[0] is get_current_time

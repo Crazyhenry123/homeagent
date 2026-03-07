@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 import queue
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -19,11 +18,15 @@ _executor = ThreadPoolExecutor(max_workers=4)
 
 def _build_system_prompt(user_id: str, base_prompt: str) -> str:
     """Build a personalized system prompt by incorporating user profile data."""
+    parts = [base_prompt]
+
+    # Always inject current time for temporal awareness
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC (%A)")
+    parts.append(f"\nCurrent date and time: {now}.")
+
     profile = get_profile(user_id)
     if not profile:
-        return base_prompt
-
-    parts = [base_prompt]
+        return " ".join(parts)
 
     display_name = profile.get("display_name", "")
     if display_name:
@@ -49,16 +52,6 @@ def _build_system_prompt(user_id: str, base_prompt: str) -> str:
     family_ctx = build_family_context(user_id)
     if family_ctx:
         parts.append(family_ctx)
-
-    # Inject current time so the agent always has temporal awareness
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC (%A)")
-    parts.append(f"\nCurrent date and time: {now}.")
-
-    parts.append(
-        "\nYou have access to tools: get_current_time (for precise current "
-        "date/time with timezone), web_search (for looking up current "
-        "information from the internet). Use them proactively when relevant."
-    )
 
     return " ".join(parts)
 
@@ -136,9 +129,17 @@ def stream_agent_chat(
 
     # Add default tools (time + search) available to every agent session
     default_tools: list = [get_current_time]
-    if os.environ.get("WEB_SEARCH_ENABLED", "true").lower() != "false":
+    if current_app.config.get("WEB_SEARCH_ENABLED", True):
         default_tools.append(web_search)
     tools = default_tools + (tools or [])
+
+    # Build dynamic tool hint based on actually-enabled tools
+    tool_names = [t.tool_name if hasattr(t, "tool_name") else t.__name__ for t in default_tools]
+    tool_hint = (
+        f"\nYou have access to tools: {', '.join(tool_names)}. "
+        "Use them proactively when relevant."
+    )
+    personalized_prompt += tool_hint
 
     # Set up AgentCore Memory session manager if configured
     session_manager = None
