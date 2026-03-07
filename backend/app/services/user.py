@@ -393,9 +393,18 @@ def delete_member(user_id: str) -> None:
     from app.services.health_observations import delete_all_observations
     from app.services.health_records import delete_all_health_records
 
-    delete_all_health_records(user_id)
-    delete_all_observations(user_id)
-    delete_all_documents(user_id)
+    # Resolve user's storage provider so external data is also cleaned up
+    storage = None
+    try:
+        from app.storage.provider_factory import get_storage_provider
+
+        storage = get_storage_provider(user_id)
+    except (ImportError, Exception):
+        pass
+
+    delete_all_health_records(user_id, storage=storage)
+    delete_all_observations(user_id, storage=storage)
+    delete_all_documents(user_id, storage=storage)
 
     # 6. Delete MemberProfile
     profiles_table = get_table("MemberProfiles")

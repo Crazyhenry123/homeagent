@@ -95,29 +95,33 @@ def extract_health_observations(
                     storage_provider_type,
                 )
 
-        if storage is not None:
-            for obs in observations:
-                category = obs.get("category", "general")
-                if category not in valid_categories:
-                    category = "general"
-                summary = obs.get("summary", "")
-                if not summary:
-                    continue
+        # Build observation items (shared logic for both storage paths)
+        items = []
+        for obs in observations:
+            category = obs.get("category", "general")
+            if category not in valid_categories:
+                category = "general"
+            summary = obs.get("summary", "")
+            if not summary:
+                continue
 
-                observation_id = str(ULID())
-                item = {
-                    "user_id": user_id,
-                    "observation_id": observation_id,
-                    "category": category,
-                    "summary": summary,
-                    "detail": obs.get("detail", ""),
-                    "confidence": obs.get("confidence", "medium"),
-                    "source_conversation_id": conversation_id,
-                    "observed_at": now,
-                    "created_at": now,
-                }
+            observation_id = str(ULID())
+            items.append({
+                "user_id": user_id,
+                "observation_id": observation_id,
+                "category": category,
+                "summary": summary,
+                "detail": obs.get("detail", ""),
+                "confidence": obs.get("confidence", "medium"),
+                "source_conversation_id": conversation_id,
+                "observed_at": now,
+                "created_at": now,
+            })
+
+        if storage is not None:
+            for item in items:
                 storage.put_record(
-                    user_id, "health_observations", observation_id, item
+                    user_id, "health_observations", item["observation_id"], item
                 )
         else:
             # Default: write directly to DynamoDB
@@ -126,28 +130,7 @@ def extract_health_observations(
                 dynamo_kwargs["endpoint_url"] = dynamodb_endpoint
             dynamodb = boto3.resource("dynamodb", **dynamo_kwargs)
             table = dynamodb.Table("HealthObservations")
-
-            for obs in observations:
-                category = obs.get("category", "general")
-                if category not in valid_categories:
-                    category = "general"
-
-                summary = obs.get("summary", "")
-                if not summary:
-                    continue
-
-                observation_id = str(ULID())
-                item = {
-                    "user_id": user_id,
-                    "observation_id": observation_id,
-                    "category": category,
-                    "summary": summary,
-                    "detail": obs.get("detail", ""),
-                    "confidence": obs.get("confidence", "medium"),
-                    "source_conversation_id": conversation_id,
-                    "observed_at": now,
-                    "created_at": now,
-                }
+            for item in items:
                 table.put_item(Item=item)
 
         logger.info(

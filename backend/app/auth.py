@@ -90,7 +90,10 @@ def _resolve_storage_provider() -> None:
             g.storage_provider = get_storage_provider(g.user_id)
         else:
             g.storage_provider = None
-    except (ImportError, Exception):
+    except ImportError:
+        g.storage_provider = None
+    except Exception:
+        logger.debug("Failed to resolve storage provider for user %s", g.user_id, exc_info=True)
         g.storage_provider = None
 
 
