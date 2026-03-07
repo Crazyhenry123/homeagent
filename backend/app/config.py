@@ -34,6 +34,9 @@ class Config:
         "image/gif",
         "image/webp",
         "audio/wav",
+        "audio/vnd.wave",
+        "audio/wave",
+        "audio/x-wav",
     }
     CHAT_MEDIA_MAX_SIZE: int = int(
         os.environ.get("CHAT_MEDIA_MAX_SIZE", str(5 * 1024 * 1024))

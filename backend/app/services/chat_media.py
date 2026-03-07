@@ -63,6 +63,11 @@ def create_upload(
 
     Raises ValueError for invalid content type or file size.
     """
+    # Normalize WAV content type variants
+    _WAV_TYPES = {"audio/vnd.wave", "audio/wave", "audio/x-wav"}
+    if content_type in _WAV_TYPES:
+        content_type = "audio/wav"
+
     allowed_types = current_app.config["CHAT_MEDIA_ALLOWED_TYPES"]
     is_audio = content_type.startswith("audio/")
     max_size = (
