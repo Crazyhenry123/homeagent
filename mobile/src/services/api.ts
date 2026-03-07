@@ -18,6 +18,7 @@ import type {
   LoginRequest,
   LoginResponse,
   MemberProfile,
+  MemorySharingConfig,
   MessageListResponse,
   PermissionGrant,
   PermissionsResponse,
@@ -489,4 +490,23 @@ export async function getPendingInvites(): Promise<{
 
 export async function cancelInvite(code: string): Promise<void> {
   await request(`/api/family/invites/${code}`, {method: 'DELETE'});
+}
+
+// --- Memory Sharing APIs ---
+
+export async function getMemorySharingConfig(): Promise<MemorySharingConfig> {
+  return request<MemorySharingConfig>('/api/memory/sharing');
+}
+
+export async function updateMemorySharingConfig(
+  config: Partial<Omit<MemorySharingConfig, 'user_id'>>,
+): Promise<MemorySharingConfig> {
+  return request<MemorySharingConfig>('/api/memory/sharing', {
+    method: 'PUT',
+    body: JSON.stringify(config),
+  });
+}
+
+export async function getFamilyContext(): Promise<{context: string}> {
+  return request('/api/memory/family-context');
 }

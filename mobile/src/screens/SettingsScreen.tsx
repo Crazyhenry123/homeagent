@@ -1,14 +1,20 @@
-import React from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  ScrollView,
   StyleSheet,
+  Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Constants from 'expo-constants';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useSession} from '../store';
+import {getMemorySharingConfig, updateMemorySharingConfig} from '../services/api';
+import type {MemorySharingConfig} from '../types';
 import type {RootStackParamList} from '../navigation/AppNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
@@ -36,8 +42,74 @@ export function SettingsScreen({navigation}: Props) {
 
   const appVersion = Constants.expoConfig?.version ?? '0.1.0';
 
+  // Memory sharing state
+  const [sharingConfig, setSharingConfig] = useState<MemorySharingConfig | null>(null);
+  const [sharingLoading, setSharingLoading] = useState(true);
+  const [savingSharing, setSavingSharing] = useState(false);
+
+  useEffect(() => {
+    getMemorySharingConfig()
+      .then(setSharingConfig)
+      .catch(() => {})
+      .finally(() => setSharingLoading(false));
+  }, []);
+
+  const handleSharingToggle = useCallback(
+    async (field: keyof MemorySharingConfig, value: boolean) => {
+      if (!sharingConfig) return;
+      const updated = {...sharingConfig, [field]: value};
+      setSharingConfig(updated);
+      setSavingSharing(true);
+      try {
+        const result = await updateMemorySharingConfig({[field]: value});
+        setSharingConfig(result);
+      } catch {
+        setSharingConfig(sharingConfig); // revert
+        Alert.alert('Error', 'Failed to update sharing settings.');
+      } finally {
+        setSavingSharing(false);
+      }
+    },
+    [sharingConfig],
+  );
+
+  const handleSharingLevelChange = useCallback(async () => {
+    if (!sharingConfig) return;
+    const levels: Array<MemorySharingConfig['sharing_level']> = ['none', 'basic', 'full'];
+    const currentIdx = levels.indexOf(sharingConfig.sharing_level);
+    const nextLevel = levels[(currentIdx + 1) % levels.length];
+    const updated = {...sharingConfig, sharing_level: nextLevel};
+    setSharingConfig(updated);
+    setSavingSharing(true);
+    try {
+      const result = await updateMemorySharingConfig({sharing_level: nextLevel});
+      setSharingConfig(result);
+    } catch {
+      setSharingConfig(sharingConfig);
+      Alert.alert('Error', 'Failed to update sharing level.');
+    } finally {
+      setSavingSharing(false);
+    }
+  }, [sharingConfig]);
+
+  const handleCustomInfoSave = useCallback(
+    async (text: string) => {
+      if (!sharingConfig) return;
+      setSavingSharing(true);
+      try {
+        const result = await updateMemorySharingConfig({custom_shared_info: text});
+        setSharingConfig(result);
+      } catch {
+        Alert.alert('Error', 'Failed to save custom info.');
+      } finally {
+        setSavingSharing(false);
+      }
+    },
+    [sharingConfig],
+  );
+
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionHeaderText}>ACCOUNT</Text>
       </View>
@@ -81,12 +153,72 @@ export function SettingsScreen({navigation}: Props) {
         </>
       )}
 
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionHeaderText}>MEMORY &amp; SHARING</Text>
+        {savingSharing && <ActivityIndicator size="small" style={{marginLeft: 8}} />}
+      </View>
+      {sharingLoading ? (
+        <View style={styles.section}>
+          <ActivityIndicator size="small" />
+        </View>
+      ) : sharingConfig ? (
+        <>
+          <TouchableOpacity style={styles.actionRow} onPress={handleSharingLevelChange}>
+            <Text style={styles.label}>Sharing Level</Text>
+            <Text style={styles.sharingLevelValue}>
+              {sharingConfig.sharing_level.toUpperCase()}
+            </Text>
+          </TouchableOpacity>
+          <View style={styles.toggleRow}>
+            <Text style={styles.toggleLabel}>Share Profile</Text>
+            <Switch
+              value={sharingConfig.share_profile}
+              onValueChange={v => handleSharingToggle('share_profile', v)}
+            />
+          </View>
+          <View style={styles.toggleRow}>
+            <Text style={styles.toggleLabel}>Share Interests</Text>
+            <Switch
+              value={sharingConfig.share_interests}
+              onValueChange={v => handleSharingToggle('share_interests', v)}
+            />
+          </View>
+          <View style={styles.toggleRow}>
+            <Text style={styles.toggleLabel}>Share Health Notes</Text>
+            <Switch
+              value={sharingConfig.share_health_notes}
+              onValueChange={v => handleSharingToggle('share_health_notes', v)}
+            />
+          </View>
+          <View style={styles.toggleRow}>
+            <Text style={styles.toggleLabel}>Share Conversation Insights</Text>
+            <Switch
+              value={sharingConfig.share_conversation_insights}
+              onValueChange={v =>
+                handleSharingToggle('share_conversation_insights', v)
+              }
+            />
+          </View>
+          <View style={styles.section}>
+            <Text style={styles.label}>Custom Shared Info</Text>
+            <TextInput
+              style={styles.textInput}
+              multiline
+              placeholder="Add anything you'd like to share with family agents..."
+              placeholderTextColor="#8E8E93"
+              defaultValue={sharingConfig.custom_shared_info}
+              onEndEditing={e => handleCustomInfoSave(e.nativeEvent.text)}
+            />
+          </View>
+        </>
+      ) : null}
+
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.logoutText}>Log Out</Text>
       </TouchableOpacity>
 
       <Text style={styles.versionText}>HomeAgent v{appVersion}</Text>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -161,10 +293,37 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
   },
+  toggleRow: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E5E5EA',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  toggleLabel: {
+    fontSize: 16,
+    color: '#000000',
+  },
+  sharingLevelValue: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  textInput: {
+    marginTop: 8,
+    fontSize: 15,
+    color: '#000000',
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
   versionText: {
     textAlign: 'center',
     color: '#AEAEB2',
     fontSize: 13,
     marginTop: 24,
+    marginBottom: 32,
   },
 });
