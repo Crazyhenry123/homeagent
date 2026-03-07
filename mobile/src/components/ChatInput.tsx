@@ -1,4 +1,4 @@
-import React, {useState, useCallback, useRef, useEffect} from 'react';
+import React, {useState, useCallback, useRef} from 'react';
 import {
   Alert,
   Platform,
@@ -10,15 +10,15 @@ import {
   Text,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {Audio} from 'expo-av';
 import {getInfoAsync} from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
-import {
-  ExpoSpeechRecognitionModule,
-  useSpeechRecognitionEvent,
-} from 'expo-speech-recognition';
+import {Ionicons} from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import {ImageAttachment} from './ImageAttachment';
 import {VoiceButton} from './VoiceButton';
-import {getContentType} from '../services/chatMedia';
+import {getContentType, uploadAudio} from '../services/chatMedia';
+import {colors} from '../theme';
 import type {ChatMediaUpload} from '../types';
 
 interface Props {
@@ -30,50 +30,13 @@ export function ChatInput({onSend, disabled}: Props) {
   const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState<ChatMediaUpload[]>([]);
-  const [recognizing, setRecognizing] = useState(false);
-  const [voiceTranscript, setVoiceTranscript] = useState('');
-  // Track whether we got a final result so we can auto-send
-  const finalTranscriptRef = useRef<string | null>(null);
-
-  useSpeechRecognitionEvent('start', () => {
-    setRecognizing(true);
-    setVoiceTranscript('');
-    finalTranscriptRef.current = null;
-  });
-
-  useSpeechRecognitionEvent('end', () => {
-    setRecognizing(false);
-    // Auto-send on end if we have a final transcript
-    const transcript = finalTranscriptRef.current;
-    if (transcript && transcript.trim()) {
-      onSend(transcript.trim(), [], true);
-      setText('');
-      setVoiceTranscript('');
-    }
-    finalTranscriptRef.current = null;
-  });
-
-  useSpeechRecognitionEvent('result', (event) => {
-    const result = event.results[0]?.transcript || '';
-    setVoiceTranscript(result);
-    if (event.isFinal) {
-      finalTranscriptRef.current = result;
-    }
-  });
-
-  useSpeechRecognitionEvent('error', (event) => {
-    console.error('[Speech] error:', event.error, event.message);
-    setRecognizing(false);
-    setVoiceTranscript('');
-    finalTranscriptRef.current = null;
-    if (event.error !== 'no-speech') {
-      Alert.alert('Voice Error', event.message || 'Speech recognition failed.');
-    }
-  });
+  const [recording, setRecording] = useState(false);
+  const recordingRef = useRef<Audio.Recording | null>(null);
 
   const handleSend = () => {
     const trimmed = text.trim();
     if ((!trimmed && attachments.length === 0) || disabled) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onSend(trimmed, attachments);
     setText('');
     setAttachments([]);
@@ -122,36 +85,100 @@ export function ChatInput({onSend, disabled}: Props) {
   }, []);
 
   const handleVoicePress = useCallback(async () => {
-    if (recognizing) {
-      // Stop recognition — will trigger 'end' event which auto-sends
-      ExpoSpeechRecognitionModule.stop();
-    } else {
-      // Request permissions and start
-      const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-      if (!result.granted) {
+    if (recording) {
+      if (!recordingRef.current) return;
+      try {
+        await recordingRef.current.stopAndUnloadAsync();
+        const uri = recordingRef.current.getURI();
+        recordingRef.current = null;
+        setRecording(false);
+        await Audio.setAudioModeAsync({allowsRecordingIOS: false});
+
+        if (!uri) {
+          Alert.alert('Error', 'Failed to save recording.');
+          return;
+        }
+
+        const fileInfo = await getInfoAsync(uri);
+        const fileSize = fileInfo.exists ? (fileInfo.size ?? 0) : 0;
+
+        const mediaId = await uploadAudio(uri, fileSize);
+        const audioAttachment: ChatMediaUpload = {
+          localId: `audio-${Date.now()}`,
+          uri,
+          contentType: 'audio/wav',
+          fileSize,
+          mediaId,
+          status: 'uploaded',
+        };
+        onSend(text.trim(), [audioAttachment], true);
+        setText('');
+        setAttachments([]);
+      } catch (error) {
+        console.error('[Voice] Failed to process recording:', error);
+        setRecording(false);
+        recordingRef.current = null;
+        Audio.setAudioModeAsync({allowsRecordingIOS: false}).catch(() => {});
         Alert.alert(
-          'Permission required',
-          'Microphone access is needed for voice input.',
+          'Error',
+          `Failed to process recording: ${error instanceof Error ? error.message : String(error)}`,
         );
-        return;
       }
+    } else {
+      try {
+        const permission = await Audio.requestPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert(
+            'Permission required',
+            'Microphone access is needed to record voice messages.',
+          );
+          return;
+        }
 
-      ExpoSpeechRecognitionModule.start({
-        lang: 'en-US',
-        interimResults: true,
-        continuous: true,
-        addsPunctuation: true,
-        iosTaskHint: 'dictation',
-        iosCategory: {
-          category: 'playAndRecord',
-          categoryOptions: ['defaultToSpeaker', 'allowBluetooth'],
-          mode: 'measurement',
-        },
-      });
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+        });
+
+        const wavPreset: Audio.RecordingOptions = {
+          isMeteringEnabled: false,
+          android: {
+            extension: '.wav',
+            outputFormat: Audio.AndroidOutputFormat.DEFAULT,
+            audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
+            sampleRate: 44100,
+            numberOfChannels: 1,
+            bitRate: 128000,
+          },
+          ios: {
+            extension: '.wav',
+            outputFormat: Audio.IOSOutputFormat.LINEARPCM,
+            audioQuality: Audio.IOSAudioQuality.HIGH,
+            sampleRate: 44100,
+            numberOfChannels: 1,
+            bitRate: 128000,
+            linearPCMBitDepth: 16,
+            linearPCMIsBigEndian: false,
+            linearPCMIsFloat: false,
+          },
+          web: {
+            mimeType: 'audio/wav',
+            bitsPerSecond: 128000,
+          },
+        };
+        const {recording: newRecording} = await Audio.Recording.createAsync(
+          wavPreset,
+        );
+        recordingRef.current = newRecording;
+        setRecording(true);
+      } catch (_error) {
+        Audio.setAudioModeAsync({allowsRecordingIOS: false}).catch(() => {});
+        Alert.alert('Error', 'Failed to start recording. Please try again.');
+      }
     }
-  }, [recognizing]);
+  }, [recording, text, onSend]);
 
-  const canSend = (text.trim().length > 0 || attachments.length > 0) && !disabled;
+  const showSend = text.trim().length > 0 || attachments.length > 0;
 
   const bottomPadding =
     Platform.OS === 'ios' ? insets.bottom + 12 : 20;
@@ -173,53 +200,49 @@ export function ChatInput({onSend, disabled}: Props) {
           ))}
         </ScrollView>
       )}
-      {recognizing && (
+      {recording && (
         <View style={styles.recordingIndicator}>
-          <Text style={styles.recordingDot}>●</Text>
-          <Text style={styles.recordingText}>
-            {voiceTranscript
-              ? 'Listening... Tap mic to send'
-              : 'Listening... Speak now'}
-          </Text>
+          <Ionicons name="radio" size={14} color={colors.destructive} style={{marginRight: 6}} />
+          <Text style={styles.recordingText}>Recording... Tap mic to stop & send</Text>
         </View>
       )}
-      {recognizing && voiceTranscript ? (
-        <View style={styles.transcriptPreview}>
-          <Text style={styles.transcriptText}>{voiceTranscript}</Text>
-        </View>
-      ) : null}
       <View style={styles.container}>
         <TouchableOpacity
           style={styles.attachButton}
           onPress={handlePickImage}
-          disabled={disabled || recognizing}>
-          <Text style={[styles.attachIcon, (disabled || recognizing) && styles.attachIconDisabled]}>
-            +
-          </Text>
+          disabled={disabled || recording}>
+          <Ionicons
+            name="image-outline"
+            size={22}
+            color={disabled || recording ? colors.disabledText : colors.primary}
+          />
         </TouchableOpacity>
         <TextInput
           style={styles.input}
           value={text}
           onChangeText={setText}
           placeholder="Type a message..."
-          placeholderTextColor="#8E8E93"
+          placeholderTextColor={colors.textSecondary}
           multiline
           maxLength={4000}
-          editable={!disabled && !recognizing}
+          editable={!disabled && !recording}
           onSubmitEditing={handleSend}
           blurOnSubmit={false}
         />
-        <TouchableOpacity
-          style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
-          onPress={handleSend}
-          disabled={!canSend || recognizing}>
-          <Text style={styles.sendText}>Send</Text>
-        </TouchableOpacity>
-        <VoiceButton
-          onPress={handleVoicePress}
-          disabled={disabled}
-          recording={recognizing}
-        />
+        {showSend ? (
+          <TouchableOpacity
+            style={[styles.sendButton, !showSend && styles.sendButtonDisabled]}
+            onPress={handleSend}
+            disabled={!showSend || recording}>
+            <Ionicons name="arrow-up" size={20} color={colors.surface} />
+          </TouchableOpacity>
+        ) : (
+          <VoiceButton
+            onPress={handleVoicePress}
+            disabled={disabled}
+            recording={recording}
+          />
+        )}
       </View>
     </View>
   );
@@ -228,8 +251,8 @@ export function ChatInput({onSend, disabled}: Props) {
 const styles = StyleSheet.create({
   wrapper: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#C6C6C8',
-    backgroundColor: '#FFFFFF',
+    borderTopColor: colors.separatorOpaque,
+    backgroundColor: colors.surface,
   },
   attachmentRow: {
     maxHeight: 80,
@@ -245,25 +268,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingTop: 8,
   },
-  recordingDot: {
-    color: '#FF3B30',
-    fontSize: 12,
-    marginRight: 6,
-  },
   recordingText: {
-    color: '#FF3B30',
+    color: colors.destructive,
     fontSize: 13,
     fontWeight: '500',
-  },
-  transcriptPreview: {
-    paddingHorizontal: 14,
-    paddingTop: 6,
-    paddingBottom: 2,
-  },
-  transcriptText: {
-    color: '#333',
-    fontSize: 15,
-    fontStyle: 'italic',
   },
   container: {
     flexDirection: 'row',
@@ -275,19 +283,10 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#E9E9EB',
+    backgroundColor: colors.assistantBubble,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 6,
-  },
-  attachIcon: {
-    fontSize: 22,
-    color: '#007AFF',
-    fontWeight: '600',
-    lineHeight: 24,
-  },
-  attachIconDisabled: {
-    color: '#B0B0B0',
   },
   input: {
     flex: 1,
@@ -295,27 +294,23 @@ const styles = StyleSheet.create({
     maxHeight: 120,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#C6C6C8',
+    borderColor: colors.separatorOpaque,
     paddingHorizontal: 14,
     paddingVertical: 8,
     fontSize: 16,
-    backgroundColor: '#F9F9F9',
-    color: '#000000',
+    backgroundColor: colors.surfaceSecondary,
+    color: colors.textPrimary,
   },
   sendButton: {
     marginLeft: 8,
-    paddingHorizontal: 14,
-    minHeight: 44,
-    borderRadius: 22,
-    backgroundColor: '#007AFF',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: '#B0B0B0',
-  },
-  sendText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    backgroundColor: colors.disabledBackground,
   },
 });
