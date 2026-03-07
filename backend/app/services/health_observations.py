@@ -1,13 +1,25 @@
-"""CRUD service for the HealthObservations DynamoDB table."""
+"""CRUD service for health observations.
+
+Supports pluggable storage via optional ``storage`` parameter.
+When ``storage`` is None, falls back to DynamoDB (existing behavior).
+"""
+
+from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from boto3.dynamodb.conditions import Key
 from ulid import ULID
 
 from app.models.dynamo import get_table
 
+if TYPE_CHECKING:
+    from app.storage.base import StorageProvider
+
 VALID_CATEGORIES = {"diet", "exercise", "sleep", "symptom", "mood", "general"}
+
+_COLLECTION = "health_observations"
 
 
 def create_observation(
@@ -18,6 +30,7 @@ def create_observation(
     source_conversation_id: str | None = None,
     confidence: str = "medium",
     observed_at: str | None = None,
+    storage: StorageProvider | None = None,
 ) -> dict:
     """Create a new health observation.
 
@@ -29,7 +42,6 @@ def create_observation(
             f"Must be one of: {', '.join(sorted(VALID_CATEGORIES))}"
         )
 
-    table = get_table("HealthObservations")
     now = datetime.now(timezone.utc).isoformat()
     observation_id = str(ULID())
 
@@ -46,15 +58,29 @@ def create_observation(
     if source_conversation_id:
         item["source_conversation_id"] = source_conversation_id
 
-    table.put_item(Item=item)
+    if storage is not None:
+        storage.put_record(user_id, _COLLECTION, observation_id, item)
+    else:
+        table = get_table("HealthObservations")
+        table.put_item(Item=item)
+
     return item
 
 
 def list_observations(
     user_id: str,
     category: str | None = None,
+    storage: StorageProvider | None = None,
 ) -> list[dict]:
     """List health observations for a user, optionally filtered by category."""
+    if storage is not None:
+        return storage.query_records(
+            user_id,
+            _COLLECTION,
+            filter_key="category" if category else None,
+            filter_value=category,
+        )
+
     table = get_table("HealthObservations")
 
     if category:
@@ -72,8 +98,15 @@ def list_observations(
     return result.get("Items", [])
 
 
-def delete_all_observations(user_id: str) -> None:
+def delete_all_observations(
+    user_id: str,
+    storage: StorageProvider | None = None,
+) -> None:
     """Delete all health observations for a user (cascade delete)."""
+    if storage is not None:
+        storage.delete_all_records(user_id, _COLLECTION)
+        return
+
     table = get_table("HealthObservations")
     result = table.query(
         KeyConditionExpression=Key("user_id").eq(user_id),

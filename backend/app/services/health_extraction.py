@@ -1,4 +1,10 @@
-"""Background health observation extraction from chat conversations."""
+"""Background health observation extraction from chat conversations.
+
+Supports pluggable storage via ``storage_provider_type`` parameter.
+When the type is "local" (default), uses DynamoDB directly.
+"""
+
+from __future__ import annotations
 
 import json
 import logging
@@ -39,11 +45,15 @@ def extract_health_observations(
     region: str,
     model_id: str,
     dynamodb_endpoint: str | None = None,
+    storage_provider_type: str = "local",
 ) -> None:
     """Extract health observations from a chat exchange and save them.
 
     This runs in a background thread — failures are logged, never raised.
     Creates its own boto3 clients to avoid Flask request-context dependencies.
+
+    When storage_provider_type is not "local", attempts to use the storage
+    provider abstraction. Falls back to DynamoDB if the module is unavailable.
     """
     try:
         prompt = EXTRACTION_PROMPT.format(
@@ -64,13 +74,6 @@ def extract_health_observations(
         if not isinstance(observations, list) or not observations:
             return
 
-        # Build DynamoDB resource outside Flask context
-        dynamo_kwargs = {"region_name": region}
-        if dynamodb_endpoint:
-            dynamo_kwargs["endpoint_url"] = dynamodb_endpoint
-        dynamodb = boto3.resource("dynamodb", **dynamo_kwargs)
-        table = dynamodb.Table("HealthObservations")
-
         from datetime import datetime, timezone
 
         from ulid import ULID
@@ -78,17 +81,32 @@ def extract_health_observations(
         valid_categories = {"diet", "exercise", "sleep", "symptom", "mood", "general"}
         now = datetime.now(timezone.utc).isoformat()
 
+        # Try to use external storage provider for non-local types
+        storage = None
+        if storage_provider_type != "local":
+            try:
+                from app.storage.provider_factory import get_storage_provider
+
+                storage = get_storage_provider(user_id)
+            except (ImportError, Exception):
+                logger.warning(
+                    "Storage provider '%s' not available for background extraction, "
+                    "falling back to DynamoDB",
+                    storage_provider_type,
+                )
+
+        # Build observation items (shared logic for both storage paths)
+        items = []
         for obs in observations:
             category = obs.get("category", "general")
             if category not in valid_categories:
                 category = "general"
-
             summary = obs.get("summary", "")
             if not summary:
                 continue
 
             observation_id = str(ULID())
-            item = {
+            items.append({
                 "user_id": user_id,
                 "observation_id": observation_id,
                 "category": category,
@@ -98,8 +116,22 @@ def extract_health_observations(
                 "source_conversation_id": conversation_id,
                 "observed_at": now,
                 "created_at": now,
-            }
-            table.put_item(Item=item)
+            })
+
+        if storage is not None:
+            for item in items:
+                storage.put_record(
+                    user_id, "health_observations", item["observation_id"], item
+                )
+        else:
+            # Default: write directly to DynamoDB
+            dynamo_kwargs: dict = {"region_name": region}
+            if dynamodb_endpoint:
+                dynamo_kwargs["endpoint_url"] = dynamodb_endpoint
+            dynamodb = boto3.resource("dynamodb", **dynamo_kwargs)
+            table = dynamodb.Table("HealthObservations")
+            for item in items:
+                table.put_item(Item=item)
 
         logger.info(
             "Extracted %d health observations from conversation %s",

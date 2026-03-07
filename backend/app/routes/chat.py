@@ -180,6 +180,19 @@ def chat():
                         extract_health_observations,
                     )
 
+                    # Resolve storage provider type for background thread
+                    storage_type = "local"
+                    try:
+                        from app.services.storage_config import (
+                            get_storage_config,
+                        )
+
+                        sc = get_storage_config(g.user_id)
+                        if sc:
+                            storage_type = sc.get("provider", "local")
+                    except (ImportError, Exception):
+                        pass
+
                     t = threading.Thread(
                         target=extract_health_observations,
                         kwargs={
@@ -194,6 +207,7 @@ def chat():
                             "dynamodb_endpoint": current_app.config.get(
                                 "DYNAMODB_ENDPOINT"
                             ),
+                            "storage_provider_type": storage_type,
                         },
                         daemon=True,
                     )
