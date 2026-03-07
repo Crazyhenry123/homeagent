@@ -8,13 +8,24 @@ from typing import Any
 
 import requests
 
-from app.storage.base import StorageProvider
+from app.storage.base import (
+    COLLECTION_HEALTH_DOCUMENTS,
+    COLLECTION_HEALTH_OBSERVATIONS,
+    COLLECTION_HEALTH_RECORDS,
+    StorageProvider,
+)
 from app.storage.token_manager import OAuthTokenManager
 
 logger = logging.getLogger(__name__)
 
 _GRAPH_BASE = "https://graph.microsoft.com/v1.0"
 _ROOT_PATH = "HomeAgent"
+
+_KEY_FIELDS: dict[str, list[str]] = {
+    COLLECTION_HEALTH_RECORDS: ["user_id", "record_id"],
+    COLLECTION_HEALTH_OBSERVATIONS: ["user_id", "observation_id"],
+    COLLECTION_HEALTH_DOCUMENTS: ["user_id", "document_id"],
+}
 
 
 class OneDriveProvider(StorageProvider):
@@ -45,9 +56,18 @@ class OneDriveProvider(StorageProvider):
         path = "/".join(segments)
         return f"{_GRAPH_BASE}/me/drive/root:/{_ROOT_PATH}/{path}"
 
-    def _record_filename(self, key: dict[str, str]) -> str:
+    @staticmethod
+    def _record_filename(key: dict[str, str]) -> str:
         parts = sorted(key.values())
         return "_".join(parts) + ".json"
+
+    @staticmethod
+    def _extract_key(collection: str, record: dict[str, Any]) -> dict[str, str]:
+        """Extract only key fields from a record for filename derivation."""
+        fields = _KEY_FIELDS.get(collection, [])
+        if fields:
+            return {f: str(record[f]) for f in fields if f in record}
+        return {k: v for k, v in record.items() if isinstance(v, str)}
 
     def _ensure_folder(self, path: str) -> bool:
         """Create a folder if it doesn't exist (PUT with folder facet)."""
@@ -98,7 +118,7 @@ class OneDriveProvider(StorageProvider):
             self._ensure_folder(collection)
 
             filename = self._record_filename(
-                {k: v for k, v in record.items() if isinstance(v, str)}
+                self._extract_key(collection, record)
             )
             url = self._item_path(collection, filename) + ":/content"
             data = json.dumps(record, default=str).encode("utf-8")

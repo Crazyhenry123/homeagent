@@ -6,12 +6,23 @@ import json
 import logging
 from typing import Any
 
-from app.storage.base import StorageProvider
+from app.storage.base import (
+    COLLECTION_HEALTH_DOCUMENTS,
+    COLLECTION_HEALTH_OBSERVATIONS,
+    COLLECTION_HEALTH_RECORDS,
+    StorageProvider,
+)
 from app.storage.token_manager import OAuthTokenManager
 
 logger = logging.getLogger(__name__)
 
 _ROOT_FOLDER = "HomeAgent"
+
+_KEY_FIELDS: dict[str, list[str]] = {
+    COLLECTION_HEALTH_RECORDS: ["user_id", "record_id"],
+    COLLECTION_HEALTH_OBSERVATIONS: ["user_id", "observation_id"],
+    COLLECTION_HEALTH_DOCUMENTS: ["user_id", "document_id"],
+}
 
 
 class BoxProvider(StorageProvider):
@@ -103,6 +114,14 @@ class BoxProvider(StorageProvider):
         parts = sorted(key.values())
         return "_".join(parts) + ".json"
 
+    @staticmethod
+    def _extract_key(collection: str, record: dict[str, Any]) -> dict[str, str]:
+        """Extract only key fields from a record for filename derivation."""
+        fields = _KEY_FIELDS.get(collection, [])
+        if fields:
+            return {f: str(record[f]) for f in fields if f in record}
+        return {k: v for k, v in record.items() if isinstance(v, str)}
+
     # ------------------------------------------------------------------
     # Record operations
     # ------------------------------------------------------------------
@@ -126,7 +145,7 @@ class BoxProvider(StorageProvider):
                 return None
 
             filename = self._record_filename(
-                {k: v for k, v in record.items() if isinstance(v, str)}
+                self._extract_key(collection, record)
             )
             data = json.dumps(record, default=str).encode("utf-8")
             stream = io.BytesIO(data)

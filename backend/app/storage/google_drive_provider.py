@@ -12,7 +12,20 @@ from app.storage.token_manager import OAuthTokenManager
 
 logger = logging.getLogger(__name__)
 
+from app.storage.base import (
+    COLLECTION_HEALTH_DOCUMENTS,
+    COLLECTION_HEALTH_OBSERVATIONS,
+    COLLECTION_HEALTH_RECORDS,
+)
+
 _ROOT_FOLDER = "HomeAgent"
+
+# Key fields per collection — used to derive deterministic filenames
+_KEY_FIELDS: dict[str, list[str]] = {
+    COLLECTION_HEALTH_RECORDS: ["user_id", "record_id"],
+    COLLECTION_HEALTH_OBSERVATIONS: ["user_id", "observation_id"],
+    COLLECTION_HEALTH_DOCUMENTS: ["user_id", "document_id"],
+}
 
 
 class GoogleDriveProvider(StorageProvider):
@@ -51,6 +64,11 @@ class GoogleDriveProvider(StorageProvider):
             logger.exception("Failed to build Google Drive service")
             return None
 
+    @staticmethod
+    def _escape_query(value: str) -> str:
+        """Escape single quotes for Google Drive API query strings."""
+        return value.replace("\\", "\\\\").replace("'", "\\'")
+
     def _find_or_create_folder(
         self, service: Any, name: str, parent_id: str | None = None
     ) -> str | None:
@@ -60,12 +78,14 @@ class GoogleDriveProvider(StorageProvider):
             return self._folder_cache[cache_key]
 
         try:
+            safe_name = self._escape_query(name)
             query = (
-                f"name='{name}' and mimeType='application/vnd.google-apps.folder' "
+                f"name='{safe_name}' and mimeType='application/vnd.google-apps.folder' "
                 f"and trashed=false"
             )
             if parent_id:
-                query += f" and '{parent_id}' in parents"
+                safe_pid = self._escape_query(parent_id)
+                query += f" and '{safe_pid}' in parents"
 
             results = (
                 service.files()
@@ -105,8 +125,10 @@ class GoogleDriveProvider(StorageProvider):
     ) -> str | None:
         """Find a file by name inside *folder_id*."""
         try:
+            safe_name = self._escape_query(filename)
+            safe_fid = self._escape_query(folder_id)
             query = (
-                f"name='{filename}' and '{folder_id}' in parents and trashed=false"
+                f"name='{safe_name}' and '{safe_fid}' in parents and trashed=false"
             )
             results = (
                 service.files()
@@ -119,10 +141,20 @@ class GoogleDriveProvider(StorageProvider):
             logger.exception("Failed to find file %s", filename)
             return None
 
-    def _record_key_to_filename(self, key: dict[str, str]) -> str:
+    @staticmethod
+    def _record_key_to_filename(key: dict[str, str]) -> str:
         """Derive a deterministic filename from a record key."""
         parts = sorted(key.values())
         return "_".join(parts) + ".json"
+
+    @staticmethod
+    def _extract_key(collection: str, record: dict[str, Any]) -> dict[str, str]:
+        """Extract only key fields from a record for filename derivation."""
+        fields = _KEY_FIELDS.get(collection, [])
+        if fields:
+            return {f: str(record[f]) for f in fields if f in record}
+        # Fallback: use all string fields (for unknown collections)
+        return {k: v for k, v in record.items() if isinstance(v, str)}
 
     # ------------------------------------------------------------------
     # Record operations
@@ -147,7 +179,7 @@ class GoogleDriveProvider(StorageProvider):
                 return None
 
             filename = self._record_key_to_filename(
-                {k: v for k, v in record.items() if isinstance(v, str)}
+                self._extract_key(collection, record)
             )
             # Check for existing file to update
             existing_id = self._find_file(service, folder_id, filename)
