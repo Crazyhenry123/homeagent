@@ -264,6 +264,46 @@ class DataStack(cdk.Stack):
             removal_policy=cdk.RemovalPolicy.RETAIN,
         )
 
+        # StorageConfig table (user storage provider preferences)
+        self.tables["StorageConfig"] = dynamodb.Table(
+            self,
+            "StorageConfigTable",
+            table_name="StorageConfig",
+            partition_key=dynamodb.Attribute(
+                name="user_id", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+        )
+
+        # OAuthTokens table (cloud storage provider OAuth tokens)
+        self.tables["OAuthTokens"] = dynamodb.Table(
+            self,
+            "OAuthTokensTable",
+            table_name="OAuthTokens",
+            partition_key=dynamodb.Attribute(
+                name="user_id", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="provider", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+        )
+
+        # OAuthState table (CSRF protection for OAuth flows)
+        self.tables["OAuthState"] = dynamodb.Table(
+            self,
+            "OAuthStateTable",
+            table_name="OAuthState",
+            partition_key=dynamodb.Attribute(
+                name="state", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+            time_to_live_attribute="expires_at",
+        )
+
         # S3 bucket for health documents
         self.documents_bucket = s3.Bucket(
             self,
