@@ -15,10 +15,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.homeagent.app",
-      "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "HomeAgent uses speech recognition to transcribe your voice messages."
-      }
+      "bundleIdentifier": "com.homeagent.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -32,7 +29,7 @@
       ]
     },
     "extra": {
-      "apiBaseUrl": "https://agreements-biblical-symantec-mixture.trycloudflare.com",
+      "apiBaseUrl": "https://involve-willing-dedicated-judges.trycloudflare.com",
       "eas": {
         "projectId": "a975d8e6-c9bb-4bd9-97a7-b5d601d5fd03"
       }
@@ -45,13 +42,6 @@
         "expo-av",
         {
           "microphonePermission": "HomeAgent needs access to your microphone for voice mode."
-        }
-      ],
-      [
-        "expo-speech-recognition",
-        {
-          "microphonePermission": "HomeAgent needs your microphone for voice input.",
-          "speechRecognitionPermission": "HomeAgent uses speech recognition to understand your voice."
         }
       ]
     ],
