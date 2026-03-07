@@ -21,16 +21,28 @@ def _get_client():
 def build_image_content_block(img: dict) -> dict:
     """Build a single Bedrock image content block from a media dict.
 
+    Downloads image bytes from S3 so the block works with both the raw
+    Bedrock converse API and the Strands SDK (which expects "bytes" source).
+
     Args:
-        img: Dict with "s3_uri" and "format" keys.
+        img: Dict with "s3_uri", "content_type", and "format" keys.
     """
+    from app.services.chat_media import _get_s3_client
+
+    # Parse s3://bucket/key
+    s3_uri = img["s3_uri"]
+    parts = s3_uri.replace("s3://", "").split("/", 1)
+    bucket, key = parts[0], parts[1]
+
+    s3 = _get_s3_client()
+    resp = s3.get_object(Bucket=bucket, Key=key)
+    image_bytes = resp["Body"].read()
+
     return {
         "image": {
             "format": img["format"],
             "source": {
-                "s3Location": {
-                    "uri": img["s3_uri"],
-                }
+                "bytes": image_bytes,
             },
         }
     }
