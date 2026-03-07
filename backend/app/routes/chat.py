@@ -106,8 +106,17 @@ def chat():
         if conv["user_id"] != g.user_id:
             return jsonify({"error": "Not your conversation"}), 403
     else:
-        # Auto-title from first message
-        title = user_message[:50] + ("..." if len(user_message) > 50 else "")
+        # Auto-title from first message (use readable fallback for voice/image-only)
+        if user_message and not user_message.startswith("[Voice message"):
+            title = user_message[:50] + ("..." if len(user_message) > 50 else "")
+        elif media_ids:
+            has_audio = any(
+                m.get("content_type", "").startswith("audio/")
+                for m in (media_metadata or [])
+            )
+            title = "Voice message" if has_audio else "Image message"
+        else:
+            title = "New conversation"
         conv = create_conversation(user_id=g.user_id, title=title)
         conversation_id = conv["conversation_id"]
 

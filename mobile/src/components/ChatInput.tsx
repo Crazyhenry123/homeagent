@@ -90,6 +90,8 @@ export function ChatInput({onSend, disabled}: Props) {
         const uri = recordingRef.current.getURI();
         recordingRef.current = null;
         setRecording(false);
+        // Release microphone
+        await Audio.setAudioModeAsync({allowsRecordingIOS: false});
 
         if (!uri) {
           Alert.alert('Error', 'Failed to save recording.');
@@ -117,6 +119,8 @@ export function ChatInput({onSend, disabled}: Props) {
         console.error('[Voice] Failed to process recording:', error);
         setRecording(false);
         recordingRef.current = null;
+        // Reset audio mode so microphone is released
+        Audio.setAudioModeAsync({allowsRecordingIOS: false}).catch(() => {});
         Alert.alert('Error', `Failed to process recording: ${error instanceof Error ? error.message : String(error)}`);
       }
     } else {
@@ -136,8 +140,35 @@ export function ChatInput({onSend, disabled}: Props) {
           playsInSilentModeIOS: true,
         });
 
+        // Use a WAV-compatible preset so the backend receives audio/wav
+        const wavPreset: Audio.RecordingOptions = {
+          isMeteringEnabled: false,
+          android: {
+            extension: '.wav',
+            outputFormat: Audio.AndroidOutputFormat.DEFAULT,
+            audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
+            sampleRate: 44100,
+            numberOfChannels: 1,
+            bitRate: 128000,
+          },
+          ios: {
+            extension: '.wav',
+            outputFormat: Audio.IOSOutputFormat.LINEARPCM,
+            audioQuality: Audio.IOSAudioQuality.HIGH,
+            sampleRate: 44100,
+            numberOfChannels: 1,
+            bitRate: 128000,
+            linearPCMBitDepth: 16,
+            linearPCMIsBigEndian: false,
+            linearPCMIsFloat: false,
+          },
+          web: {
+            mimeType: 'audio/wav',
+            bitsPerSecond: 128000,
+          },
+        };
         const {recording: newRecording} = await Audio.Recording.createAsync(
-          Audio.RecordingOptionsPresets.HIGH_QUALITY,
+          wavPreset,
         );
         recordingRef.current = newRecording;
         setRecording(true);

@@ -32,6 +32,8 @@ def _get_presigned_s3_client() -> "boto3.client":
     """
     presigned_endpoint = current_app.config.get("S3_PRESIGNED_ENDPOINT")
     if presigned_endpoint:
+        if not presigned_endpoint.startswith(("http://", "https://")):
+            raise ValueError(f"S3_PRESIGNED_ENDPOINT must be an HTTP(S) URL, got: {presigned_endpoint}")
         return boto3.client(
             "s3",
             region_name=current_app.config["AWS_REGION"],
