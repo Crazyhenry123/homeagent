@@ -60,3 +60,18 @@ class Config:
     WEB_SEARCH_ENABLED: bool = (
         os.environ.get("WEB_SEARCH_ENABLED", "true").lower() == "true"
     )
+
+    # Storage providers
+    STORAGE_PROVIDERS_ENABLED: bool = (
+        os.environ.get("STORAGE_PROVIDERS_ENABLED", "false").lower() == "true"
+    )
+    GOOGLE_DRIVE_CLIENT_ID: str = os.environ.get("GOOGLE_DRIVE_CLIENT_ID", "")
+    GOOGLE_DRIVE_CLIENT_SECRET: str = os.environ.get(
+        "GOOGLE_DRIVE_CLIENT_SECRET", ""
+    )
+    ONEDRIVE_CLIENT_ID: str = os.environ.get("ONEDRIVE_CLIENT_ID", "")
+    ONEDRIVE_CLIENT_SECRET: str = os.environ.get("ONEDRIVE_CLIENT_SECRET", "")
+    DROPBOX_CLIENT_ID: str = os.environ.get("DROPBOX_CLIENT_ID", "")
+    DROPBOX_CLIENT_SECRET: str = os.environ.get("DROPBOX_CLIENT_SECRET", "")
+    BOX_CLIENT_ID: str = os.environ.get("BOX_CLIENT_ID", "")
+    BOX_CLIENT_SECRET: str = os.environ.get("BOX_CLIENT_SECRET", "")

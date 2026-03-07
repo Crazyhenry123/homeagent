@@ -258,6 +258,32 @@ TABLE_DEFINITIONS = {
             {"AttributeName": "user_id", "AttributeType": "S"},
         ],
     },
+    "StorageConfig": {
+        "KeySchema": [{"AttributeName": "user_id", "KeyType": "HASH"}],
+        "AttributeDefinitions": [
+            {"AttributeName": "user_id", "AttributeType": "S"},
+        ],
+    },
+    "OAuthTokens": {
+        "KeySchema": [
+            {"AttributeName": "user_id", "KeyType": "HASH"},
+            {"AttributeName": "provider", "KeyType": "RANGE"},
+        ],
+        "AttributeDefinitions": [
+            {"AttributeName": "user_id", "AttributeType": "S"},
+            {"AttributeName": "provider", "AttributeType": "S"},
+        ],
+    },
+    "OAuthState": {
+        "KeySchema": [{"AttributeName": "state", "KeyType": "HASH"}],
+        "AttributeDefinitions": [
+            {"AttributeName": "state", "AttributeType": "S"},
+        ],
+        "TimeToLiveSpecification": {
+            "AttributeName": "expires_at",
+            "Enabled": True,
+        },
+    },
 }
 
 
