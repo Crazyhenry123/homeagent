@@ -216,9 +216,6 @@ export function StorageSettingsScreen({navigation}: Props) {
             key={provider.id}
             style={[styles.providerRow, isActive && styles.providerRowActive, isUnavailable && styles.providerRowDisabled]}
             onPress={() => {
-              if (isUnavailable) {
-                return;
-              }
               if (isActive && provider.id !== 'local') {
                 handleDisconnect();
               } else if (!isActive) {
