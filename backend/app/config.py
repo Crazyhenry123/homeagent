@@ -27,6 +27,7 @@ class Config:
         "S3_HEALTH_DOCUMENTS_BUCKET"
     )
     S3_ENDPOINT: str | None = os.environ.get("S3_ENDPOINT")
+    S3_PRESIGNED_ENDPOINT: str | None = os.environ.get("S3_PRESIGNED_ENDPOINT")
     CHAT_MEDIA_ALLOWED_TYPES: set = {
         "image/jpeg",
         "image/png",

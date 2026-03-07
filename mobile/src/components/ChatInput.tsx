@@ -53,13 +53,26 @@ export function ChatInput({onSend, disabled}: Props) {
 
     if (result.canceled || !result.assets) return;
 
-    const newAttachments: ChatMediaUpload[] = result.assets.map(asset => ({
-      localId: `img-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      uri: asset.uri,
-      contentType: asset.mimeType || getContentType(asset.uri),
-      fileSize: asset.fileSize || 0,
-      status: 'pending' as const,
-    }));
+    // Build attachments, resolving file size when not provided by the picker
+    const newAttachments: ChatMediaUpload[] = [];
+    for (const asset of result.assets) {
+      let size = asset.fileSize || 0;
+      if (size <= 0) {
+        try {
+          const info = await getInfoAsync(asset.uri);
+          size = info.exists ? (info.size ?? 0) : 0;
+        } catch {
+          // Fall through with size 0; backend will reject if still 0
+        }
+      }
+      newAttachments.push({
+        localId: `img-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        uri: asset.uri,
+        contentType: asset.mimeType || getContentType(asset.uri),
+        fileSize: size,
+        status: 'pending' as const,
+      });
+    }
 
     setAttachments(prev => [...prev, ...newAttachments].slice(0, 5));
   }, [attachments.length]);

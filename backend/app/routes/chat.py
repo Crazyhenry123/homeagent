@@ -50,10 +50,13 @@ def chat():
     data = request.get_json()
     if not data:
         return jsonify({"error": "request body is required"}), 400
-    if not data.get("message") and not data.get("media"):
+    # Allow empty message if media is present (e.g., voice-only or image-only)
+    has_message = bool(data.get("message"))
+    has_media = bool(data.get("media"))
+    if not has_message and not has_media:
         return jsonify({"error": "message or media is required"}), 400
 
-    user_message = data.get("message", "")
+    user_message = data.get("message", "") or ""
     conversation_id = data.get("conversation_id")
     media_ids = data.get("media", [])
 
@@ -71,8 +74,24 @@ def chat():
             # Transcribe audio items and prepend to user message
             audio_items = [m for m in all_media if m["media_type"] == "audio"]
             for audio in audio_items:
-                transcription = transcribe_audio(audio["s3_uri"])
-                user_message = f"[Voice message]: {transcription}\n\n{user_message}" if user_message else f"[Voice message]: {transcription}"
+                try:
+                    transcription = transcribe_audio(audio["s3_uri"])
+                    user_message = (
+                        f"[Voice message]: {transcription}\n\n{user_message}"
+                        if user_message
+                        else f"[Voice message]: {transcription}"
+                    )
+                except Exception:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "Audio transcription failed, sending as untranscribed",
+                        exc_info=True,
+                    )
+                    user_message = (
+                        f"[Voice message attached but could not be transcribed]\n\n{user_message}"
+                        if user_message
+                        else "[Voice message attached but could not be transcribed]"
+                    )
 
             # Only pass image media to Bedrock (Claude doesn't accept audio)
             images = [m for m in all_media if m["media_type"] == "image"] or None
