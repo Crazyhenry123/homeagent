@@ -7,16 +7,16 @@ import json
 import logging
 from typing import Any
 
-from app.storage.base import StorageProvider
-from app.storage.token_manager import OAuthTokenManager
-
-logger = logging.getLogger(__name__)
-
 from app.storage.base import (
+    COLLECTION_HEALTH_AUDIT_LOG,
     COLLECTION_HEALTH_DOCUMENTS,
     COLLECTION_HEALTH_OBSERVATIONS,
     COLLECTION_HEALTH_RECORDS,
+    StorageProvider,
 )
+from app.storage.token_manager import OAuthTokenManager
+
+logger = logging.getLogger(__name__)
 
 _ROOT_FOLDER = "HomeAgent"
 
@@ -25,6 +25,7 @@ _KEY_FIELDS: dict[str, list[str]] = {
     COLLECTION_HEALTH_RECORDS: ["user_id", "record_id"],
     COLLECTION_HEALTH_OBSERVATIONS: ["user_id", "observation_id"],
     COLLECTION_HEALTH_DOCUMENTS: ["user_id", "document_id"],
+    COLLECTION_HEALTH_AUDIT_LOG: ["record_id", "audit_sk"],
 }
 
 
