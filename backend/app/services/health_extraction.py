@@ -120,9 +120,7 @@ def extract_health_observations(
 
         if storage is not None:
             for item in items:
-                storage.put_record(
-                    user_id, "health_observations", item["observation_id"], item
-                )
+                storage.put_record("health_observations", item)
         else:
             # Default: write directly to DynamoDB
             dynamo_kwargs: dict = {"region_name": region}

@@ -87,7 +87,7 @@ def create_document_metadata(
         item["record_id"] = record_id
 
     if storage is not None:
-        storage.put_record(user_id, _COLLECTION, document_id, item)
+        storage.put_record(_COLLECTION, item)
         # For external providers, the actual file upload goes through the
         # storage provider's put_file method. Return a backend upload URL.
         return {
@@ -122,10 +122,12 @@ def get_download_url(
 ) -> dict | None:
     """Get document metadata and a download URL."""
     if storage is not None:
-        item = storage.get_record(user_id, _COLLECTION, document_id)
+        item = storage.get_record(
+            _COLLECTION, {"user_id": user_id, "document_id": document_id}
+        )
         if not item:
             return None
-        file_url = storage.get_file_url(user_id, item.get("s3_key", ""))
+        file_url = storage.get_file_url(item.get("s3_key", ""))
         return {**item, "download_url": file_url or ""}
 
     table = get_table("HealthDocuments")
@@ -151,7 +153,7 @@ def list_documents(
 ) -> list[dict]:
     """List all documents for a user."""
     if storage is not None:
-        return storage.query_records(user_id, _COLLECTION)
+        return storage.query_records(_COLLECTION, {"user_id": user_id})
 
     table = get_table("HealthDocuments")
     result = table.query(
@@ -167,13 +169,17 @@ def delete_document(
 ) -> bool:
     """Delete a document's metadata and file. Returns True if it existed."""
     if storage is not None:
-        item = storage.get_record(user_id, _COLLECTION, document_id)
+        item = storage.get_record(
+            _COLLECTION, {"user_id": user_id, "document_id": document_id}
+        )
         if not item:
             return False
         s3_key = item.get("s3_key", "")
         if s3_key:
-            storage.delete_file(user_id, s3_key)
-        storage.delete_record(user_id, _COLLECTION, document_id)
+            storage.delete_file(s3_key)
+        storage.delete_record(
+            _COLLECTION, {"user_id": user_id, "document_id": document_id}
+        )
         return True
 
     table = get_table("HealthDocuments")
@@ -198,12 +204,12 @@ def delete_all_documents(
 ) -> None:
     """Delete all documents for a user (cascade delete)."""
     if storage is not None:
-        docs = storage.query_records(user_id, _COLLECTION)
+        docs = storage.query_records(_COLLECTION, {"user_id": user_id})
         for doc in docs:
             s3_key = doc.get("s3_key", "")
             if s3_key:
-                storage.delete_file(user_id, s3_key)
-        storage.delete_all_records(user_id, _COLLECTION)
+                storage.delete_file(s3_key)
+        storage.delete_all_records(_COLLECTION, {"user_id": user_id})
         return
 
     table = get_table("HealthDocuments")

@@ -62,7 +62,7 @@ def create_health_record(
     }
 
     if storage is not None:
-        storage.put_record(user_id, _COLLECTION, record_id, item)
+        storage.put_record(_COLLECTION, item)
     else:
         table = get_table("HealthRecords")
         table.put_item(Item=item)
@@ -86,7 +86,9 @@ def get_health_record(
 ) -> dict | None:
     """Get a single health record by user_id and record_id."""
     if storage is not None:
-        return storage.get_record(user_id, _COLLECTION, record_id)
+        return storage.get_record(
+            _COLLECTION, {"user_id": user_id, "record_id": record_id}
+        )
 
     table = get_table("HealthRecords")
     result = table.get_item(Key={"user_id": user_id, "record_id": record_id})
@@ -100,12 +102,15 @@ def list_health_records(
 ) -> list[dict]:
     """List health records for a user, optionally filtered by record_type."""
     if storage is not None:
-        return storage.query_records(
-            user_id,
-            _COLLECTION,
-            filter_key="record_type" if record_type else None,
-            filter_value=record_type,
-        )
+        key_condition: dict = {"user_id": user_id}
+        if record_type:
+            key_condition["record_type"] = record_type
+            return storage.query_records(
+                _COLLECTION,
+                key_condition,
+                index_name="record_type-index",
+            )
+        return storage.query_records(_COLLECTION, key_condition)
 
     table = get_table("HealthRecords")
 
@@ -152,7 +157,7 @@ def update_health_record(
             return None
         merged = {**before, **filtered}
         merged["updated_at"] = datetime.now(timezone.utc).isoformat()
-        storage.put_record(user_id, _COLLECTION, record_id, merged)
+        storage.put_record(_COLLECTION, merged)
 
         if actor_id:
             log_audit_event(
@@ -215,7 +220,9 @@ def delete_health_record(
     )
 
     if storage is not None:
-        deleted = storage.delete_record(user_id, _COLLECTION, record_id)
+        deleted = storage.delete_record(
+            _COLLECTION, {"user_id": user_id, "record_id": record_id}
+        )
         if actor_id and snapshot:
             log_audit_event(
                 record_id=record_id,
@@ -251,7 +258,7 @@ def delete_all_health_records(
 ) -> None:
     """Delete all health records for a user (cascade delete)."""
     if storage is not None:
-        storage.delete_all_records(user_id, _COLLECTION)
+        storage.delete_all_records(_COLLECTION, {"user_id": user_id})
         return
 
     table = get_table("HealthRecords")
