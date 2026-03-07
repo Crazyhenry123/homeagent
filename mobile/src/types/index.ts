@@ -327,6 +327,7 @@ export interface StorageProviderInfo {
   name: string;
   description: string;
   requires_oauth: boolean;
+  oauth_configured: boolean;
 }
 
 export interface StorageProvidersResponse {

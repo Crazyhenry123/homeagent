@@ -209,12 +209,16 @@ export function StorageSettingsScreen({navigation}: Props) {
       {providers.map(provider => {
         const isActive = provider.id === currentProvider;
         const isConnecting = connecting === provider.id;
+        const isUnavailable = provider.requires_oauth && !provider.oauth_configured;
 
         return (
           <TouchableOpacity
             key={provider.id}
-            style={[styles.providerRow, isActive && styles.providerRowActive]}
+            style={[styles.providerRow, isActive && styles.providerRowActive, isUnavailable && styles.providerRowDisabled]}
             onPress={() => {
+              if (isUnavailable) {
+                return;
+              }
               if (isActive && provider.id !== 'local') {
                 handleDisconnect();
               } else if (!isActive) {
@@ -228,12 +232,14 @@ export function StorageSettingsScreen({navigation}: Props) {
                 }
               }
             }}
-            disabled={isConnecting || currentStatus === 'migrating'}>
+            disabled={isUnavailable || isConnecting || currentStatus === 'migrating'}>
             <View style={styles.providerInfo}>
-              <Text style={styles.providerIcon}>{PROVIDER_ICONS[provider.id]}</Text>
+              <Text style={[styles.providerIcon, isUnavailable && {opacity: 0.4}]}>{PROVIDER_ICONS[provider.id]}</Text>
               <View style={styles.providerText}>
-                <Text style={styles.providerName}>{provider.name}</Text>
-                <Text style={styles.providerDescription}>{provider.description}</Text>
+                <Text style={[styles.providerName, isUnavailable && {color: '#C7C7CC'}]}>{provider.name}</Text>
+                <Text style={styles.providerDescription}>
+                  {isUnavailable ? 'Not configured on server' : provider.description}
+                </Text>
               </View>
             </View>
             {isActive ? (
@@ -242,6 +248,8 @@ export function StorageSettingsScreen({navigation}: Props) {
               </View>
             ) : isConnecting ? (
               <ActivityIndicator size="small" />
+            ) : isUnavailable ? (
+              <Text style={styles.unavailableText}>Unavailable</Text>
             ) : (
               <Text style={styles.connectText}>
                 {provider.requires_oauth ? 'Connect' : 'Select'}
@@ -334,6 +342,8 @@ const styles = StyleSheet.create({
   badge: {borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4},
   badgeText: {fontSize: 12, fontWeight: '600', color: '#FFFFFF'},
   connectText: {fontSize: 15, color: '#007AFF', fontWeight: '500'},
+  unavailableText: {fontSize: 13, color: '#C7C7CC', fontWeight: '500'},
+  providerRowDisabled: {opacity: 0.7},
   dataCard: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
