@@ -14,6 +14,7 @@ import {ConversationItem} from '../components/ConversationItem';
 import {deleteConversation} from '../services/api';
 import {useSession} from '../store';
 import type {RootStackParamList} from '../navigation/AppNavigator';
+import {colors} from '../theme';
 
 const REFRESH_THRESHOLD_MS = 30_000; // 30 seconds
 
@@ -35,7 +36,7 @@ export function ConversationListScreen({navigation}: Props) {
         <TouchableOpacity
           onPress={() => navigation.navigate('Settings')}
           hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
-          <Text style={styles.headerButton}>Settings</Text>
+          <Text style={{color: colors.primary, fontSize: 16}}>Settings</Text>
         </TouchableOpacity>
       ),
     });
@@ -114,9 +115,9 @@ export function ConversationListScreen({navigation}: Props) {
         onRefresh={handleRefresh}
         ListEmptyComponent={
           !refreshing ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>No conversations yet</Text>
-              <Text style={styles.emptySubtext}>
+            <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100} as const}>
+              <Text style={{fontSize: 18, color: colors.textTertiary, marginBottom: 4}}>No conversations yet</Text>
+              <Text style={{fontSize: 14, color: colors.textQuaternary}}>
                 Tap + to start chatting
               </Text>
             </View>
@@ -129,7 +130,7 @@ export function ConversationListScreen({navigation}: Props) {
           {bottom: Platform.OS === 'ios' ? insets.bottom + 12 : 30},
         ]}
         onPress={handleNewChat}>
-        <Text style={styles.fabText}>+</Text>
+        <Text style={{color: colors.surface, fontSize: 28, fontWeight: '400' as const, marginTop: -2}}>+</Text>
       </TouchableOpacity>
     </View>
   );
@@ -138,26 +139,7 @@ export function ConversationListScreen({navigation}: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
-  headerButton: {
-    color: '#007AFF',
-    fontSize: 16,
-  },
-  empty: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 100,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: '#8E8E93',
-    marginBottom: 4,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#AEAEB2',
+    backgroundColor: colors.background,
   },
   fab: {
     position: 'absolute',
@@ -165,19 +147,13 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.textPrimary,
     shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
-  },
-  fabText: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '400',
-    marginTop: -2,
   },
 });

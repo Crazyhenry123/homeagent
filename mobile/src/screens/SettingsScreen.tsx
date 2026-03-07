@@ -16,6 +16,7 @@ import {useSession} from '../store';
 import {getMemorySharingConfig, updateMemorySharingConfig} from '../services/api';
 import type {MemorySharingConfig} from '../types';
 import type {RootStackParamList} from '../navigation/AppNavigator';
+import {colors} from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
@@ -207,7 +208,7 @@ export function SettingsScreen({navigation}: Props) {
               style={styles.textInput}
               multiline
               placeholder="Add anything you'd like to share with family agents..."
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={colors.textTertiary}
               defaultValue={sharingConfig.custom_shared_info}
               onEndEditing={e => handleCustomInfoSave(e.nativeEvent.text)}
             />
@@ -227,7 +228,46 @@ export function SettingsScreen({navigation}: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background,
+  },
+  section: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.separator,
+  },
+  label: {
+    fontSize: 13,
+    color: colors.textTertiary,
+    marginBottom: 4,
+  },
+  value: {
+    fontSize: 16,
+    color: colors.textPrimary,
+  },
+  actionRow: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.separator,
+  },
+  actionText: {
+    fontSize: 16,
+    color: colors.primary,
+  },
+  sharingLevelValue: {
+    fontSize: 16,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  textInput: {
+    marginTop: 8,
+    fontSize: 15,
+    color: colors.textPrimary,
+    minHeight: 60,
+    textAlignVertical: 'top',
   },
   sectionHeader: {
     paddingHorizontal: 16,
@@ -236,94 +276,55 @@ const styles = StyleSheet.create({
   },
   sectionHeaderText: {
     fontSize: 13,
-    color: '#8E8E93',
-    fontWeight: '500',
+    color: colors.textTertiary,
+    fontWeight: '500' as const,
     letterSpacing: 0.5,
-  },
-  section: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
-  },
-  label: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginBottom: 4,
-  },
-  value: {
-    fontSize: 16,
-    color: '#000000',
-  },
-  actionRow: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
-  },
-  actionText: {
-    fontSize: 16,
-    color: '#007AFF',
   },
   adminPanelButton: {
     marginTop: 8,
     marginHorizontal: 16,
     height: 48,
     borderRadius: 10,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: colors.primary,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
   },
   adminPanelButtonText: {
-    color: '#FFFFFF',
+    color: colors.surface,
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   logoutButton: {
     marginTop: 32,
     marginHorizontal: 16,
     height: 48,
     borderRadius: 10,
-    backgroundColor: '#FF3B30',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: colors.destructive,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
   },
   logoutText: {
-    color: '#FFFFFF',
+    color: colors.surface,
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   toggleRow: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    borderBottomColor: colors.separator,
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
   },
   toggleLabel: {
     fontSize: 16,
-    color: '#000000',
-  },
-  sharingLevelValue: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  textInput: {
-    marginTop: 8,
-    fontSize: 15,
-    color: '#000000',
-    minHeight: 60,
-    textAlignVertical: 'top',
+    color: colors.textPrimary,
   },
   versionText: {
-    textAlign: 'center',
-    color: '#AEAEB2',
+    textAlign: 'center' as const,
+    color: colors.textQuaternary,
     fontSize: 13,
     marginTop: 24,
     marginBottom: 32,

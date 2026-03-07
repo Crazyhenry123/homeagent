@@ -19,6 +19,8 @@ import {
   grantPermission,
   revokePermission,
 } from '../services/api';
+import {EmptyState} from '../components/ui';
+import {colors} from '../theme';
 
 const PERMISSION_LABELS: Record<string, string> = {
   email_access: 'Email Account Access',
@@ -193,8 +195,8 @@ export function MyAgentsScreen({navigation}: Props) {
             value={item.enabled}
             onValueChange={() => handleToggle(item)}
             disabled={toggling === item.agent_type}
-            trackColor={{false: '#E5E5EA', true: '#34C759'}}
-            thumbColor="#FFFFFF"
+            trackColor={{false: colors.separator, true: colors.success}}
+            thumbColor={colors.surface}
           />
         </TouchableOpacity>
 
@@ -218,8 +220,8 @@ export function MyAgentsScreen({navigation}: Props) {
                     onValueChange={() =>
                       handlePermissionToggle(perm, isGranted)
                     }
-                    trackColor={{false: '#E5E5EA', true: '#34C759'}}
-                    thumbColor="#FFFFFF"
+                    trackColor={{false: colors.separator, true: colors.success}}
+                    thumbColor={colors.surface}
                   />
                 </View>
               );
@@ -233,7 +235,7 @@ export function MyAgentsScreen({navigation}: Props) {
   if (session.status === 'loading') {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -247,12 +249,11 @@ export function MyAgentsScreen({navigation}: Props) {
         refreshing={refreshing}
         onRefresh={handleRefresh}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>No Agents Authorized</Text>
-            <Text style={styles.emptyText}>
-              Your family admin hasn't authorized any agents for you yet. Ask them to enable agents in your member settings.
-            </Text>
-          </View>
+          <EmptyState
+            icon="hardware-chip-outline"
+            title="No Agents Authorized"
+            subtitle="Your family admin hasn't authorized any agents for you yet. Ask them to enable agents in your member settings."
+          />
         }
       />
     </View>
@@ -262,7 +263,7 @@ export function MyAgentsScreen({navigation}: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background,
   },
   centered: {
     justifyContent: 'center',
@@ -272,7 +273,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 12,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     overflow: 'hidden',
   },
   row: {
@@ -294,50 +295,50 @@ const styles = StyleSheet.create({
   rowName: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#000000',
+    color: colors.textPrimary,
   },
   badge: {
-    backgroundColor: '#E5E5EA',
+    backgroundColor: colors.badgeBackground,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
   },
   badgeText: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.badgeText,
     fontWeight: '500',
   },
   setupBadge: {
-    backgroundColor: '#FFE0B2',
+    backgroundColor: colors.setupBadgeBackground,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
   },
   setupBadgeText: {
     fontSize: 12,
-    color: '#E65100',
+    color: colors.setupBadgeText,
     fontWeight: '500',
   },
   rowDescription: {
     fontSize: 14,
-    color: '#3C3C43',
+    color: colors.textSecondary,
   },
   permissionSummary: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     marginTop: 4,
   },
   permissionsPanel: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E5E5EA',
+    borderTopColor: colors.separator,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: colors.surfaceSecondary,
   },
   permissionsTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#3C3C43',
+    color: colors.textSecondary,
     marginBottom: 8,
   },
   permissionRow: {
@@ -352,27 +353,11 @@ const styles = StyleSheet.create({
   permissionLabel: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#000000',
+    color: colors.textPrimary,
   },
   permissionStatus: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     marginTop: 2,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    marginTop: 48,
-    paddingHorizontal: 32,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: '#8E8E93',
-    textAlign: 'center',
   },
 });

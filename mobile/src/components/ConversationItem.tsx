@@ -1,6 +1,7 @@
 import React from 'react';
 import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import type {Conversation} from '../types';
+import {colors} from '../theme';
 
 interface Props {
   conversation: Conversation;
@@ -44,8 +45,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: colors.separator,
+    backgroundColor: colors.surface,
   },
   content: {
     flexDirection: 'row',
@@ -55,11 +56,11 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     fontSize: 16,
-    color: '#000000',
+    color: colors.textPrimary,
     marginRight: 8,
   },
   date: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.textTertiary,
   },
 });

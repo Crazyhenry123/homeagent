@@ -14,6 +14,8 @@ import {
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import type {RootStackParamList} from '../navigation/AppNavigator';
 import {grantPermission} from '../services/api';
+import {SectionHeader, ToggleRow, PrimaryButton} from '../components/ui';
+import {colors} from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AgentSetup'>;
 
@@ -159,8 +161,8 @@ export function AgentSetupScreen({navigation}: Props) {
               <Switch
                 value={calendarEnabled}
                 onValueChange={setCalendarEnabled}
-                trackColor={{false: '#E5E5EA', true: '#34C759'}}
-                thumbColor="#FFFFFF"
+                trackColor={{false: colors.separator, true: colors.success}}
+                thumbColor={colors.surface}
               />
             </View>
           </View>
@@ -187,8 +189,8 @@ export function AgentSetupScreen({navigation}: Props) {
               <Switch
                 value={healthDataConsent}
                 onValueChange={setHealthDataConsent}
-                trackColor={{false: '#E5E5EA', true: '#34C759'}}
-                thumbColor="#FFFFFF"
+                trackColor={{false: colors.separator, true: colors.success}}
+                thumbColor={colors.surface}
               />
             </View>
 
@@ -203,30 +205,30 @@ export function AgentSetupScreen({navigation}: Props) {
               <Switch
                 value={medicalRecordsConsent}
                 onValueChange={setMedicalRecordsConsent}
-                trackColor={{false: '#E5E5EA', true: '#34C759'}}
-                thumbColor="#FFFFFF"
+                trackColor={{false: colors.separator, true: colors.success}}
+                thumbColor={colors.surface}
               />
             </View>
           </View>
         </View>
 
+
         {/* Action Buttons */}
         <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.continueButton, saving && styles.buttonDisabled]}
+          <PrimaryButton
+            title={saving ? 'Saving...' : 'Continue'}
             onPress={handleContinue}
-            disabled={saving}>
-            <Text style={styles.continueButtonText}>
-              {saving ? 'Saving...' : 'Continue'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.skipButton}
-            onPress={handleSkip}
-            disabled={saving}>
-            <Text style={styles.skipButtonText}>Skip for now</Text>
-          </TouchableOpacity>
+            disabled={saving}
+            loading={saving}
+          />
+          <View style={{marginTop: 12}}>
+            <PrimaryButton
+              title="Skip for now"
+              variant="secondary"
+              onPress={handleSkip}
+              disabled={saving}
+            />
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -236,7 +238,7 @@ export function AgentSetupScreen({navigation}: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background,
   },
   scrollView: {
     flex: 1,
@@ -249,13 +251,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#000000',
+    color: colors.textPrimary,
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 15,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 20,
@@ -269,40 +271,40 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#000000',
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   sectionDescription: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     lineHeight: 18,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 16,
   },
   fieldLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000000',
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   fieldDescription: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     marginBottom: 12,
     lineHeight: 17,
   },
   input: {
     height: 44,
     borderWidth: 1,
-    borderColor: '#C6C6C8',
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     fontSize: 16,
-    color: '#000000',
-    backgroundColor: '#F9F9F9',
+    color: colors.textPrimary,
+    backgroundColor: colors.surfaceSecondary,
     marginBottom: 16,
   },
   providerRow: {
@@ -315,29 +317,29 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#C6C6C8',
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F9F9F9',
+    backgroundColor: colors.surfaceSecondary,
   },
   providerButtonActive: {
-    borderColor: '#007AFF',
-    backgroundColor: '#EBF5FF',
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
   },
   providerButtonText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#8E8E93',
+    color: colors.textTertiary,
   },
   providerButtonTextActive: {
-    color: '#007AFF',
+    color: colors.primary,
   },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E5E5EA',
+    borderTopColor: colors.separator,
   },
   lastToggleRow: {
     borderBottomWidth: 0,
@@ -349,30 +351,5 @@ const styles = StyleSheet.create({
   buttonContainer: {
     marginTop: 8,
     gap: 12,
-  },
-  continueButton: {
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    backgroundColor: '#B0B0B0',
-  },
-  continueButtonText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  skipButton: {
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  skipButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
-    fontWeight: '500',
   },
 });

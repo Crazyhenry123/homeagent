@@ -12,6 +12,7 @@ import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {VoiceSessionClient} from '../services/voiceSession';
 import type {VoiceEvent} from '../types';
 import type {RootStackParamList} from '../navigation/AppNavigator';
+import {colors} from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VoiceMode'>;
 
@@ -256,7 +257,7 @@ export function VoiceModeScreen({route, navigation}: Props) {
           ]}
           onPress={handleMicPress}
           disabled={!connected}>
-          <Text style={styles.micIcon}>{recording ? 'STOP' : 'MIC'}</Text>
+          <Text style={{color: colors.surface, fontSize: 16, fontWeight: '700'}}>{recording ? 'STOP' : 'MIC'}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.backButton}
@@ -271,7 +272,7 @@ export function VoiceModeScreen({route, navigation}: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.voiceBackground,
   },
   transcriptArea: {
     flex: 1,
@@ -287,27 +288,27 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   userTranscript: {
-    backgroundColor: '#2C2C2E',
+    backgroundColor: colors.voiceSurface,
     alignSelf: 'flex-end',
     maxWidth: '80%',
   },
   assistantTranscript: {
-    backgroundColor: '#3A3A3C',
+    backgroundColor: colors.voiceSurfaceAlt,
     alignSelf: 'flex-start',
     maxWidth: '80%',
   },
   roleLabel: {
-    color: '#8E8E93',
+    color: colors.textTertiary,
     fontSize: 12,
     marginBottom: 2,
   },
   transcriptText: {
-    color: '#FFFFFF',
+    color: colors.surface,
     fontSize: 16,
     lineHeight: 22,
   },
   errorText: {
-    color: '#FF453A',
+    color: colors.destructiveDark,
     fontSize: 14,
     textAlign: 'center',
     marginTop: 8,
@@ -316,12 +317,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 24,
     paddingBottom: 40,
-    backgroundColor: '#2C2C2E',
+    backgroundColor: colors.voiceSurface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
   statusText: {
-    color: '#8E8E93',
+    color: colors.textTertiary,
     fontSize: 14,
     marginBottom: 16,
   },
@@ -329,28 +330,25 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
   micButtonActive: {
-    backgroundColor: '#FF453A',
+    backgroundColor: colors.destructiveDark,
   },
   micButtonDisabled: {
-    backgroundColor: '#48484A',
-  },
-  micIcon: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    backgroundColor: colors.voiceDisabled,
   },
   backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
   backText: {
-    color: '#007AFF',
+    color: colors.primary,
     fontSize: 16,
   },
 });

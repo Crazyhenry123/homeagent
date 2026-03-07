@@ -1,5 +1,6 @@
 import React from 'react';
 import {StyleSheet, Text, TouchableOpacity} from 'react-native';
+import {colors} from '../theme';
 
 interface Props {
   onPress: () => void;
@@ -34,27 +35,27 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#E9E9EB',
+    backgroundColor: colors.assistantBubble,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 6,
   },
   buttonRecording: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: colors.destructive,
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   icon: {
     fontSize: 14,
-    color: '#007AFF',
+    color: colors.primary,
     fontWeight: '600',
   },
   iconRecording: {
-    color: '#FFFFFF',
+    color: colors.surface,
     fontSize: 16,
   },
   iconDisabled: {
-    color: '#B0B0B0',
+    color: colors.disabledText,
   },
 });

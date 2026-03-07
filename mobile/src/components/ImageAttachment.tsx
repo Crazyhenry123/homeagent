@@ -7,6 +7,7 @@ import {
   Text,
 } from 'react-native';
 import type {ChatMediaUpload} from '../types';
+import {colors} from '../theme';
 
 interface Props {
   attachment: ChatMediaUpload;
@@ -60,7 +61,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,0,0,0.4)',
   },
   overlayText: {
-    color: '#FFFFFF',
+    color: colors.surface,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -76,7 +77,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   removeText: {
-    color: '#FFFFFF',
+    color: colors.surface,
     fontSize: 11,
     fontWeight: '700',
   },

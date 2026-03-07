@@ -22,6 +22,8 @@ import {
 import {useSession} from '../store';
 import type {RootStackParamList} from '../navigation/AppNavigator';
 import type {AgentConfig, MemberProfile} from '../types';
+import {SectionHeader, ToggleRow, PrimaryButton} from '../components/ui';
+import {colors} from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AdminMemberDetail'>;
 
@@ -140,7 +142,7 @@ export function AdminMemberDetailScreen({route, navigation}: Props) {
   if (loading) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -148,16 +150,14 @@ export function AdminMemberDetailScreen({route, navigation}: Props) {
   if (currentUserRole && currentUserRole !== 'admin' && currentUserRole !== 'owner') {
     return (
       <View style={[styles.container, styles.centered]}>
-        <Text style={{fontSize: 16, color: '#8E8E93'}}>Access denied. Admin role required.</Text>
+        <Text style={{fontSize: 16, color: colors.textTertiary}}>Access denied. Admin role required.</Text>
       </View>
     );
   }
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionHeaderText}>MEMBER INFO</Text>
-      </View>
+      <SectionHeader title="MEMBER INFO" />
 
       <View style={styles.infoRow}>
         <Text style={styles.label}>Name</Text>
@@ -168,9 +168,7 @@ export function AdminMemberDetailScreen({route, navigation}: Props) {
         <Text style={styles.value}>{profile?.role}</Text>
       </View>
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionHeaderText}>PROFILE</Text>
-      </View>
+      <SectionHeader title="PROFILE" />
 
       <View style={styles.field}>
         <Text style={styles.label}>Family Role</Text>
@@ -192,45 +190,39 @@ export function AdminMemberDetailScreen({route, navigation}: Props) {
         />
       </View>
 
-      <TouchableOpacity
-        style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-        onPress={handleSaveProfile}
-        disabled={saving}>
-        <Text style={styles.saveButtonText}>
-          {saving ? 'Saving...' : 'Save Profile'}
-        </Text>
-      </TouchableOpacity>
-
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionHeaderText}>AI AGENTS</Text>
+      <View style={{marginTop: 16}}>
+        <PrimaryButton
+          title={saving ? 'Saving...' : 'Save Profile'}
+          onPress={handleSaveProfile}
+          disabled={saving}
+          loading={saving}
+        />
       </View>
 
+      <SectionHeader title="AI AGENTS" />
+
       {Object.entries(agentTypes).map(([type, info]) => (
-        <View key={type} style={styles.agentRow}>
-          <View style={styles.agentInfo}>
-            <Text style={styles.agentName}>{info.name}</Text>
-            <Text style={styles.agentDescription}>{info.description}</Text>
-          </View>
-          <Switch
-            value={isAgentEnabled(type)}
-            onValueChange={value => handleToggleAgent(type, value)}
-          />
-        </View>
+        <ToggleRow
+          key={type}
+          label={info.name}
+          sublabel={info.description}
+          value={isAgentEnabled(type)}
+          onValueChange={value => handleToggleAgent(type, value)}
+        />
       ))}
 
       {userId !== session.user?.userId && (
         <>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeaderText}>DANGER ZONE</Text>
+          <SectionHeader title="DANGER ZONE" />
+          <View style={{marginTop: 16, marginBottom: 32}}>
+            <PrimaryButton
+              title={deleting ? 'Removing...' : 'Remove Member'}
+              variant="destructive"
+              onPress={handleDeleteMember}
+              disabled={deleting}
+              loading={deleting}
+            />
           </View>
-          <TouchableOpacity
-            style={[styles.deleteButton, deleting && styles.deleteButtonDisabled]}
-            onPress={handleDeleteMember}
-            disabled={deleting}>
-            <Text style={styles.deleteButtonText}>
-              {deleting ? 'Removing...' : 'Remove Member'}
-            </Text>
-          </TouchableOpacity>
         </>
       )}
     </ScrollView>
@@ -240,117 +232,42 @@ export function AdminMemberDetailScreen({route, navigation}: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background,
   },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  sectionHeader: {
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 8,
-  },
-  sectionHeaderText: {
-    fontSize: 13,
-    color: '#8E8E93',
-    fontWeight: '500',
-    letterSpacing: 0.5,
-  },
   infoRow: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.separator,
   },
   field: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.separator,
   },
   label: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     marginBottom: 4,
   },
   value: {
     fontSize: 16,
-    color: '#000000',
+    color: colors.textPrimary,
   },
   input: {
     fontSize: 16,
-    color: '#000000',
+    color: colors.textPrimary,
     padding: 0,
   },
   multilineInput: {
     minHeight: 60,
     textAlignVertical: 'top',
-  },
-  saveButton: {
-    marginTop: 16,
-    marginHorizontal: 16,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  agentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
-  },
-  agentInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  agentName: {
-    fontSize: 16,
-    color: '#000000',
-    fontWeight: '500',
-  },
-  agentDescription: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginTop: 2,
-  },
-  agentNotReady: {
-    fontSize: 12,
-    color: '#FF9500',
-    marginTop: 2,
-    fontStyle: 'italic',
-  },
-  deleteButton: {
-    marginTop: 16,
-    marginHorizontal: 16,
-    marginBottom: 32,
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: '#FF3B30',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  deleteButtonDisabled: {
-    opacity: 0.6,
-  },
-  deleteButtonText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '600',
   },
 });

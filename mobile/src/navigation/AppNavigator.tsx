@@ -5,6 +5,7 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import type {NavigationContainerRef} from '@react-navigation/native';
 import {onAuthExpired} from '../services/authEvents';
 import {SessionProvider, useSession} from '../store';
+import {colors} from '../theme';
 import {RegisterScreen} from '../screens/RegisterScreen';
 import {ConversationListScreen} from '../screens/ConversationListScreen';
 import {ChatScreen} from '../screens/ChatScreen';
@@ -68,7 +69,7 @@ function AppContent() {
     return (
       <View style={styles.splash}>
         <Text style={styles.splashTitle}>HomeAgent</Text>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -154,12 +155,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   splashTitle: {
     fontSize: 28,
     fontWeight: '600',
-    color: '#333',
+    color: colors.textPrimary,
     marginBottom: 20,
   },
 });

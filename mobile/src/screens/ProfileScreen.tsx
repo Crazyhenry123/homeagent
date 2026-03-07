@@ -12,6 +12,7 @@ import {
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useSession} from '../store';
 import type {RootStackParamList} from '../navigation/AppNavigator';
+import {colors} from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
@@ -62,15 +63,15 @@ export function ProfileScreen({}: Props) {
   if (!profile) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionHeaderText}>YOUR PROFILE</Text>
+      <View style={{paddingHorizontal: 16, paddingTop: 24, paddingBottom: 8}}>
+        <Text style={{fontSize: 13, color: colors.textTertiary, fontWeight: '500', letterSpacing: 0.5}}>YOUR PROFILE</Text>
       </View>
 
       <View style={styles.field}>
@@ -120,10 +121,10 @@ export function ProfileScreen({}: Props) {
       </View>
 
       <TouchableOpacity
-        style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+        style={[{marginTop: 24, marginHorizontal: 16, marginBottom: 32, height: 48, borderRadius: 10, backgroundColor: colors.primary, justifyContent: 'center' as const, alignItems: 'center' as const}, saving && {opacity: 0.6}]}
         onPress={handleSave}
         disabled={saving}>
-        <Text style={styles.saveButtonText}>
+        <Text style={{color: colors.surface, fontSize: 17, fontWeight: '600'}}>
           {saving ? 'Saving...' : 'Save Profile'}
         </Text>
       </TouchableOpacity>
@@ -134,38 +135,27 @@ export function ProfileScreen({}: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background,
   },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  sectionHeader: {
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 8,
-  },
-  sectionHeaderText: {
-    fontSize: 13,
-    color: '#8E8E93',
-    fontWeight: '500',
-    letterSpacing: 0.5,
-  },
   field: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.separator,
   },
   label: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     marginBottom: 6,
   },
   input: {
     fontSize: 16,
-    color: '#000000',
+    color: colors.textPrimary,
     padding: 0,
   },
   multilineInput: {
@@ -178,25 +168,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.textTertiary,
     marginBottom: 4,
-  },
-  saveButton: {
-    marginTop: 24,
-    marginHorizontal: 16,
-    marginBottom: 32,
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '600',
   },
 });

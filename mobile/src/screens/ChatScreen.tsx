@@ -18,6 +18,7 @@ import {streamChat} from '../services/sse';
 import {useSession} from '../store';
 import type {ChatMediaUpload, SSEEvent} from '../types';
 import type {RootStackParamList} from '../navigation/AppNavigator';
+import {colors} from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
@@ -235,7 +236,7 @@ export function ChatScreen({route, navigation}: Props) {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
         {loadingMessages ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#007AFF" />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : loadError ? (
           <View style={styles.loadingContainer}>
@@ -263,7 +264,7 @@ export function ChatScreen({route, navigation}: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   flex: {
     flex: 1,
@@ -274,7 +275,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorText: {
-    color: '#FF3B30',
+    color: colors.destructive,
     fontSize: 16,
     textAlign: 'center',
     paddingHorizontal: 32,
