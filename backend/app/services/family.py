@@ -127,6 +127,35 @@ def add_member_to_family(family_id: str, user_id: str, role: str = "member") -> 
     return item
 
 
+def get_family_settings(family_id: str) -> dict:
+    """Get the settings map for a family. Returns defaults if not set."""
+    family = get_family(family_id)
+    if not family:
+        return {"web_search_enabled": True}
+    return family.get("settings", {"web_search_enabled": True})
+
+
+def update_family_settings(family_id: str, settings: dict) -> dict:
+    """Update family settings. Merges with existing settings."""
+    allowed_keys = {"web_search_enabled"}
+    filtered = {k: v for k, v in settings.items() if k in allowed_keys}
+    if not filtered:
+        raise ValueError(f"No valid settings provided. Allowed: {allowed_keys}")
+
+    families_table = get_table("Families")
+
+    # Merge with existing
+    current = get_family_settings(family_id)
+    current.update(filtered)
+
+    families_table.update_item(
+        Key={"family_id": family_id},
+        UpdateExpression="SET settings = :s",
+        ExpressionAttributeValues={":s": current},
+    )
+    return current
+
+
 def remove_member_from_family(family_id: str, user_id: str) -> None:
     """Remove a member from a family."""
     members_table = get_table("FamilyMembers")

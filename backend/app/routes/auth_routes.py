@@ -9,7 +9,9 @@ from app.services.family import (
     get_family,
     get_family_by_owner,
     get_family_members,
+    get_family_settings,
     get_user_family_id,
+    update_family_settings,
 )
 from app.services.user import (
     cancel_invite_code,
@@ -283,6 +285,38 @@ def get_family_info():
             "members": members,
         }
     )
+
+
+@family_bp.route("/settings", methods=["GET"])
+@require_auth
+def get_settings():
+    """Get family settings."""
+    family_id = get_user_family_id(g.user_id)
+    if not family_id:
+        return jsonify({"error": "You are not in a family"}), 404
+    settings = get_family_settings(family_id)
+    return jsonify({"settings": settings})
+
+
+@family_bp.route("/settings", methods=["PUT"])
+@require_auth
+@require_admin
+def update_settings():
+    """Update family settings. Admin only."""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    family_id = get_user_family_id(g.user_id)
+    if not family_id:
+        return jsonify({"error": "You are not in a family"}), 404
+
+    try:
+        settings = update_family_settings(family_id, data)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    return jsonify({"settings": settings})
 
 
 @family_bp.route("/invite", methods=["POST"])
