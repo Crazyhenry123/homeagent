@@ -62,10 +62,12 @@ def chat():
     conversation_id = data.get("conversation_id")
     media_ids = data.get("media", [])
 
+    # Client-side speech recognition sends is_voice=true
+    is_voice_message = bool(data.get("is_voice"))
+
     # Resolve media attachments to S3 URIs
     images = None
     media_metadata = None
-    is_voice_message = False
     if media_ids:
         try:
             all_media = resolve_media_for_message(media_ids, g.user_id)

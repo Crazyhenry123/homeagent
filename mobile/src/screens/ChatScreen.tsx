@@ -110,7 +110,7 @@ export function ChatScreen({route, navigation}: Props) {
   }, []);
 
   const handleSend = useCallback(
-    async (text: string, attachments: ChatMediaUpload[]) => {
+    async (text: string, attachments: ChatMediaUpload[], isVoice?: boolean) => {
       // Build local images for display (skip audio attachments)
       const imageAttachments = attachments.filter(
         a => !a.contentType.startsWith('audio/'),
@@ -215,6 +215,7 @@ export function ChatScreen({route, navigation}: Props) {
         },
         controller.signal,
         mediaIds.length > 0 ? mediaIds : undefined,
+        isVoice,
       );
     },
     [currentConversationId, scrollToEnd, actions],

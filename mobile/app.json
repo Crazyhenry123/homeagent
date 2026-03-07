@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.homeagent.app"
+      "bundleIdentifier": "com.homeagent.app",
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "HomeAgent uses speech recognition to transcribe your voice messages."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -42,6 +45,13 @@
         "expo-av",
         {
           "microphonePermission": "HomeAgent needs access to your microphone for voice mode."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "HomeAgent needs your microphone for voice input.",
+          "speechRecognitionPermission": "HomeAgent uses speech recognition to understand your voice."
         }
       ]
     ],
