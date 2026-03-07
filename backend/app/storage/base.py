@@ -1,13 +1,10 @@
 """Abstract base class for storage providers."""
-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
 
 class StorageProvider(ABC):
-    """Interface for pluggable user data storage."""
-
     @abstractmethod
     def put_record(
         self, user_id: str, collection: str, record_id: str, data: dict
@@ -29,16 +26,6 @@ class StorageProvider(ABC):
     ) -> list[dict]: ...
 
     @abstractmethod
-    def update_record(
-        self,
-        user_id: str,
-        collection: str,
-        record_id: str,
-        updates: dict,
-        condition_key: str | None = None,
-    ) -> dict | None: ...
-
-    @abstractmethod
     def delete_record(
         self, user_id: str, collection: str, record_id: str
     ) -> bool: ...
@@ -52,9 +39,7 @@ class StorageProvider(ABC):
     ) -> str: ...
 
     @abstractmethod
-    def get_file(
-        self, user_id: str, path: str
-    ) -> tuple[bytes, str] | None: ...
+    def get_file(self, user_id: str, path: str) -> tuple[bytes, str] | None: ...
 
     @abstractmethod
     def get_file_url(
@@ -68,8 +53,6 @@ class StorageProvider(ABC):
     def delete_all_files(self, user_id: str, prefix: str) -> None: ...
 
 
-# Collection constants
 COLLECTION_HEALTH_RECORDS = "health_records"
 COLLECTION_HEALTH_OBSERVATIONS = "health_observations"
 COLLECTION_HEALTH_DOCUMENTS = "health_documents_meta"
-COLLECTION_HEALTH_AUDIT_LOG = "health_audit_log"
