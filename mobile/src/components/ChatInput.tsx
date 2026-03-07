@@ -173,6 +173,8 @@ export function ChatInput({onSend, disabled}: Props) {
         recordingRef.current = newRecording;
         setRecording(true);
       } catch (error) {
+        // Reset audio mode in case setAudioModeAsync succeeded but createAsync failed
+        Audio.setAudioModeAsync({allowsRecordingIOS: false}).catch(() => {});
         Alert.alert('Error', 'Failed to start recording. Please try again.');
       }
     }
