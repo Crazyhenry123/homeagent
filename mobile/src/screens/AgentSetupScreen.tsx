@@ -210,6 +210,32 @@ export function AgentSetupScreen({navigation}: Props) {
           </View>
         </View>
 
+        {/* Data Storage Info */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Data Storage</Text>
+            <Text style={styles.sectionDescription}>
+              Your health records, observations, and documents are stored securely.
+              You can connect your own cloud storage later in Settings.
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => navigation.navigate('StorageSettings')}>
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleContent}>
+                <Text style={styles.fieldLabel}>Configure Storage</Text>
+                <Text style={styles.fieldDescription}>
+                  Use Google Drive, OneDrive, Dropbox, or Box to keep your
+                  personal data in your own cloud account
+                </Text>
+              </View>
+              <Text style={{fontSize: 16, color: '#007AFF'}}>{'>'}</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {/* Action Buttons */}
         <View style={styles.buttonContainer}>
           <TouchableOpacity

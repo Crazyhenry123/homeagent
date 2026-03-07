@@ -32,6 +32,9 @@ import type {
   SessionBootstrapResponse,
   SignupRequest,
   SignupResponse,
+  StorageConnectResponse,
+  StorageProvidersResponse,
+  StorageTestResponse,
 } from '../types';
 import {getToken} from './auth';
 import {emitAuthExpired} from './authEvents';
@@ -542,4 +545,32 @@ export async function updateMemorySharingConfig(
 
 export async function getFamilyContext(): Promise<{context: string}> {
   return request('/api/memory/family-context');
+}
+
+// --- Storage Provider APIs ---
+
+export async function getStorageProviders(): Promise<StorageProvidersResponse> {
+  return request<StorageProvidersResponse>('/api/storage/providers');
+}
+
+export async function connectStorageProvider(
+  providerId: string,
+): Promise<StorageConnectResponse> {
+  return request<StorageConnectResponse>(
+    `/api/storage/connect/${providerId}`,
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+  );
+}
+
+export async function disconnectStorageProvider(): Promise<{success: boolean}> {
+  return request('/api/storage/disconnect', {method: 'POST'});
+}
+
+export async function testStorageConnection(): Promise<StorageTestResponse> {
+  return request<StorageTestResponse>('/api/storage/test', {
+    method: 'POST',
+  });
 }

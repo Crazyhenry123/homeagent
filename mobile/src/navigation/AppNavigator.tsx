@@ -18,6 +18,7 @@ import {MyAgentsScreen} from '../screens/MyAgentsScreen';
 import {AgentSetupScreen} from '../screens/AgentSetupScreen';
 import {VoiceModeScreen} from '../screens/VoiceModeScreen';
 import {FamilyManageScreen} from '../screens/FamilyManageScreen';
+import {StorageSettingsScreen} from '../screens/StorageSettingsScreen';
 
 export type RootStackParamList = {
   Register: undefined;
@@ -33,6 +34,7 @@ export type RootStackParamList = {
   MyAgents: undefined;
   AgentSetup: undefined;
   VoiceMode: {conversationId?: string};
+  StorageSettings: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -143,6 +145,11 @@ function AppContent() {
           name="VoiceMode"
           component={VoiceModeScreen}
           options={{title: 'Voice Mode', headerShown: false}}
+        />
+        <Stack.Screen
+          name="StorageSettings"
+          component={StorageSettingsScreen}
+          options={{title: 'Data Storage'}}
         />
       </Stack.Navigator>
     </NavigationContainer>
