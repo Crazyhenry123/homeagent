@@ -308,3 +308,14 @@ export interface FamilyInvite {
   expires_at: string;
   created_at?: string;
 }
+
+export interface MemorySharingConfig {
+  user_id: string;
+  share_profile: boolean;
+  share_interests: boolean;
+  share_health_notes: boolean;
+  share_conversation_insights: boolean;
+  sharing_level: 'none' | 'basic' | 'full';
+  custom_shared_info: string;
+  updated_at?: string;
+}

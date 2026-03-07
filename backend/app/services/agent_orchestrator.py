@@ -8,6 +8,7 @@ from typing import Generator
 from flask import current_app
 
 from app.services.bedrock import build_image_content_block
+from app.services.family_memory import get_family_shared_context
 from app.services.family_tree import build_family_context
 from app.services.profile import get_profile
 
@@ -52,6 +53,11 @@ def _build_system_prompt(user_id: str, base_prompt: str) -> str:
     family_ctx = build_family_context(user_id)
     if family_ctx:
         parts.append(family_ctx)
+
+    # Add family shared memory context
+    shared_ctx = get_family_shared_context(user_id)
+    if shared_ctx:
+        parts.append(shared_ctx)
 
     return " ".join(parts)
 

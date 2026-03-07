@@ -252,6 +252,12 @@ TABLE_DEFINITIONS = {
             "Enabled": True,
         },
     },
+    "MemorySharingConfig": {
+        "KeySchema": [{"AttributeName": "user_id", "KeyType": "HASH"}],
+        "AttributeDefinitions": [
+            {"AttributeName": "user_id", "AttributeType": "S"},
+        ],
+    },
 }
 
 
