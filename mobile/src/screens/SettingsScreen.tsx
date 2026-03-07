@@ -141,6 +141,11 @@ export function SettingsScreen({navigation}: Props) {
         onPress={() => navigation.navigate('MyAgents')}>
         <Text style={styles.actionText}>My Agents</Text>
       </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.actionRow}
+        onPress={() => navigation.navigate('StorageSettings')}>
+        <Text style={styles.actionText}>Data Storage</Text>
+      </TouchableOpacity>
 
       {isOwnerOrAdmin && (
         <>

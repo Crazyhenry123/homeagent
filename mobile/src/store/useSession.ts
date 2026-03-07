@@ -11,6 +11,7 @@ import {
   getMyAgents,
   getMyPermissions,
   getConversations,
+  getStorageProviders,
 } from '../services/api';
 import {clearToken} from '../services/auth';
 
@@ -32,6 +33,7 @@ export interface UseSessionReturn {
     refreshAgents: () => Promise<void>;
     refreshPermissions: () => Promise<void>;
     refreshConversations: () => Promise<void>;
+    refreshStorage: () => Promise<void>;
     addConversation: (conv: Conversation) => void;
     removeConversation: (id: string) => void;
   };
@@ -69,6 +71,7 @@ export function useSession(): UseSessionReturn {
             items: data.conversations.items,
             nextCursor: data.conversations.next_cursor,
           },
+          storage: data.storage,
         },
       });
     } catch {
@@ -142,6 +145,21 @@ export function useSession(): UseSessionReturn {
     dispatch({type: 'UPDATE_PERMISSIONS', payload: result.permissions});
   }, [dispatch]);
 
+  const refreshStorage = useCallback(async () => {
+    try {
+      const result = await getStorageProviders();
+      dispatch({
+        type: 'UPDATE_STORAGE',
+        payload: {
+          provider: result.current_provider,
+          status: result.current_status,
+        },
+      });
+    } catch {
+      // Storage info may not be available
+    }
+  }, [dispatch]);
+
   const refreshConversations = useCallback(async () => {
     const result = await getConversations();
     dispatch({
@@ -182,6 +200,7 @@ export function useSession(): UseSessionReturn {
       refreshAgents,
       refreshPermissions,
       refreshConversations,
+      refreshStorage,
       addConversation,
       removeConversation,
     }),
@@ -194,6 +213,7 @@ export function useSession(): UseSessionReturn {
       refreshAgents,
       refreshPermissions,
       refreshConversations,
+      refreshStorage,
       addConversation,
       removeConversation,
     ],

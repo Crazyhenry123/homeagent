@@ -296,6 +296,10 @@ export interface SessionBootstrapResponse {
     items: Conversation[];
     next_cursor?: string;
   };
+  storage?: {
+    provider: StorageProviderType;
+    status: string;
+  };
 }
 
 export interface FamilyInvite {
@@ -307,6 +311,39 @@ export interface FamilyInvite {
   invite_type: 'email' | 'code';
   expires_at: string;
   created_at?: string;
+}
+
+// --- Storage Types ---
+
+export type StorageProviderType =
+  | 'local'
+  | 'google_drive'
+  | 'onedrive'
+  | 'dropbox'
+  | 'box';
+
+export interface StorageProviderInfo {
+  id: StorageProviderType;
+  name: string;
+  description: string;
+  requires_oauth: boolean;
+}
+
+export interface StorageProvidersResponse {
+  providers: StorageProviderInfo[];
+  current_provider: StorageProviderType;
+  current_status: string;
+}
+
+export interface StorageConnectResponse {
+  auth_url: string;
+  state: string;
+}
+
+export interface StorageTestResponse {
+  reachable: boolean;
+  latency_ms: number;
+  provider?: string;
 }
 
 export interface MemorySharingConfig {

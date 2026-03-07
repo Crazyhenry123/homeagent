@@ -8,6 +8,7 @@ import type {
   FamilyMember,
   MemberProfile,
   PermissionGrant,
+  StorageProviderType,
 } from '../types';
 
 // --- State shape ---
@@ -38,6 +39,10 @@ export interface SessionState {
     nextCursor?: string;
     lastFetched: number | null;
   };
+  storage: {
+    provider: StorageProviderType;
+    status: string;
+  };
 }
 
 const initialState: SessionState = {
@@ -56,6 +61,10 @@ const initialState: SessionState = {
     nextCursor: undefined,
     lastFetched: null,
   },
+  storage: {
+    provider: 'local',
+    status: 'active',
+  },
 };
 
 // --- Actions ---
@@ -70,9 +79,11 @@ type SessionAction =
         agents: {available: AvailableAgent[]; myConfigs: AgentConfig[]; agentTypes: Record<string, AgentTypeInfo>};
         permissions: PermissionGrant[];
         conversations: {items: Conversation[]; nextCursor?: string};
+        storage?: {provider: StorageProviderType; status: string};
       };
     }
   | {type: 'SESSION_CLEAR'}
+  | {type: 'UPDATE_STORAGE'; payload: {provider: StorageProviderType; status: string}}
   | {type: 'UPDATE_PROFILE'; payload: MemberProfile}
   | {type: 'UPDATE_FAMILY'; payload: {info: Family; members: FamilyMember[]} | null}
   | {type: 'UPDATE_AGENTS'; payload: {available: AvailableAgent[]; myConfigs: AgentConfig[]}}
@@ -101,10 +112,14 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
           nextCursor: action.payload.conversations.nextCursor,
           lastFetched: Date.now(),
         },
+        storage: action.payload.storage ?? {provider: 'local', status: 'active'},
       };
 
     case 'SESSION_CLEAR':
       return {...initialState, status: 'unauthenticated'};
+
+    case 'UPDATE_STORAGE':
+      return {...state, storage: action.payload};
 
     case 'UPDATE_PROFILE':
       return {...state, profile: action.payload};
