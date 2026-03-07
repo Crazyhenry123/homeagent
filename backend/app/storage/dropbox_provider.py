@@ -7,6 +7,7 @@ import logging
 from typing import Any
 
 from app.storage.base import (
+    COLLECTION_HEALTH_AUDIT_LOG,
     COLLECTION_HEALTH_DOCUMENTS,
     COLLECTION_HEALTH_OBSERVATIONS,
     COLLECTION_HEALTH_RECORDS,
@@ -22,6 +23,7 @@ _KEY_FIELDS: dict[str, list[str]] = {
     COLLECTION_HEALTH_RECORDS: ["user_id", "record_id"],
     COLLECTION_HEALTH_OBSERVATIONS: ["user_id", "observation_id"],
     COLLECTION_HEALTH_DOCUMENTS: ["user_id", "document_id"],
+    COLLECTION_HEALTH_AUDIT_LOG: ["record_id", "audit_sk"],
 }
 
 
@@ -176,12 +178,24 @@ class DropboxProvider(StorageProvider):
                     if isinstance(value, tuple):
                         op, val = value
                         rec_val = record.get(attr, "")
-                        if op == "begins_with" and not str(rec_val).startswith(
-                            str(val)
-                        ):
-                            match = False
-                        elif op == "eq" and rec_val != val:
-                            match = False
+                        if op == "begins_with":
+                            if not str(rec_val).startswith(str(val)):
+                                match = False
+                        elif op == "between":
+                            if not (str(val[0]) <= str(rec_val) <= str(val[1])):
+                                match = False
+                        elif op == "gte":
+                            if str(rec_val) < str(val):
+                                match = False
+                        elif op == "lte":
+                            if str(rec_val) > str(val):
+                                match = False
+                        elif op == "eq":
+                            if rec_val != val:
+                                match = False
+                        else:
+                            if rec_val != val:
+                                match = False
                     else:
                         if record.get(attr) != value:
                             match = False

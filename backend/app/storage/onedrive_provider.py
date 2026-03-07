@@ -9,6 +9,7 @@ from typing import Any
 import requests
 
 from app.storage.base import (
+    COLLECTION_HEALTH_AUDIT_LOG,
     COLLECTION_HEALTH_DOCUMENTS,
     COLLECTION_HEALTH_OBSERVATIONS,
     COLLECTION_HEALTH_RECORDS,
@@ -25,6 +26,7 @@ _KEY_FIELDS: dict[str, list[str]] = {
     COLLECTION_HEALTH_RECORDS: ["user_id", "record_id"],
     COLLECTION_HEALTH_OBSERVATIONS: ["user_id", "observation_id"],
     COLLECTION_HEALTH_DOCUMENTS: ["user_id", "document_id"],
+    COLLECTION_HEALTH_AUDIT_LOG: ["record_id", "audit_sk"],
 }
 
 
@@ -69,11 +71,37 @@ class OneDriveProvider(StorageProvider):
             return {f: str(record[f]) for f in fields if f in record}
         return {k: v for k, v in record.items() if isinstance(v, str)}
 
+    def _ensure_root_folder(self, headers: dict[str, str]) -> bool:
+        """Ensure the top-level HomeAgent folder exists."""
+        url = f"{_GRAPH_BASE}/me/drive/root:/{_ROOT_PATH}"
+        resp = requests.get(url, headers=headers, timeout=30)
+        if resp.status_code == 200:
+            return True
+        # Create under drive root
+        parent_url = f"{_GRAPH_BASE}/me/drive/root/children"
+        body = {
+            "name": _ROOT_PATH,
+            "folder": {},
+            "@microsoft.graph.conflictBehavior": "fail",
+        }
+        resp = requests.post(
+            parent_url,
+            headers={**headers, "Content-Type": "application/json"},
+            json=body,
+            timeout=30,
+        )
+        return resp.status_code in (200, 201, 409)
+
     def _ensure_folder(self, path: str) -> bool:
         """Create a folder if it doesn't exist (PUT with folder facet)."""
         headers = self._headers()
         if not headers:
             return False
+
+        # Ensure root HomeAgent folder exists first
+        if not self._ensure_root_folder(headers):
+            return False
+
         url = f"{_GRAPH_BASE}/me/drive/root:/{_ROOT_PATH}/{path}"
         # Check existence
         resp = requests.get(url, headers=headers, timeout=30)
@@ -83,6 +111,8 @@ class OneDriveProvider(StorageProvider):
         parts = path.rsplit("/", 1)
         if len(parts) == 2:
             parent_path, folder_name = parts
+            # Recursively ensure parent exists
+            self._ensure_folder(parent_path)
             parent_url = (
                 f"{_GRAPH_BASE}/me/drive/root:/{_ROOT_PATH}/{parent_path}:/children"
             )
@@ -95,8 +125,10 @@ class OneDriveProvider(StorageProvider):
             "@microsoft.graph.conflictBehavior": "fail",
         }
         resp = requests.post(
-            parent_url, headers={**headers, "Content-Type": "application/json"},
-            json=body, timeout=30,
+            parent_url,
+            headers={**headers, "Content-Type": "application/json"},
+            json=body,
+            timeout=30,
         )
         return resp.status_code in (200, 201, 409)  # 409 = already exists
 

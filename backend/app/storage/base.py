@@ -2,57 +2,94 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 
 class StorageProvider(ABC):
     @abstractmethod
     def put_record(
-        self, user_id: str, collection: str, record_id: str, data: dict
-    ) -> dict: ...
+        self,
+        collection: str,
+        record: dict[str, Any],
+        *,
+        condition_expression: str | None = None,
+    ) -> dict[str, Any] | None: ...
 
     @abstractmethod
     def get_record(
-        self, user_id: str, collection: str, record_id: str
-    ) -> dict | None: ...
+        self,
+        collection: str,
+        key: dict[str, str],
+    ) -> dict[str, Any] | None: ...
 
     @abstractmethod
     def query_records(
         self,
-        user_id: str,
         collection: str,
+        key_condition: dict[str, Any],
+        *,
         index_name: str | None = None,
-        filter_key: str | None = None,
-        filter_value: str | None = None,
-    ) -> list[dict]: ...
+        filter_expression: dict[str, Any] | None = None,
+        limit: int | None = None,
+        scan_forward: bool = True,
+    ) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def update_record(
+        self,
+        collection: str,
+        key: dict[str, str],
+        updates: dict[str, Any],
+        *,
+        condition_expression: str | None = None,
+    ) -> dict[str, Any] | None: ...
 
     @abstractmethod
     def delete_record(
-        self, user_id: str, collection: str, record_id: str
+        self,
+        collection: str,
+        key: dict[str, str],
     ) -> bool: ...
 
     @abstractmethod
-    def delete_all_records(self, user_id: str, collection: str) -> None: ...
+    def delete_all_records(
+        self,
+        collection: str,
+        partition_key: dict[str, str],
+    ) -> int: ...
 
     @abstractmethod
     def put_file(
-        self, user_id: str, path: str, data: bytes, content_type: str
-    ) -> str: ...
-
-    @abstractmethod
-    def get_file(self, user_id: str, path: str) -> tuple[bytes, str] | None: ...
-
-    @abstractmethod
-    def get_file_url(
-        self, user_id: str, path: str, expiry: int = 3600
+        self,
+        path: str,
+        data: bytes,
+        *,
+        content_type: str | None = None,
+        metadata: dict[str, str] | None = None,
     ) -> str | None: ...
 
     @abstractmethod
-    def delete_file(self, user_id: str, path: str) -> bool: ...
+    def get_file(self, path: str) -> bytes | None: ...
 
     @abstractmethod
-    def delete_all_files(self, user_id: str, prefix: str) -> None: ...
+    def get_file_url(
+        self,
+        path: str,
+        *,
+        expires_in: int = 3600,
+    ) -> str | None: ...
+
+    @abstractmethod
+    def delete_file(self, path: str) -> bool: ...
+
+    @abstractmethod
+    def delete_all_files(self, prefix: str) -> int: ...
+
+    @abstractmethod
+    def health_check(self) -> dict[str, Any]: ...
 
 
 COLLECTION_HEALTH_RECORDS = "health_records"
 COLLECTION_HEALTH_OBSERVATIONS = "health_observations"
 COLLECTION_HEALTH_DOCUMENTS = "health_documents_meta"
+COLLECTION_HEALTH_AUDIT_LOG = "health_audit_log"

@@ -59,7 +59,7 @@ def create_observation(
         item["source_conversation_id"] = source_conversation_id
 
     if storage is not None:
-        storage.put_record(user_id, _COLLECTION, observation_id, item)
+        storage.put_record(_COLLECTION, item)
     else:
         table = get_table("HealthObservations")
         table.put_item(Item=item)
@@ -74,12 +74,15 @@ def list_observations(
 ) -> list[dict]:
     """List health observations for a user, optionally filtered by category."""
     if storage is not None:
-        return storage.query_records(
-            user_id,
-            _COLLECTION,
-            filter_key="category" if category else None,
-            filter_value=category,
-        )
+        key_condition: dict = {"user_id": user_id}
+        if category:
+            key_condition["category"] = category
+            return storage.query_records(
+                _COLLECTION,
+                key_condition,
+                index_name="category-index",
+            )
+        return storage.query_records(_COLLECTION, key_condition)
 
     table = get_table("HealthObservations")
 
@@ -104,7 +107,7 @@ def delete_all_observations(
 ) -> None:
     """Delete all health observations for a user (cascade delete)."""
     if storage is not None:
-        storage.delete_all_records(user_id, _COLLECTION)
+        storage.delete_all_records(_COLLECTION, {"user_id": user_id})
         return
 
     table = get_table("HealthObservations")
