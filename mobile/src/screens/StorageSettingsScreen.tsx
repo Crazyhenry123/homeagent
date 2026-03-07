@@ -61,13 +61,19 @@ export function StorageSettingsScreen({navigation}: Props) {
   useEffect(() => {
     const handler = (event: {url: string}) => {
       if (event.url.startsWith('homeagent://storage-connected')) {
-        const params = new URL(event.url).searchParams;
-        const status = params.get('status');
-        if (status === 'success') {
-          actions.refreshStorage();
-          Alert.alert('Connected', 'Storage provider connected successfully.');
-        } else {
-          Alert.alert('Error', params.get('message') ?? 'Failed to connect provider.');
+        try {
+          // Parse query params manually since URL() may not handle custom schemes
+          const queryString = event.url.split('?')[1] ?? '';
+          const params = new URLSearchParams(queryString);
+          const status = params.get('status');
+          if (status === 'success') {
+            actions.refreshStorage();
+            Alert.alert('Connected', 'Storage provider connected successfully.');
+          } else {
+            Alert.alert('Error', params.get('message') ?? 'Failed to connect provider.');
+          }
+        } catch {
+          Alert.alert('Error', 'Failed to process storage callback.');
         }
         setConnecting(null);
       }
@@ -76,10 +82,23 @@ export function StorageSettingsScreen({navigation}: Props) {
     return () => sub.remove();
   }, [actions]);
 
+  // Clear connecting state when screen regains focus (e.g., returning from OAuth browser)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      // Give deep link a moment to fire first
+      const timer = setTimeout(() => setConnecting(null), 1500);
+      return () => clearTimeout(timer);
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   const handleConnect = useCallback(async (providerId: string) => {
     setConnecting(providerId);
     try {
       const {auth_url} = await connectStorageProvider(providerId);
+      if (!auth_url.startsWith('https://')) {
+        throw new Error('Invalid auth URL received from server');
+      }
       await Linking.openURL(auth_url);
     } catch (err) {
       setConnecting(null);
