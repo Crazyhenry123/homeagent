@@ -22,6 +22,13 @@ class DataStack(cdk.Stack):
             removal_policy=cdk.RemovalPolicy.RETAIN,
         )
         self.tables["Users"].add_global_secondary_index(
+            index_name="email-index",
+            partition_key=dynamodb.Attribute(
+                name="email", type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+        self.tables["Users"].add_global_secondary_index(
             index_name="cognito_sub-index",
             partition_key=dynamodb.Attribute(
                 name="cognito_sub", type=dynamodb.AttributeType.STRING
@@ -57,6 +64,13 @@ class DataStack(cdk.Stack):
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=cdk.RemovalPolicy.RETAIN,
+        )
+        self.tables["InviteCodes"].add_global_secondary_index(
+            index_name="invited_email-index",
+            partition_key=dynamodb.Attribute(
+                name="invited_email", type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
         )
 
         # Conversations table
