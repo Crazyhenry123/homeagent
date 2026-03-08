@@ -72,12 +72,14 @@ class AgentCoreStack(cdk.Stack):
             timeout=cdk.Duration.minutes(5),
         )
 
+        # IAM actions use "bedrock-agentcore" namespace (not "bedrock-agentcore-control")
+        # even though the boto3 client name is "bedrock-agentcore-control"
         memory_handler.add_to_role_policy(
             iam.PolicyStatement(
                 actions=[
-                    "bedrock-agentcore-control:CreateMemory",
-                    "bedrock-agentcore-control:DeleteMemory",
-                    "bedrock-agentcore-control:GetMemory",
+                    "bedrock-agentcore:CreateMemory",
+                    "bedrock-agentcore:DeleteMemory",
+                    "bedrock-agentcore:GetMemory",
                 ],
                 resources=["*"],
             )

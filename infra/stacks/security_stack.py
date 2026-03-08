@@ -53,25 +53,18 @@ class SecurityStack(cdk.Stack):
         )
 
         # Bedrock AgentCore Memory permissions
-        # Control plane (create/get/list/delete memories)
+        # IAM uses "bedrock-agentcore" namespace for both control and data plane
+        # (boto3 client is "bedrock-agentcore-control" but IAM enforces "bedrock-agentcore")
         self.task_role.add_to_policy(
             iam.PolicyStatement(
                 actions=[
-                    "bedrock-agentcore-control:CreateMemory",
-                    "bedrock-agentcore-control:GetMemory",
-                    "bedrock-agentcore-control:ListMemories",
-                    "bedrock-agentcore-control:DeleteMemory",
-                    "bedrock-agentcore-control:UpdateMemory",
-                    "bedrock-agentcore-control:CreateMemoryStrategy",
-                    "bedrock-agentcore-control:DeleteMemoryStrategy",
-                ],
-                resources=["*"],
-            )
-        )
-        # Data plane (read/write memory records)
-        self.task_role.add_to_policy(
-            iam.PolicyStatement(
-                actions=[
+                    "bedrock-agentcore:CreateMemory",
+                    "bedrock-agentcore:GetMemory",
+                    "bedrock-agentcore:ListMemories",
+                    "bedrock-agentcore:DeleteMemory",
+                    "bedrock-agentcore:UpdateMemory",
+                    "bedrock-agentcore:CreateMemoryStrategy",
+                    "bedrock-agentcore:DeleteMemoryStrategy",
                     "bedrock-agentcore:RetrieveMemoryRecords",
                     "bedrock-agentcore:CreateMemoryRecords",
                     "bedrock-agentcore:DeleteMemoryRecords",
