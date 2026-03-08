@@ -22,6 +22,7 @@ from app.routes.permission_routes import permission_bp
 from app.routes.profiles import admin_profiles_bp, profiles_bp
 from app.routes.session_routes import session_bp
 from app.routes.storage_routes import storage_bp
+from app.routes.agentcore_agent_routes import agentcore_agents_bp
 from app.routes.storage_migration_routes import storage_migration_bp
 from app.services.agent_management import AgentManagementClient
 from app.services.agent_template import seed_builtin_templates
@@ -69,6 +70,20 @@ def create_app(config: Config | None = None) -> Flask:
     app.register_blueprint(session_bp, url_prefix="/api")
     app.register_blueprint(storage_bp, url_prefix="/api")
     app.register_blueprint(storage_migration_bp, url_prefix="/api")
+    app.register_blueprint(agentcore_agents_bp, url_prefix="/api")
+
+    # AgentCore Identity middleware (Cognito JWT + device-token fallback)
+    cognito_pool_id = app.config.get("COGNITO_USER_POOL_ID")
+    cognito_client_id = app.config.get("COGNITO_CLIENT_ID")
+    if cognito_pool_id and cognito_client_id:
+        from app.agentcore_identity import AgentCoreIdentityMiddleware
+
+        middleware = AgentCoreIdentityMiddleware(
+            cognito_user_pool_id=cognito_pool_id,
+            cognito_client_id=cognito_client_id,
+            region=app.config.get("COGNITO_REGION", app.config["AWS_REGION"]),
+        )
+        app.agentcore_identity = middleware
 
     # Voice WebSocket
     if app.config.get("VOICE_ENABLED"):

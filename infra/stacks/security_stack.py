@@ -52,17 +52,41 @@ class SecurityStack(cdk.Stack):
             )
         )
 
-        # Bedrock AgentCore Memory + Tools permissions
+        # Bedrock AgentCore Memory permissions
+        # Control plane (create/get/list/delete memories)
         self.task_role.add_to_policy(
             iam.PolicyStatement(
                 actions=[
-                    "bedrock:CreateMemory",
-                    "bedrock:GetMemory",
-                    "bedrock:ListMemories",
-                    "bedrock:DeleteMemory",
-                    "bedrock:RetrieveMemoryRecords",
-                    "bedrock:CreateMemoryRecords",
-                    "bedrock:DeleteMemoryRecords",
+                    "bedrock-agentcore-control:CreateMemory",
+                    "bedrock-agentcore-control:GetMemory",
+                    "bedrock-agentcore-control:ListMemories",
+                    "bedrock-agentcore-control:DeleteMemory",
+                    "bedrock-agentcore-control:UpdateMemory",
+                    "bedrock-agentcore-control:CreateMemoryStrategy",
+                    "bedrock-agentcore-control:DeleteMemoryStrategy",
+                ],
+                resources=["*"],
+            )
+        )
+        # Data plane (read/write memory records)
+        self.task_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "bedrock-agentcore:RetrieveMemoryRecords",
+                    "bedrock-agentcore:CreateMemoryRecords",
+                    "bedrock-agentcore:DeleteMemoryRecords",
+                    "bedrock-agentcore:IngestMemoryEvents",
+                ],
+                resources=["*"],
+            )
+        )
+
+        # Cognito permissions (token verification)
+        self.task_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "cognito-idp:GetUser",
+                    "cognito-idp:AdminGetUser",
                 ],
                 resources=["*"],
             )

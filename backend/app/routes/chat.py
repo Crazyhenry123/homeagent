@@ -82,19 +82,14 @@ def _get_agentcore_chat_stream(
 
 
 @chat_bp.route("/chat/v2", methods=["POST"])
+@require_auth
 def chat_v2():
     """AgentCore-migrated chat endpoint.
 
     Uses AgentCoreRuntimeClient for session management, AgentManagementClient
     for sub-agent tool resolution, and AgentCoreMemoryManager for dual-tier
-    memory. Requires AgentCore Identity authentication (set via middleware).
-
-    Replaces @require_auth with @agentcore_require_auth.
+    memory. Uses standard auth (Cognito JWT + device-token fallback).
     """
-    # Auth is handled by the agentcore identity middleware registered on the app
-    # The middleware sets g.user_id, g.family_id, g.user_role, g.cognito_sub
-    if not hasattr(g, "user_id") or not g.user_id:
-        return jsonify({"error": "Authentication required"}), 401
 
     data = request.get_json()
     if not data or not data.get("message"):

@@ -34,6 +34,9 @@ class HomeAgentStage(cdk.Stage):
             documents_bucket_name=data.documents_bucket.bucket_name,
             cognito_user_pool_id=agentcore.user_pool.user_pool_id,
             cognito_client_id=agentcore.user_pool_client.user_pool_client_id,
+            agentcore_memory_id=agentcore.family_memory_id,
+            agentcore_family_memory_id=agentcore.family_memory_id,
+            agentcore_member_memory_id=agentcore.member_memory_id,
         )
         self.webui_stack = WebUiStack(
             self,
