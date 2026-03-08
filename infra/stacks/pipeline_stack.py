@@ -96,6 +96,7 @@ class PipelineStack(cdk.Stack):
                 "AWS_ACCESS_KEY_ID": "testing",
                 "AWS_SECRET_ACCESS_KEY": "testing",
                 "DYNAMODB_ENDPOINT": "http://localhost:8000",
+                "TEST_DYNAMODB_ENDPOINT": "http://localhost:8000",
                 "ADMIN_INVITE_CODE": "TESTCODE",
             },
         )
@@ -384,6 +385,9 @@ class PipelineStack(cdk.Stack):
                     value="testing",
                 ),
                 "DYNAMODB_ENDPOINT": codebuild.BuildEnvironmentVariable(
+                    value="http://localhost:8000",
+                ),
+                "TEST_DYNAMODB_ENDPOINT": codebuild.BuildEnvironmentVariable(
                     value="http://localhost:8000",
                 ),
                 "ADMIN_INVITE_CODE": codebuild.BuildEnvironmentVariable(
