@@ -224,6 +224,25 @@ TABLE_DEFINITIONS = {
             },
         ],
     },
+    "FamilyGroups": {
+        "KeySchema": [
+            {"AttributeName": "family_id", "KeyType": "HASH"},
+            {"AttributeName": "member_id", "KeyType": "RANGE"},
+        ],
+        "AttributeDefinitions": [
+            {"AttributeName": "family_id", "AttributeType": "S"},
+            {"AttributeName": "member_id", "AttributeType": "S"},
+        ],
+        "GlobalSecondaryIndexes": [
+            {
+                "IndexName": "member-family-index",
+                "KeySchema": [
+                    {"AttributeName": "member_id", "KeyType": "HASH"},
+                ],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+        ],
+    },
     "HealthDocuments": {
         "KeySchema": [
             {"AttributeName": "user_id", "KeyType": "HASH"},

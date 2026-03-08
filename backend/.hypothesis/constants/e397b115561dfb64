@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/services/agentcore_integration.py
+# hypothesis_version: 6.151.9
+
+['admin', 'assistant', 'content', 'conversation_id', 'error', 'message_done', 'text_delta', 'tool_use', 'type']

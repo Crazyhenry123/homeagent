@@ -20,6 +20,8 @@ class ServiceStack(cdk.Stack):
         ecr_repo: ecr.Repository,
         tables: dict[str, dynamodb.Table],
         documents_bucket_name: str | None = None,
+        cognito_user_pool_id: str | None = None,
+        cognito_client_id: str | None = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, id, **kwargs)
@@ -66,6 +68,8 @@ class ServiceStack(cdk.Stack):
                 "VOICE_ENABLED": "true",
                 "VOICE_MODEL_ID": "amazon.nova-sonic-v1:0",
                 **({"S3_HEALTH_DOCUMENTS_BUCKET": documents_bucket_name} if documents_bucket_name else {}),
+                **({"COGNITO_USER_POOL_ID": cognito_user_pool_id} if cognito_user_pool_id else {}),
+                **({"COGNITO_CLIENT_ID": cognito_client_id} if cognito_client_id else {}),
             },
             health_check=ecs.HealthCheck(
                 command=[
@@ -150,4 +154,11 @@ class ServiceStack(cdk.Stack):
             "BackendServiceNameParam",
             parameter_name="/homeagent/backend/service-name",
             string_value=service.service.service_name,
+        )
+        # API base URL for mobile pipeline to inject into Expo builds
+        ssm.StringParameter(
+            self,
+            "BackendApiBaseUrlParam",
+            parameter_name="/homeagent/backend/api-base-url",
+            string_value=f"http://{service.load_balancer.load_balancer_dns_name}",
         )

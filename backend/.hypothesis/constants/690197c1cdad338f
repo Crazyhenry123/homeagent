@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/routes/family_tree.py
+# hypothesis_version: 6.151.9
+
+[201, 400, 'DELETE', 'GET', 'POST', 'error', 'family_tree', 'related_user_id', 'relationship_type', 'relationships', 'success', 'user_id']

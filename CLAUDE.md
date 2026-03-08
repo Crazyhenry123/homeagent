@@ -58,9 +58,16 @@ GitHub (main) → Synth CDK → Run Tests → Deploy Infra → Docker Build+Push
 ```
 - **Source**: GitHub `Crazyhenry123/homeagent` repo via CodeStar Connection
 - **Test**: CodeBuild runs pytest with DynamoDB Local in Docker
-- **Deploy**: CDK Pipelines deploys Network, Data, Security, Service, WebUi stacks
+- **Deploy**: CDK Pipelines deploys Network, Data, AgentCore, Security, Service, WebUi stacks
 - **Build**: CodeBuild builds Docker image, pushes to ECR, triggers ECS rolling deploy
 - **WebUI**: Syncs `webui/` to S3 bucket and invalidates CloudFront cache
+
+### Component Pipelines (independently deployable)
+Each component has its own fast pipeline triggered by file path changes:
+- `homeagent-backend-fast` — backend/ changes → Test → Docker Build → ECS Deploy (~5 min)
+- `homeagent-webui-fast` — webui/ changes → S3 Sync → CloudFront Invalidation (~1 min)
+- `homeagent-infra` — infra/ changes → CDK Synth → CDK Deploy (~5 min)
+- `homeagent-mobile` — mobile/ changes → TypeCheck → Expo Publish → Test URL (~3 min)
 
 ### First-time setup
 ```bash
@@ -114,6 +121,15 @@ python -m http.server 8080 -d webui
 - `HEALTH_EXTRACTION_MODEL_ID` — Model for health extraction (default: claude-haiku)
 - `VOICE_ENABLED` — Enable voice mode WebSocket endpoint (default: false)
 - `VOICE_MODEL_ID` — Nova Sonic model ID (default: amazon.nova-sonic-v1:0)
+- `COGNITO_USER_POOL_ID` — Cognito User Pool ID (from AgentCore stack)
+- `COGNITO_CLIENT_ID` — Cognito User Pool Client ID (from AgentCore stack)
+- `AGENTCORE_ORCHESTRATOR_AGENT_ID` — AgentCore Runtime orchestrator agent ID
+- `AGENTCORE_RUNTIME_ENDPOINT` — AgentCore Runtime endpoint URL
+- `AGENTCORE_FAMILY_MEMORY_ID` — AgentCore Memory store ID for family memories
+- `AGENTCORE_MEMBER_MEMORY_ID` — AgentCore Memory store ID for member memories
+- `AGENTCORE_GATEWAY_ID` — AgentCore Gateway ID
+- `HEALTH_MCP_ENDPOINT` — MCP server endpoint for health tools
+- `FAMILY_MCP_ENDPOINT` — MCP server endpoint for family tree tools
 
 ## Key Features
 - **Text Chat** — SSE streaming with Claude via Bedrock `converse_stream`

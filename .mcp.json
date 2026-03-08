@@ -1,0 +1,66 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    },
+    "expo-mcp": {
+      "command": "npx",
+      "args": ["-y", "expo-mcp@latest"]
+    },
+    "eslint": {
+      "command": "npx",
+      "args": ["-y", "@eslint/mcp"]
+    },
+    "aws-iac": {
+      "command": "uvx",
+      "args": ["awslabs.aws-iac-mcp-server@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      }
+    },
+    "dynamodb": {
+      "command": "uvx",
+      "args": ["awslabs.dynamodb-mcp-server@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      }
+    },
+    "aws-docs": {
+      "command": "uvx",
+      "args": ["awslabs.aws-documentation-mcp-server@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR",
+        "AWS_DOCUMENTATION_PARTITION": "aws"
+      }
+    },
+    "aws-cfn": {
+      "command": "uvx",
+      "args": ["awslabs.cfn-mcp-server@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      }
+    },
+    "ecs": {
+      "command": "uvx",
+      "args": ["--from", "awslabs-ecs-mcp-server", "ecs-mcp-server"],
+      "env": {
+        "AWS_REGION": "us-east-1",
+        "FASTMCP_LOG_LEVEL": "ERROR",
+        "ALLOW_WRITE": "false",
+        "ALLOW_SENSITIVE_DATA": "false"
+      }
+    },
+    "cloudwatch": {
+      "command": "uvx",
+      "args": ["awslabs.cloudwatch-mcp-server@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      }
+    },
+    "docker": {
+      "command": "uvx",
+      "args": ["mcp-server-docker"]
+    }
+  }
+}

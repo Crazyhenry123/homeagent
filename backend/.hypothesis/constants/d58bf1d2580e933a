@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/services/health_documents.py
+# hypothesis_version: 6.151.9
+
+[1024, 3600, 'AWS_REGION', 'Bucket', 'ContentType', 'HealthDocuments', 'Item', 'Items', 'Key', 'S3_ENDPOINT', 'addressing_style', 'application/pdf', 'config', 'content_type', 'description', 'document_id', 'download_url', 'endpoint_url', 'file_size', 'filename', 'get_object', 'image/heic', 'image/heif', 'image/jpeg', 'image/png', 'path', 'put_object', 'record_id', 'region_name', 's3', 's3_key', 'upload_url', 'uploaded_at', 'uploaded_by', 'user_id']

@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/auth.py
+# hypothesis_version: 6.151.9
+
+[401, 403, ':token', 'Authorization', 'Bearer ', 'Devices', 'Empty token', 'Invalid token', 'Item', 'Items', 'User not found', 'Users', 'admin', 'device_id', 'device_token-index', 'error', 'member', 'name', 'role', 'user_id', 'user_role']

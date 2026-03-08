@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/routes/health.py
+# hypothesis_version: 6.151.9
+
+['/health', 'health', 'healthy', 'status']

@@ -75,3 +75,20 @@ class Config:
     DROPBOX_CLIENT_SECRET: str = os.environ.get("DROPBOX_CLIENT_SECRET", "")
     BOX_CLIENT_ID: str = os.environ.get("BOX_CLIENT_ID", "")
     BOX_CLIENT_SECRET: str = os.environ.get("BOX_CLIENT_SECRET", "")
+
+    # AgentCore configuration
+    AGENTCORE_ORCHESTRATOR_AGENT_ID: str | None = os.environ.get(
+        "AGENTCORE_ORCHESTRATOR_AGENT_ID"
+    )
+    AGENTCORE_RUNTIME_ENDPOINT: str | None = os.environ.get(
+        "AGENTCORE_RUNTIME_ENDPOINT"
+    )
+    AGENTCORE_FAMILY_MEMORY_ID: str | None = os.environ.get(
+        "AGENTCORE_FAMILY_MEMORY_ID"
+    )
+    AGENTCORE_MEMBER_MEMORY_ID: str | None = os.environ.get(
+        "AGENTCORE_MEMBER_MEMORY_ID"
+    )
+    AGENTCORE_GATEWAY_ID: str | None = os.environ.get("AGENTCORE_GATEWAY_ID")
+    HEALTH_MCP_ENDPOINT: str | None = os.environ.get("HEALTH_MCP_ENDPOINT")
+    FAMILY_MCP_ENDPOINT: str | None = os.environ.get("FAMILY_MCP_ENDPOINT")

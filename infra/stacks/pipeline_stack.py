@@ -81,7 +81,7 @@ class PipelineStack(cdk.Stack):
             input=source,
             install_commands=[
                 "pyenv install 3.12 -s && pyenv global 3.12",
-                "pip install -r backend/requirements.txt pytest strands-agents strands-agents-tools",
+                "pip install -r backend/requirements.txt pytest hypothesis moto strands-agents strands-agents-tools",
             ],
             commands=[
                 "docker run -d --name dynamodb-test -p 8000:8000 "
@@ -355,7 +355,7 @@ class PipelineStack(cdk.Stack):
                             "python": "3.12",
                         },
                         "commands": [
-                            "pip install -r backend/requirements.txt pytest strands-agents strands-agents-tools",
+                            "pip install -r backend/requirements.txt pytest hypothesis moto strands-agents strands-agents-tools",
                         ],
                     },
                     "pre_build": {
@@ -627,8 +627,9 @@ class PipelineStack(cdk.Stack):
         )
 
         # ==================================================================
-        # Mobile Pipeline: Lint + TypeCheck (~2 min)
+        # Mobile Pipeline: Validate + Expo Publish (~3 min)
         # Triggered only when mobile/ files change on master.
+        # Produces a unique Expo Go test URL.
         # ==================================================================
         mobile_source_output = codepipeline.Artifact("MobileFastSource")
 
@@ -675,6 +676,65 @@ class PipelineStack(cdk.Stack):
             input=mobile_source_output,
         )
 
+        # Expo publish step — generates a unique test URL for Expo Go
+        mobile_expo_publish_project = codebuild.PipelineProject(
+            self,
+            "MobileExpoPublish",
+            project_name="homeagent-mobile-expo-publish",
+            environment=codebuild.BuildEnvironment(
+                build_image=codebuild.LinuxBuildImage.STANDARD_7_0,
+                compute_type=codebuild.ComputeType.MEDIUM,
+            ),
+            build_spec=codebuild.BuildSpec.from_object({
+                "version": "0.2",
+                "phases": {
+                    "install": {
+                        "commands": [
+                            "cd mobile",
+                            "npm ci",
+                            "npm install -g eas-cli",
+                        ],
+                    },
+                    "build": {
+                        "commands": [
+                            "cd mobile",
+                            # Inject the deployed API base URL into app.json
+                            "python3 -c \""
+                            "import json,os;"
+                            "d=json.load(open('app.json'));"
+                            "url=os.environ.get('API_BASE_URL','');"
+                            "d['expo']['extra']['apiBaseUrl']=url or d['expo']['extra'].get('apiBaseUrl','');"
+                            "json.dump(d,open('app.json','w'),indent=2);"
+                            "print(f'API_BASE_URL set to: {url}')\"",
+                            # Publish OTA update to the preview branch
+                            "eas update --branch preview --message \"CI build ${CODEBUILD_RESOLVED_SOURCE_VERSION:0:8}\" --non-interactive",
+                            # Print the Expo Go test URL
+                            "echo '============================================'",
+                            "echo 'Open this URL on your iPhone with Expo Go:'",
+                            "echo 'https://expo.dev/@homeagent/homeagent?serviceType=eas&distribution=expo-go&scheme=exp+homeagent&channel=preview'",
+                            "echo '============================================'",
+                        ],
+                    },
+                },
+            }),
+            environment_variables={
+                "EXPO_TOKEN": codebuild.BuildEnvironmentVariable(
+                    value="/homeagent/mobile/expo-token",
+                    type=codebuild.BuildEnvironmentVariableType.PARAMETER_STORE,
+                ),
+                "API_BASE_URL": codebuild.BuildEnvironmentVariable(
+                    value="/homeagent/backend/api-base-url",
+                    type=codebuild.BuildEnvironmentVariableType.PARAMETER_STORE,
+                ),
+            },
+        )
+
+        mobile_expo_publish_action = codepipeline_actions.CodeBuildAction(
+            action_name="ExpoPublish",
+            project=mobile_expo_publish_project,
+            input=mobile_source_output,
+        )
+
         codepipeline.Pipeline(
             self,
             "MobileFastPipeline",
@@ -688,6 +748,10 @@ class PipelineStack(cdk.Stack):
                 codepipeline.StageProps(
                     stage_name="Validate",
                     actions=[mobile_fast_validate_action],
+                ),
+                codepipeline.StageProps(
+                    stage_name="Publish",
+                    actions=[mobile_expo_publish_action],
                 ),
             ],
             triggers=[

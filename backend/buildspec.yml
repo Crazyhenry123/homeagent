@@ -6,7 +6,7 @@ phases:
       python: 3.12
       docker: 24
     commands:
-      - pip install -r requirements.txt pytest
+      - pip install -r requirements.txt pytest hypothesis moto
 
   pre_build:
     commands:

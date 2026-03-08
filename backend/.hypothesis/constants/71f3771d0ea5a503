@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/services/agentcore_gateway.py
+# hypothesis_version: 6.151.9
+
+['1', 'agent_type', 'category', 'confidence', 'description', 'detail', 'domain', 'domain_tools', 'error', 'family_tools', 'get_health_summary', 'health_advisor', 'health_tools', 'iam', 'is_builtin', 'keywords', 'mcp', 'message', 'name', 'parameters', 'query', 'record_type', 'required', 'routing', 'routing_tool_id', 'rt', 'server_id', 'server_name', 'string', 'summary', 'system_prompt', 'target_user_id', 'tool_server_ids', 'ts', 'type']
