@@ -654,6 +654,9 @@ class PipelineStack(cdk.Stack):
                 "version": "0.2",
                 "phases": {
                     "install": {
+                        "runtime-versions": {
+                            "nodejs": "20",
+                        },
                         "commands": [
                             "cd mobile",
                             "npm ci",
@@ -688,6 +691,9 @@ class PipelineStack(cdk.Stack):
                 "version": "0.2",
                 "phases": {
                     "install": {
+                        "runtime-versions": {
+                            "nodejs": "20",
+                        },
                         "commands": [
                             "cd mobile",
                             "npm ci",
