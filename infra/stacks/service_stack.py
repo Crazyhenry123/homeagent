@@ -22,6 +22,9 @@ class ServiceStack(cdk.Stack):
         documents_bucket_name: str | None = None,
         cognito_user_pool_id: str | None = None,
         cognito_client_id: str | None = None,
+        agentcore_memory_id: str | None = None,
+        agentcore_family_memory_id: str | None = None,
+        agentcore_member_memory_id: str | None = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, id, **kwargs)
@@ -70,6 +73,9 @@ class ServiceStack(cdk.Stack):
                 **({"S3_HEALTH_DOCUMENTS_BUCKET": documents_bucket_name} if documents_bucket_name else {}),
                 **({"COGNITO_USER_POOL_ID": cognito_user_pool_id} if cognito_user_pool_id else {}),
                 **({"COGNITO_CLIENT_ID": cognito_client_id} if cognito_client_id else {}),
+                **({"AGENTCORE_MEMORY_ID": agentcore_memory_id} if agentcore_memory_id else {}),
+                **({"AGENTCORE_FAMILY_MEMORY_ID": agentcore_family_memory_id} if agentcore_family_memory_id else {}),
+                **({"AGENTCORE_MEMBER_MEMORY_ID": agentcore_member_memory_id} if agentcore_member_memory_id else {}),
             },
             health_check=ecs.HealthCheck(
                 command=[

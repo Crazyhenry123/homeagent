@@ -312,6 +312,77 @@ class DataStack(cdk.Stack):
         )
 
 
+        # Families table (family units)
+        self.tables["Families"] = dynamodb.Table(
+            self,
+            "FamiliesTable",
+            table_name="Families",
+            partition_key=dynamodb.Attribute(
+                name="family_id", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+        )
+        self.tables["Families"].add_global_secondary_index(
+            index_name="owner-index",
+            partition_key=dynamodb.Attribute(
+                name="owner_user_id", type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+
+        # FamilyMembers table (family membership)
+        self.tables["FamilyMembers"] = dynamodb.Table(
+            self,
+            "FamilyMembersTable",
+            table_name="FamilyMembers",
+            partition_key=dynamodb.Attribute(
+                name="family_id", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="user_id", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+        )
+
+        # FamilyGroups table (AgentCore identity family resolution)
+        self.tables["FamilyGroups"] = dynamodb.Table(
+            self,
+            "FamilyGroupsTable",
+            table_name="FamilyGroups",
+            partition_key=dynamodb.Attribute(
+                name="family_id", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="member_id", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+        )
+        self.tables["FamilyGroups"].add_global_secondary_index(
+            index_name="member-family-index",
+            partition_key=dynamodb.Attribute(
+                name="member_id", type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+
+        # MemberPermissions table
+        self.tables["MemberPermissions"] = dynamodb.Table(
+            self,
+            "MemberPermissionsTable",
+            table_name="MemberPermissions",
+            partition_key=dynamodb.Attribute(
+                name="user_id", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="permission_type", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+        )
+
         # S3 bucket for health documents
         self.documents_bucket = s3.Bucket(
             self,
