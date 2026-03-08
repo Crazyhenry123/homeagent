@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/models/agentcore.py
+# hypothesis_version: 6.151.9
+
+[10000, ', ', '^[a-z][a-z0-9_\\-]*$', 'actor_id', 'admin', 'agent_type', 'all', 'available_to entry', 'cognito_sub', 'context', 'error', 'family_id', 'health', 'member', 'member_id', 'memory_id', 'memory_key', 'message_done', 'name', 'preferences', 'session_id', 'template_id', 'text_delta', 'tool_name', 'tool_use', 'user_id']

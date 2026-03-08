@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/services/agent_management.py
+# hypothesis_version: 6.151.9
+
+[60.0, ', ', ':at', ':uid', 'ALL_NEW', 'AgentConfigs', 'AgentTemplates', 'Attributes', 'Health Advisor', 'Item', 'Items', 'Logistics Assistant', 'SET ', 'Shopping Assistant', 'admin', 'agent_type', 'agent_type = :at', 'agent_type-index', 'all', 'available_to', 'config', 'created_at', 'created_by', 'default_config', 'description', 'draft_only', 'dynamodb', 'enabled', 'endpoint_url', 'gateway_tool_id', 'health_advisor', 'is_builtin', 'logistics_assistant', 'name', 'region_name', 'safety_disclaimers', 'shopping_assistant', 'system', 'system_prompt', 'template_id', 'tool_server_ids', 'updated_at', 'user_id', 'user_id = :uid', 'web_search_enabled']

@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/routes/health_records.py
+# hypothesis_version: 6.151.9
+
+[201, 400, 404, '/health-records/me', 'DELETE', 'GET', 'POST', 'PUT', 'Record not found', 'admin_health_records', 'audit_log', 'data', 'error', 'health_records', 'record_type', 'records', 'success']

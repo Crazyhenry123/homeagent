@@ -4,7 +4,19 @@ from flask import Flask, g, current_app
 TABLE_DEFINITIONS = {
     "Users": {
         "KeySchema": [{"AttributeName": "user_id", "KeyType": "HASH"}],
-        "AttributeDefinitions": [{"AttributeName": "user_id", "AttributeType": "S"}],
+        "AttributeDefinitions": [
+            {"AttributeName": "user_id", "AttributeType": "S"},
+            {"AttributeName": "cognito_sub", "AttributeType": "S"},
+        ],
+        "GlobalSecondaryIndexes": [
+            {
+                "IndexName": "cognito_sub-index",
+                "KeySchema": [
+                    {"AttributeName": "cognito_sub", "KeyType": "HASH"},
+                ],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+        ],
     },
     "Devices": {
         "KeySchema": [{"AttributeName": "device_id", "KeyType": "HASH"}],
@@ -161,6 +173,25 @@ TABLE_DEFINITIONS = {
                 "IndexName": "agent_type-index",
                 "KeySchema": [
                     {"AttributeName": "agent_type", "KeyType": "HASH"},
+                ],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+        ],
+    },
+    "FamilyGroups": {
+        "KeySchema": [
+            {"AttributeName": "family_id", "KeyType": "HASH"},
+            {"AttributeName": "member_id", "KeyType": "RANGE"},
+        ],
+        "AttributeDefinitions": [
+            {"AttributeName": "family_id", "AttributeType": "S"},
+            {"AttributeName": "member_id", "AttributeType": "S"},
+        ],
+        "GlobalSecondaryIndexes": [
+            {
+                "IndexName": "member-family-index",
+                "KeySchema": [
+                    {"AttributeName": "member_id", "KeyType": "HASH"},
                 ],
                 "Projection": {"ProjectionType": "ALL"},
             },

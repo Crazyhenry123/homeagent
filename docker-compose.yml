@@ -17,6 +17,16 @@ services:
       - HEALTH_EXTRACTION_MODEL_ID=us.anthropic.claude-haiku-4-5-20251001-v1:0
       - S3_HEALTH_DOCUMENTS_BUCKET=health-documents
       - S3_ENDPOINT=http://minio:9000
+      # AgentCore credentials (set these for local AgentCore testing)
+      - COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID:-}
+      - COGNITO_CLIENT_ID=${COGNITO_CLIENT_ID:-}
+      - AGENTCORE_ORCHESTRATOR_AGENT_ID=${AGENTCORE_ORCHESTRATOR_AGENT_ID:-}
+      - AGENTCORE_RUNTIME_ENDPOINT=${AGENTCORE_RUNTIME_ENDPOINT:-}
+      - AGENTCORE_FAMILY_MEMORY_ID=${AGENTCORE_FAMILY_MEMORY_ID:-}
+      - AGENTCORE_MEMBER_MEMORY_ID=${AGENTCORE_MEMBER_MEMORY_ID:-}
+      - AGENTCORE_GATEWAY_ID=${AGENTCORE_GATEWAY_ID:-}
+      - HEALTH_MCP_ENDPOINT=${HEALTH_MCP_ENDPOINT:-}
+      - FAMILY_MCP_ENDPOINT=${FAMILY_MCP_ENDPOINT:-}
     depends_on:
       dynamodb-local:
         condition: service_healthy

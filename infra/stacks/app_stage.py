@@ -1,6 +1,7 @@
 import aws_cdk as cdk
 from constructs import Construct
 
+from stacks.agentcore_stack import AgentCoreStack
 from stacks.network_stack import NetworkStack
 from stacks.data_stack import DataStack
 from stacks.security_stack import SecurityStack
@@ -16,10 +17,11 @@ class HomeAgentStage(cdk.Stage):
 
         network = NetworkStack(self, "Network")
         data = DataStack(self, "Data")
+        agentcore = AgentCoreStack(self, "AgentCore")
         security = SecurityStack(
             self,
             "Security",
-            tables=data.tables,
+            tables={**data.tables, **agentcore.tables},
             documents_bucket=data.documents_bucket,
         )
         self.service_stack = ServiceStack(
@@ -28,8 +30,10 @@ class HomeAgentStage(cdk.Stage):
             vpc=network.vpc,
             task_role=security.task_role,
             ecr_repo=security.ecr_repo,
-            tables=data.tables,
+            tables={**data.tables, **agentcore.tables},
             documents_bucket_name=data.documents_bucket.bucket_name,
+            cognito_user_pool_id=agentcore.user_pool.user_pool_id,
+            cognito_client_id=agentcore.user_pool_client.user_pool_client_id,
         )
         self.webui_stack = WebUiStack(
             self,

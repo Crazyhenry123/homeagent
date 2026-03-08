@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/routes/member_agent_routes.py
+# hypothesis_version: 6.151.9
+
+[400, 403, 404, '/agents/available', '/agents/my', 'DELETE', 'GET', 'PUT', 'agent_configs', 'agent_type', 'agents', 'all', 'available_to', 'enabled', 'error', 'member_agent', 'success']

@@ -27,3 +27,22 @@ class Config:
         "S3_HEALTH_DOCUMENTS_BUCKET"
     )
     S3_ENDPOINT: str | None = os.environ.get("S3_ENDPOINT")
+
+    # AgentCore configuration
+    AGENTCORE_ORCHESTRATOR_AGENT_ID: str | None = os.environ.get(
+        "AGENTCORE_ORCHESTRATOR_AGENT_ID"
+    )
+    AGENTCORE_RUNTIME_ENDPOINT: str | None = os.environ.get(
+        "AGENTCORE_RUNTIME_ENDPOINT"
+    )
+    AGENTCORE_FAMILY_MEMORY_ID: str | None = os.environ.get(
+        "AGENTCORE_FAMILY_MEMORY_ID"
+    )
+    AGENTCORE_MEMBER_MEMORY_ID: str | None = os.environ.get(
+        "AGENTCORE_MEMBER_MEMORY_ID"
+    )
+    AGENTCORE_GATEWAY_ID: str | None = os.environ.get("AGENTCORE_GATEWAY_ID")
+    HEALTH_MCP_ENDPOINT: str | None = os.environ.get("HEALTH_MCP_ENDPOINT")
+    FAMILY_MCP_ENDPOINT: str | None = os.environ.get("FAMILY_MCP_ENDPOINT")
+    COGNITO_USER_POOL_ID: str | None = os.environ.get("COGNITO_USER_POOL_ID")
+    COGNITO_CLIENT_ID: str | None = os.environ.get("COGNITO_CLIENT_ID")

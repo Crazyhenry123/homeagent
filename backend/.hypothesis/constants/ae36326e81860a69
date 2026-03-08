@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/services/agentcore_memory.py
+# hypothesis_version: 6.151.9
+
+['args', 'category', 'content', 'family_id', 'member_id', 'memory_key', 'operation', 'session_id', 'source_member_id', 'store_family_memory', 'store_member_memory']

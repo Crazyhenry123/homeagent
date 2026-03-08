@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/routes/chat.py
+# hypothesis_version: 6.151.9
+
+[400, 401, 403, 404, '...', '/chat', '/chat/v2', 'AWS_REGION', 'Cache-Control', 'DYNAMODB_ENDPOINT', 'POST', 'X-Accel-Buffering', 'assistant', 'assistant_response', 'chat', 'content', 'conversation_id', 'dynamodb_endpoint', 'error', 'family-mem', 'family_id', 'input_tokens', 'member-mem', 'message', 'message is required', 'message_done', 'message_id', 'messages', 'model', 'model_id', 'no', 'no-cache', 'orchestrator', 'output_tokens', 'region', 'role', 'text/event-stream', 'text_delta', 'type', 'user', 'user_id', 'user_message']

@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/routes/auth_routes.py
+# hypothesis_version: 6.151.9
+
+[201, 400, '/invite-codes', '/register', '/verify', 'POST', 'admin', 'android', 'auth', 'device_name', 'display_name', 'error', 'invite_code', 'ios', 'name', 'platform', 'role', 'user_id', 'valid', 'web']

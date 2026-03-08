@@ -15,7 +15,16 @@ from app.routes.health_reports import health_reports_bp
 from app.routes.health_documents import admin_health_documents_bp
 from app.routes.member_agent_routes import member_agent_bp
 from app.routes.profiles import admin_profiles_bp, profiles_bp
+from app.services.agent_management import AgentManagementClient
 from app.services.agent_template import seed_builtin_templates
+
+
+def _seed_agentcore_templates(app: Flask) -> None:
+    """Seed built-in templates via the AgentManagementClient."""
+    region = app.config["AWS_REGION"]
+    endpoint_url = app.config.get("DYNAMODB_ENDPOINT")
+    client = AgentManagementClient(region=region, endpoint_url=endpoint_url)
+    client.seed_builtin_templates()
 
 
 def create_app(config: Config | None = None) -> Flask:
@@ -28,6 +37,7 @@ def create_app(config: Config | None = None) -> Flask:
 
     init_tables(app)
     seed_builtin_templates(app)
+    _seed_agentcore_templates(app)
 
     app.register_blueprint(health_bp)
     app.register_blueprint(auth_bp, url_prefix="/api/auth")

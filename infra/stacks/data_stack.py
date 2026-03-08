@@ -21,6 +21,13 @@ class DataStack(cdk.Stack):
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=cdk.RemovalPolicy.RETAIN,
         )
+        self.tables["Users"].add_global_secondary_index(
+            index_name="cognito_sub-index",
+            partition_key=dynamodb.Attribute(
+                name="cognito_sub", type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
 
         # Devices table
         self.tables["Devices"] = dynamodb.Table(

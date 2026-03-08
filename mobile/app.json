@@ -24,13 +24,23 @@
       },
       "package": "com.homeagent.app"
     },
+    "updates": {
+      "url": "https://u.expo.dev/homeagent"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "extra": {
-      "apiBaseUrl": "http://Deploy-Servi-XjO6myh4gADc-1702122244.us-east-1.elb.amazonaws.com"
+      "apiBaseUrl": "http://Deploy-Servi-XjO6myh4gADc-1702122244.us-east-1.elb.amazonaws.com",
+      "eas": {
+        "projectId": "homeagent"
+      }
     },
     "plugins": [
       "expo-asset",
       "expo-font",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-updates"
     ]
   }
 }

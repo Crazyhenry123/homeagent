@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/config.py
+# hypothesis_version: 6.151.9
+
+['ADMIN_INVITE_CODE', 'AGENTCORE_GATEWAY_ID', 'AGENTCORE_MEMORY_ID', 'AWS_REGION', 'BEDROCK_MODEL_ID', 'COGNITO_CLIENT_ID', 'COGNITO_USER_POOL_ID', 'DYNAMODB_ENDPOINT', 'FAMILY_MCP_ENDPOINT', 'HEALTH_MCP_ENDPOINT', 'S3_ENDPOINT', 'SYSTEM_PROMPT', 'TABLE_PREFIX', 'false', 'true', 'us-east-1']

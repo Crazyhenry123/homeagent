@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/services/family_tree.py
+# hypothesis_version: 6.151.9
+
+['FamilyRelationships', 'Items', 'Your child is', 'Your children are', 'Your parent is', 'Your parents are', 'Your sibling is', 'Your siblings are', 'child_of', 'created_at', 'display_name', 'parent_of', 'related_user_id', 'related_user_name', 'relationship_type', 'sibling_of', 'spouse_of', 'user_id', 'user_name']

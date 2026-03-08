@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/__init__.py
+# hypothesis_version: 6.151.9
+
+['/api', '/api/admin', '/api/auth', 'AWS_REGION', 'DYNAMODB_ENDPOINT']
