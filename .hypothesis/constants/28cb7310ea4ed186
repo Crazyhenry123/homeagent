@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/agentcore_identity.py
+# hypothesis_version: 6.151.9
+
+[0.0, 401, 403, 3600, ':sub', ':token', 'Authorization', 'Bearer ', 'Devices', 'Invalid token', 'Item', 'Items', 'RS256', 'TOKEN_EXPIRED', 'Token expired', 'Unknown signing key', 'User not found', 'Users', 'code', 'cognito_sub', 'cognito_sub = :sub', 'cognito_sub-index', 'device_id', 'device_token-index', 'error', 'exp', 'family_id', 'iss', 'keys', 'kid', 'member', 'name', 'require', 'role', 'sub', 'user_id', 'user_role']

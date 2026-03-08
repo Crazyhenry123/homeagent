@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/services/bedrock.py
+# hypothesis_version: 6.151.9
+
+[0.7, 4096, 'AWS_REGION', 'BEDROCK_MODEL_ID', 'SYSTEM_PROMPT', 'bedrock-runtime', 'content', 'contentBlockDelta', 'delta', 'error', 'inferenceConfig', 'inputTokens', 'input_tokens', 'maxTokens', 'message_done', 'messages', 'metadata', 'modelId', 'outputTokens', 'output_tokens', 'role', 'stream', 'system', 'temperature', 'text', 'text_delta', 'type', 'usage']

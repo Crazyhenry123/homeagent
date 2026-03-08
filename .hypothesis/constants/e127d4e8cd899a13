@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/routes/agent_template_routes.py
+# hypothesis_version: 6.151.9
+
+[201, 400, 404, '/agent-templates', 'DELETE', 'GET', 'POST', 'PUT', 'Template not found', 'agent_template', 'agent_type', 'all', 'available_to', 'default_config', 'description', 'error', 'name', 'success', 'system_prompt', 'templates']

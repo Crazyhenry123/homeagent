@@ -1,19 +1,13 @@
 # Family AI Agent (homeagent)
 
 ## Project Overview
-Family AI agent app — family members chat with Claude (via Amazon Bedrock) through a mobile app. Supports text chat (SSE streaming), image attachments (S3 presigned uploads), voice-to-chat (inline recording with AWS Transcribe), and voice mode (WebSocket with Amazon Nova Sonic). Backend runs on ECS Fargate with Flask, data in DynamoDB (14 tables), infra managed with AWS CDK.
+Family AI agent app — family members chat with Claude (via Amazon Bedrock) through a mobile app. Backend runs on ECS Fargate with Flask, data in DynamoDB, infra managed with AWS CDK. AgentCore provides runtime orchestration, persistent memory, tool gateway, and identity management.
 
 ## Monorepo Structure
 - `backend/` — Flask API (Python 3.12)
-- `mobile/` — Expo React Native app (TypeScript)
+- `mobile/` — Expo React Native app (TypeScript, SDK 54)
 - `webui/` — Debug web console (static HTML/CSS/JS, hosted on S3+CloudFront)
 - `infra/` — AWS CDK stacks (Python)
-
-## Git Workflow
-- **ALWAYS create a new branch for every feature** before making changes. Branch from `main`.
-- Branch naming: `feature/<short-description>` (e.g., `feature/cognito-auth`, `feature/logistics-agent`)
-- Never commit directly to `main` or `master`. Each feature branch gets its own PR.
-- This prevents merge conflicts when multiple features are developed in parallel.
 
 ## Conventions
 
@@ -22,13 +16,13 @@ Family AI agent app — family members chat with Claude (via Amazon Bedrock) thr
 - Flask app factory pattern in `backend/app/__init__.py`
 - Use `ulid` for user/conversation IDs, `uuid4` for device IDs
 - DynamoDB access through helpers in `backend/app/models/dynamo.py`
-- Tests with `pytest`; run: `cd backend && python -m pytest tests/`
+- Tests with `pytest`; run: `cd backend && .venv/bin/python -m pytest tests/`
 - Lint: `ruff check backend/`
 - Format: `ruff format backend/`
 
 ### TypeScript (mobile)
 - Strict TypeScript, no `any`
-- Expo managed workflow (SDK 52)
+- Expo managed workflow (SDK 54)
 - State management: React Context + useReducer
 - API client in `mobile/src/services/api.ts`
 - Secure token storage via `expo-secure-store`
@@ -37,20 +31,35 @@ Family AI agent app — family members chat with Claude (via Amazon Bedrock) thr
 ### API
 - All endpoints prefixed with `/api/`
 - Auth via `Authorization: Bearer <device_token>` header
-- SSE streaming for text chat responses (`text/event-stream`)
-- WebSocket for voice mode (`/api/voice?token=<token>`)
-- Image/audio uploads via S3 presigned PUT URLs (`POST /api/chat/upload-image`)
-- Audio transcription via AWS Transcribe (auto-detects en-US/zh-CN)
+- SSE streaming for chat responses (`text/event-stream`)
 - Pagination via cursor-based `?limit=N&cursor=X`
 
 ### Infrastructure
-- CDK Python, one stack per concern (network, data, security, service, webui, pipeline)
+- CDK Python, one stack per concern (network, data, agentcore, security, service, webui, pipeline)
 - CDK Pipelines self-mutating pattern for CI/CD
-- DynamoDB on-demand billing (14 tables), tables created by CDK (cloud) or auto-init (local)
-- ECS Fargate with ALB, 300s idle timeout for SSE and WebSocket
+- DynamoDB on-demand billing, tables created by CDK (cloud) or auto-init (local)
+- ECS Fargate with ALB, 300s idle timeout for SSE
 - ECR repository `homeagent-backend` for Docker images
-- S3 for health documents + chat media images + audio uploads + transcribe output (shared bucket, separate prefixes)
 - S3 + CloudFront for debug web UI static hosting
+
+## AgentCore Integration
+The backend integrates with Amazon Bedrock AgentCore for:
+- **Runtime** — Agent orchestration via `agentcore_runtime.py` (invoke agents, manage sessions)
+- **Memory** — Persistent family and per-member memory via `agentcore_memory.py` and `family_memory.py`
+- **Gateway** — MCP tool gateway for health and family tools via `agentcore_gateway.py`
+- **Identity** — Cognito-based auth with AgentCore identity via `agentcore_security.py`
+- **Performance** — Caching and optimization via `agentcore_performance.py`
+
+### AgentCore Services
+| Service | File | Purpose |
+|---------|------|---------|
+| Runtime | `agentcore_runtime.py` | Invoke orchestrator agent, manage sessions |
+| Memory | `agentcore_memory.py` | Store/retrieve family and member memories |
+| Family Memory | `family_memory.py` | Family-scoped shared memory operations |
+| Gateway | `agentcore_gateway.py` | Route tool calls through MCP gateway |
+| Security | `agentcore_security.py` | Cognito token validation, identity mapping |
+| Performance | `agentcore_performance.py` | Response caching, connection pooling |
+| Integration | `agentcore_integration.py` | Unified facade for all AgentCore services |
 
 ## CI/CD Pipeline (AWS CodePipeline)
 ```
@@ -63,7 +72,7 @@ GitHub (main) → Synth CDK → Run Tests → Deploy Infra → Docker Build+Push
 - **WebUI**: Syncs `webui/` to S3 bucket and invalidates CloudFront cache
 
 ### Component Pipelines (independently deployable)
-Each component has its own fast pipeline triggered by file path changes:
+Each component has its own fast pipeline triggered by file path changes on `main`:
 - `homeagent-backend-fast` — backend/ changes → Test → Docker Build → ECS Deploy (~5 min)
 - `homeagent-webui-fast` — webui/ changes → S3 Sync → CloudFront Invalidation (~1 min)
 - `homeagent-infra` — infra/ changes → CDK Synth → CDK Deploy (~5 min)
@@ -91,15 +100,15 @@ git push origin main
 ## Local Development
 ```bash
 # Backend
-docker-compose up              # Flask + DynamoDB Local
+cp .env.example .env   # fill in values
+docker-compose up       # Flask + DynamoDB Local + MinIO
 
 # Mobile
 cd mobile
 npm install
-npx expo start                 # Scan QR code with Expo Go on your phone
+npx expo start          # Scan QR code with Expo Go on your phone
 
 # Web Debug Console
-# Open webui/index.html directly in a browser, or serve with:
 python -m http.server 8080 -d webui
 # Then configure the API endpoint to http://localhost:5000
 ```
@@ -111,16 +120,6 @@ python -m http.server 8080 -d webui
 - `BEDROCK_MODEL_ID` — Claude model ID (default: us.anthropic.claude-opus-4-6-v1)
 - `SYSTEM_PROMPT` — System prompt for Claude
 - `ADMIN_INVITE_CODE` — Pre-seeded invite code for first admin
-- `USE_AGENT_ORCHESTRATOR` — Enable Strands Agent orchestrator (default: false)
-- `AGENTCORE_MEMORY_ID` — AgentCore memory ID for conversation memory
-- `S3_HEALTH_DOCUMENTS_BUCKET` — S3 bucket for health docs and chat media images
-- `S3_ENDPOINT` — S3 endpoint override (local dev only)
-- `CHAT_MEDIA_MAX_SIZE` — Max image upload size in bytes (default: 5MB)
-- `CHAT_MEDIA_AUDIO_MAX_SIZE` — Max audio upload size in bytes (default: 25MB)
-- `HEALTH_EXTRACTION_ENABLED` — Enable AI health extraction from chats (default: true)
-- `HEALTH_EXTRACTION_MODEL_ID` — Model for health extraction (default: claude-haiku)
-- `VOICE_ENABLED` — Enable voice mode WebSocket endpoint (default: false)
-- `VOICE_MODEL_ID` — Nova Sonic model ID (default: amazon.nova-sonic-v1:0)
 - `COGNITO_USER_POOL_ID` — Cognito User Pool ID (from AgentCore stack)
 - `COGNITO_CLIENT_ID` — Cognito User Pool Client ID (from AgentCore stack)
 - `AGENTCORE_ORCHESTRATOR_AGENT_ID` — AgentCore Runtime orchestrator agent ID
@@ -131,12 +130,8 @@ python -m http.server 8080 -d webui
 - `HEALTH_MCP_ENDPOINT` — MCP server endpoint for health tools
 - `FAMILY_MCP_ENDPOINT` — MCP server endpoint for family tree tools
 
-## Key Features
-- **Text Chat** — SSE streaming with Claude via Bedrock `converse_stream`
-- **Image Attachments** — Up to 5 images per message via S3 presigned upload
-- **Voice-to-Chat** — Inline mic recording in chat, transcribed server-side via AWS Transcribe, sent as text to Claude (supports en-US/zh-CN auto-detection)
-- **Voice Mode** — Bidirectional WebSocket audio with Amazon Nova Sonic
-- **Agent System** — Pluggable sub-agents via Strands SDK (built-in + custom)
-- **Health Management** — Records, observations, documents, reports, AI extraction, audit trail
-- **Family Tree** — Relationship tracking with context injection into system prompt
-- **Profiles** — Per-member personalization (name, role, interests, health notes)
+## Testing
+- Backend tests: `cd backend && .venv/bin/python -m pytest tests/ -v`
+- 267 tests across 8 AgentCore test files + existing test suite
+- Property-based tests use Hypothesis with reduced `max_examples` for speed (~68s total)
+- Tests use moto for AWS service mocking (no real AWS calls)

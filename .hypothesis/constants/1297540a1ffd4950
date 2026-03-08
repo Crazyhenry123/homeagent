@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/services/health_audit.py
+# hypothesis_version: 6.151.9
+
+['HealthAuditLog', 'Items', 'action', 'actor_id', 'audit_id', 'audit_sk', 'changes', 'created_at', 'record_id', 'record_snapshot', 'user-audit-index', 'user_id']

@@ -1,6 +1,6 @@
 # HomeAgent: Family AI Agent Platform
 
-A mobile-first platform where family members chat with Claude (via Amazon Bedrock) through a shared family workspace. HomeAgent combines real-time AI chat, voice interaction, health management, and a pluggable agent system into a single family-oriented app. Members can have text conversations with streaming responses, attach images, use voice-to-chat with automatic transcription, or speak directly in real-time voice mode powered by Amazon Nova Sonic. An extensible agent framework lets admins deploy specialized sub-agents (health advisor, logistics assistant, shopping assistant) with granular per-member authorization and data permissions.
+A mobile-first platform where family members chat with Claude (via Amazon Bedrock) through a shared family workspace. HomeAgent combines real-time AI chat, voice interaction, health management, and a pluggable agent system into a single family-oriented app. Members can have text conversations with streaming responses, attach images, use voice-to-chat with automatic transcription, or speak directly in real-time voice mode powered by Amazon Nova Sonic. An extensible agent framework lets admins deploy specialized sub-agents (health advisor, logistics assistant, shopping assistant) with granular per-member authorization and data permissions. Amazon Bedrock AgentCore provides runtime orchestration, persistent memory, MCP tool gateway, and identity management.
 
 ---
 
@@ -54,6 +54,18 @@ A pluggable sub-agent architecture built on the Strands Agents SDK. Agents are r
 **2-layer authorization model:**
 1. **Admin authorization** -- The family admin authorizes which agents are available to each member (`available_to` controls on templates).
 2. **Member self-service** -- Members can enable or disable authorized agents from their own agent settings screen.
+
+### AgentCore Integration
+
+The backend integrates with Amazon Bedrock AgentCore for production-grade agent infrastructure:
+
+- **Runtime** — Serverless agent orchestration. The orchestrator agent is deployed to AgentCore Runtime and invoked via the Runtime API, providing automatic scaling and session management.
+- **Memory** — Persistent memory stores for both family-level shared context and per-member personal context. Memories are stored and retrieved via the AgentCore Memory API, enabling agents to recall past interactions and preferences.
+- **Gateway** — MCP (Model Context Protocol) tool gateway that routes tool calls to health and family tree MCP servers. Agents can invoke tools through the gateway without direct endpoint management.
+- **Identity** — Cognito User Pool provisioned by the AgentCore stack provides JWT-based authentication. The backend validates Cognito tokens and maps them to internal user records.
+- **Performance** — Response caching and connection pooling for AgentCore API calls to minimize latency.
+
+All AgentCore services are accessed through a unified integration facade (`agentcore_integration.py`) that handles initialization, error handling, and graceful degradation when AgentCore is not configured.
 
 ### Permission System
 
@@ -177,17 +189,23 @@ For detailed architecture, user scenarios, and end-to-end flow diagrams, see [Ar
 | - health docs    | URLs      |   - /api/voice    (WS)   |           | - Conversations  |
 | - audio uploads  |           |   - /api/health/*        |           | - Messages       |
 | - transcripts    |           |   - /api/agents/*        |           | - ChatMedia      |
-+------------------+           +--+--------+--------+-----+           | - HealthRecords  |
-                                  |        |        |                 | - AgentTemplates |
-                            +-----v--+ +---v---+ +--v-----------+    | - Profiles ...   |
-                            | Bedrock| | Trans- | | Strands      |   +------------------+
-                            | Claude | | cribe  | | Agent SDK    |
-                            +--------+ +-------+ +--------------+
-                                                        |
-+------------------+                              +-----v--------+
-| CloudFront + S3  |                              | Nova Sonic   |
-| (Debug Web UI)   |                              | (Voice Mode) |
-+------------------+                              +--------------+
++------------------+           +--+---+-----+--------+----+           | - HealthRecords  |
+                                  |   |     |        |                | - AgentTemplates |
+                            +-----v-+ | +---v---+ +--v-----------+   | - Profiles ...   |
+                            | Bedrock| | | Trans-| | Strands      |  +------------------+
+                            | Claude | | | cribe | | Agent SDK    |
+                            +--------+ | +-------+ +--------------+
+                                       |                 |
+                    +------------------v---------+  +----v---------+
+                    | Amazon Bedrock AgentCore   |  | Nova Sonic   |
+                    | - Runtime (orchestration)  |  | (Voice Mode) |
+                    | - Memory  (family+member)  |  +--------------+
+                    | - Gateway (MCP tools)      |
+                    | - Identity (Cognito auth)  |
++------------------+| - Cognito User Pool        |
+| CloudFront + S3  |+---------------------------+
+| (Debug Web UI)   |
++------------------+
 ```
 
 **Request flow (text chat):** Mobile app sends a POST to `/api/chat/stream` with the message and optional image references. The backend loads conversation history from DynamoDB, resolves any image media from S3, calls Bedrock `converse_stream`, and pipes the response back as SSE events. The assistant message is persisted to DynamoDB upon completion.
@@ -202,10 +220,11 @@ For detailed architecture, user scenarios, and end-to-end flow diagrams, see [Ar
 
 | Layer | Technology |
 |-------|-----------|
-| Mobile | Expo React Native (TypeScript), SDK 52, expo-av, expo-file-system, expo-secure-store |
+| Mobile | Expo React Native (TypeScript), SDK 54, expo-av, expo-file-system, expo-secure-store, expo-updates |
 | Backend | Python 3.12, Flask, Gunicorn + gevent, boto3 |
 | AI Models | Amazon Bedrock (Claude), AWS Transcribe, Amazon Nova Sonic |
-| Agents | Strands Agents SDK |
+| Agents | Strands Agents SDK + Amazon Bedrock AgentCore |
+| AgentCore | Runtime (orchestration), Memory (persistent), Gateway (MCP tools), Identity (Cognito) |
 | Database | Amazon DynamoDB (14 tables, on-demand billing) |
 | Storage | Amazon S3 (chat media, health documents, audio, transcripts) |
 | Auth | Amazon Cognito (email/password JWT) + device token fallback |
@@ -242,9 +261,13 @@ homeagent/
         auth_routes.py         # Registration, login, admin, family
         agent_config_routes.py # Per-user agent settings
         agent_template_routes.py # Admin agent templates
+        agentcore_agent_routes.py # AgentCore agent management
         member_agent_routes.py # User-facing agent listing
         permission_routes.py   # Member permission management
         session_routes.py      # Session bootstrap (single-call init)
+        memory_routes.py       # Memory management endpoints
+        storage_routes.py      # Storage provider configuration
+        storage_migration_routes.py # Storage migration endpoints
       services/
         bedrock.py             # Claude converse_stream integration
         transcribe.py          # AWS Transcribe (voice-to-chat)
@@ -254,6 +277,14 @@ homeagent/
         agent_orchestrator.py  # Strands agent routing
         agent_config.py        # Agent configuration service
         agent_template.py      # Agent template CRUD + built-in seeding
+        agent_management.py    # Agent lifecycle management
+        agentcore_runtime.py   # AgentCore Runtime orchestration
+        agentcore_memory.py    # AgentCore Memory (family + member)
+        agentcore_gateway.py   # AgentCore MCP tool gateway
+        agentcore_security.py  # AgentCore Identity + Cognito auth
+        agentcore_performance.py # AgentCore caching + optimization
+        agentcore_integration.py # Unified AgentCore facade
+        family_memory.py       # Family-scoped shared memory
         health_extraction.py   # AI health data extraction from chats
         health_records.py      # Health records service
         health_observations.py # Health observations service
@@ -265,6 +296,8 @@ homeagent/
         family.py              # Family management
         cognito.py             # Cognito JWT verification
         memory.py              # AgentCore memory integration
+        storage_config.py      # Storage provider configuration
+        storage_migration.py   # Storage migration service
         user.py                # User/device management
       agents/
         registry.py            # Agent registration decorator + factory
@@ -309,10 +342,11 @@ homeagent/
     stacks/
       network_stack.py              # VPC, subnets, security groups
       data_stack.py                 # DynamoDB tables (14), S3 bucket
-      security_stack.py             # IAM roles, ECR, Bedrock/Transcribe perms
-      service_stack.py              # ECS Fargate, ALB, auto-scaling
+      agentcore_stack.py            # Cognito User Pool, AgentCore tables, SSM params
+      security_stack.py             # IAM roles, ECR, Bedrock/Transcribe/AgentCore perms
+      service_stack.py              # ECS Fargate, ALB, auto-scaling, AgentCore env vars
       webui_stack.py                # S3 + CloudFront for debug console
-      pipeline_stack.py             # CI/CD pipelines (main + fast)
+      pipeline_stack.py             # CI/CD pipelines (main + 4 fast pipelines)
     app.py
     requirements.txt
   docs/                             # Detailed documentation
@@ -417,8 +451,8 @@ git push origin main
 | `homeagent-pipeline` | Manual / infra pipeline | CDK Synth -> Test -> Deploy all stacks -> Docker build -> ECS deploy -> WebUI sync |
 | `homeagent-backend-fast` | Push to `main` (backend/**) | Test (pytest) -> Docker build -> ECS deploy (~5 min) |
 | `homeagent-webui-fast` | Push to `main` (webui/**) | S3 sync -> CloudFront invalidation (~1 min) |
-| `homeagent-infra` | Push to `main` (infra/**) | CDK deploy -> triggers main pipeline |
-| `homeagent-mobile` | Push to `main` (mobile/**) | TypeScript type check validation |
+| `homeagent-infra` | Push to `main` (infra/**) | CDK synth -> CDK deploy (~5 min) |
+| `homeagent-mobile` | Push to `main` (mobile/**) | TypeScript check -> Expo publish -> Test URL (~3 min) |
 
 ### Infrastructure Stacks
 
@@ -426,8 +460,9 @@ git push origin main
 |-------|-----------|
 | `NetworkStack` | VPC, subnets, security groups |
 | `DataStack` | 14 DynamoDB tables, S3 bucket |
-| `SecurityStack` | IAM roles, ECR repository, Bedrock/Transcribe permissions |
-| `ServiceStack` | ECS Fargate service, ALB (300s idle timeout), auto-scaling |
+| `AgentCoreStack` | Cognito User Pool + Client, AgentCore DynamoDB tables, SSM parameters |
+| `SecurityStack` | IAM roles, ECR repository, Bedrock/Transcribe/AgentCore permissions |
+| `ServiceStack` | ECS Fargate service, ALB (300s idle timeout), auto-scaling, AgentCore env vars |
 | `WebUiStack` | S3 bucket + CloudFront distribution for debug console |
 | `PipelineStack` | All 5 CodePipeline definitions |
 
@@ -445,14 +480,20 @@ git push origin main
 | `CHAT_MEDIA_MAX_SIZE` | `5242880` (5 MB) | Maximum image upload size in bytes |
 | `CHAT_MEDIA_AUDIO_MAX_SIZE` | `26214400` (25 MB) | Maximum audio upload size in bytes |
 | `USE_AGENT_ORCHESTRATOR` | `false` | Enable Strands Agent orchestrator for sub-agent routing |
-| `AGENTCORE_MEMORY_ID` | -- | AgentCore memory ID for persistent conversation memory |
 | `HEALTH_EXTRACTION_ENABLED` | `true` | Enable AI-powered health data extraction from chats |
 | `HEALTH_EXTRACTION_MODEL_ID` | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | Model used for health extraction |
 | `VOICE_ENABLED` | `false` | Enable voice mode WebSocket endpoint |
 | `VOICE_MODEL_ID` | `amazon.nova-sonic-v1:0` | Nova Sonic model ID for voice mode |
-| `COGNITO_USER_POOL_ID` | -- | Cognito User Pool ID (optional, enables Cognito auth) |
-| `COGNITO_CLIENT_ID` | -- | Cognito App Client ID |
+| `COGNITO_USER_POOL_ID` | -- | Cognito User Pool ID (from AgentCore stack) |
+| `COGNITO_CLIENT_ID` | -- | Cognito App Client ID (from AgentCore stack) |
 | `COGNITO_REGION` | `us-east-1` | Region for Cognito User Pool |
+| `AGENTCORE_ORCHESTRATOR_AGENT_ID` | -- | AgentCore Runtime orchestrator agent ID |
+| `AGENTCORE_RUNTIME_ENDPOINT` | -- | AgentCore Runtime endpoint URL |
+| `AGENTCORE_FAMILY_MEMORY_ID` | -- | AgentCore Memory store ID for family memories |
+| `AGENTCORE_MEMBER_MEMORY_ID` | -- | AgentCore Memory store ID for member memories |
+| `AGENTCORE_GATEWAY_ID` | -- | AgentCore Gateway ID for MCP tool routing |
+| `HEALTH_MCP_ENDPOINT` | -- | MCP server endpoint for health tools |
+| `FAMILY_MCP_ENDPOINT` | -- | MCP server endpoint for family tree tools |
 | `SES_ENABLED` | `false` | Enable SES for email invitations |
 | `SES_FROM_EMAIL` | -- | Sender email address for SES |
 | `DYNAMODB_ENDPOINT` | -- | DynamoDB endpoint override (local dev: `http://dynamodb-local:8000`) |
@@ -476,8 +517,10 @@ All endpoints are prefixed with `/api/` except the health check. Authentication 
 | **Profiles** | `GET/PUT /api/profiles/me` | Member profile management |
 | **Family** | `GET/POST /api/family/*`, `GET/POST/DELETE /api/family-tree/*` | Family management and relationship tree |
 | **Health** | `GET/POST /api/health-records/*`, `GET/POST /api/health-observations/*`, `GET/POST /api/health-documents/*`, `GET /api/health-reports/*` | Health data management |
-| **Agents** | `GET/PUT /api/agents/*`, `GET /api/member-agents/*` | Agent configuration and listing |
+| **Agents** | `GET/PUT /api/agents/*`, `GET /api/member-agents/*`, `GET/POST /api/agentcore/*` | Agent configuration, listing, and AgentCore management |
+| **Memory** | `GET/POST /api/memory/*` | Memory store management |
 | **Permissions** | `GET/PUT/DELETE /api/permissions/*` | Data permission management |
+| **Storage** | `GET/POST /api/storage/*`, `POST /api/storage/migrate` | Storage provider config and migration |
 | **Admin** | `GET/POST/PUT/DELETE /api/admin/*` | Member management, agent templates, health records (admin only) |
 
 For complete endpoint documentation with request/response formats, see [docs/API.md](docs/API.md).
