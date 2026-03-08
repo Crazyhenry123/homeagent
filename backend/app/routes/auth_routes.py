@@ -238,7 +238,9 @@ admin_bp = Blueprint("admin", __name__)
 @require_auth
 @require_admin
 def create_invite_code():
-    result = generate_invite_code(created_by=g.user_id)
+    # Auto-attach the admin's family so new members join automatically
+    family_id = get_user_family_id(g.user_id)
+    result = generate_invite_code(created_by=g.user_id, family_id=family_id)
     return jsonify(result), 201
 
 

@@ -28,8 +28,14 @@
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
+    "updates": {
+      "url": "https://u.expo.dev/a975d8e6-c9bb-4bd9-97a7-b5d601d5fd03"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "extra": {
-      "apiBaseUrl": "https://involve-willing-dedicated-judges.trycloudflare.com",
+      "apiBaseUrl": "https://consultants-consider-require-podcasts.trycloudflare.com",
       "eas": {
         "projectId": "a975d8e6-c9bb-4bd9-97a7-b5d601d5fd03"
       }
@@ -43,7 +49,8 @@
         {
           "microphonePermission": "HomeAgent needs access to your microphone for voice mode."
         }
-      ]
+      ],
+      "expo-updates"
     ],
     "owner": "crazyhenry123"
   }

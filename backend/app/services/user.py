@@ -304,6 +304,11 @@ def create_owner_user(
         role="owner",
     )
 
+    # Auto-create family for the owner
+    from app.services.family import create_family
+
+    create_family(owner_user_id=user_id, family_name=f"{display_name}'s Family")
+
     return {"user_id": user_id}
 
 

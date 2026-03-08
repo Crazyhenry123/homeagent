@@ -675,6 +675,56 @@ class PipelineStack(cdk.Stack):
             input=mobile_source_output,
         )
 
+        # -- Publish stage: EAS Update to push JS bundle for OTA testing --
+        mobile_publish_project = codebuild.PipelineProject(
+            self,
+            "MobileExpoPublish",
+            project_name="homeagent-mobile-expo-publish",
+            environment=codebuild.BuildEnvironment(
+                build_image=codebuild.LinuxBuildImage.STANDARD_7_0,
+                compute_type=codebuild.ComputeType.MEDIUM,
+            ),
+            build_spec=codebuild.BuildSpec.from_object({
+                "version": "0.2",
+                "phases": {
+                    "install": {
+                        "commands": [
+                            "cd mobile",
+                            "npm ci",
+                            "npm install -g eas-cli",
+                        ],
+                    },
+                    "build": {
+                        "commands": [
+                            "cd mobile",
+                            "eas update --branch preview --message \"Pipeline build $CODEBUILD_RESOLVED_SOURCE_VERSION\" --non-interactive",
+                        ],
+                    },
+                },
+            }),
+            environment_variables={
+                "EXPO_TOKEN": codebuild.BuildEnvironmentVariable(
+                    value="/homeagent/mobile/expo-token",
+                    type=codebuild.BuildEnvironmentVariableType.PARAMETER_STORE,
+                ),
+            },
+        )
+
+        mobile_publish_project.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["ssm:GetParameters"],
+                resources=[
+                    f"arn:aws:ssm:{self.region}:{self.account}:parameter/homeagent/mobile/expo-token"
+                ],
+            )
+        )
+
+        mobile_publish_action = codepipeline_actions.CodeBuildAction(
+            action_name="ExpoPublish",
+            project=mobile_publish_project,
+            input=mobile_source_output,
+        )
+
         codepipeline.Pipeline(
             self,
             "MobileFastPipeline",
@@ -688,6 +738,10 @@ class PipelineStack(cdk.Stack):
                 codepipeline.StageProps(
                     stage_name="Validate",
                     actions=[mobile_fast_validate_action],
+                ),
+                codepipeline.StageProps(
+                    stage_name="Publish",
+                    actions=[mobile_publish_action],
                 ),
             ],
             triggers=[
