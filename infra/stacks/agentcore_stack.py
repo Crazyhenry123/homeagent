@@ -72,14 +72,18 @@ class AgentCoreStack(cdk.Stack):
             timeout=cdk.Duration.minutes(5),
         )
 
-        # IAM actions use "bedrock-agentcore" namespace (not "bedrock-agentcore-control")
-        # even though the boto3 client name is "bedrock-agentcore-control"
+        # Grant both bedrock-agentcore and bedrock-agentcore-control namespaces.
+        # The signing name is "bedrock-agentcore" but some actions may use
+        # the control-plane namespace. Grant both to avoid permission errors.
         memory_handler.add_to_role_policy(
             iam.PolicyStatement(
                 actions=[
                     "bedrock-agentcore:CreateMemory",
                     "bedrock-agentcore:DeleteMemory",
                     "bedrock-agentcore:GetMemory",
+                    "bedrock-agentcore-control:CreateMemory",
+                    "bedrock-agentcore-control:DeleteMemory",
+                    "bedrock-agentcore-control:GetMemory",
                 ],
                 resources=["*"],
             )
@@ -102,6 +106,8 @@ class AgentCoreStack(cdk.Stack):
                 "Region": self.region,
             },
         )
+        # Ensure IAM policy is applied before the custom resource invokes Lambda
+        family_memory.node.add_dependency(memory_handler.role)
 
         member_memory = cdk.CustomResource(
             self,
@@ -114,6 +120,8 @@ class AgentCoreStack(cdk.Stack):
                 "Region": self.region,
             },
         )
+        # Ensure IAM policy is applied before the custom resource invokes Lambda
+        member_memory.node.add_dependency(memory_handler.role)
 
         self.family_memory_id = family_memory.get_att_string("memoryId")
         self.member_memory_id = member_memory.get_att_string("memoryId")
