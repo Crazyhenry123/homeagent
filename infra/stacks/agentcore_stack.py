@@ -1,7 +1,10 @@
+import os
+
 import aws_cdk as cdk
 from aws_cdk import aws_cognito as cognito
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_iam as iam
+from aws_cdk import aws_lambda as _lambda
 from aws_cdk import custom_resources as cr
 from constructs import Construct
 
@@ -46,10 +49,30 @@ class AgentCoreStack(cdk.Stack):
         )
 
         # ------------------------------------------------------------------
-        # AgentCore Memories (via Custom Resource — no L2 construct yet)
-        # Two separate stores: family (long-term) and member (short-term)
+        # AgentCore Memories via Python Lambda Custom Resource
+        # AwsCustomResource (JS SDK) doesn't work — no JS SDK for
+        # bedrock-agentcore-control. Use Python Lambda with boto3 instead.
         # ------------------------------------------------------------------
-        agentcore_policy = cr.AwsCustomResourcePolicy.from_statements([
+        memory_handler = _lambda.Function(
+            self,
+            "MemoryHandler",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="index.on_event",
+            code=_lambda.Code.from_asset(
+                os.path.join(os.path.dirname(__file__), "..", "lambda", "agentcore_memory"),
+                bundling=cdk.BundlingOptions(
+                    image=_lambda.Runtime.PYTHON_3_12.bundling_image,
+                    command=[
+                        "bash",
+                        "-c",
+                        "pip install boto3 -t /asset-output && cp -au . /asset-output",
+                    ],
+                ),
+            ),
+            timeout=cdk.Duration.minutes(5),
+        )
+
+        memory_handler.add_to_role_policy(
             iam.PolicyStatement(
                 actions=[
                     "bedrock-agentcore-control:CreateMemory",
@@ -57,61 +80,39 @@ class AgentCoreStack(cdk.Stack):
                     "bedrock-agentcore-control:GetMemory",
                 ],
                 resources=["*"],
-            ),
-        ])
+            )
+        )
 
-        family_memory = cr.AwsCustomResource(
+        provider = cr.Provider(
+            self,
+            "MemoryProvider",
+            on_event_handler=memory_handler,
+        )
+
+        family_memory = cdk.CustomResource(
             self,
             "FamilyMemory",
-            install_latest_aws_sdk=True,
-            on_create=cr.AwsSdkCall(
-                service="BedrockAgentCoreControl",
-                action="CreateMemory",
-                parameters={
-                    "name": "homeagent_family_memory",
-                    "description": "Long-term family memory: health, preferences, context",
-                },
-                physical_resource_id=cr.PhysicalResourceId.from_response(
-                    "memoryId"
-                ),
-            ),
-            on_delete=cr.AwsSdkCall(
-                service="BedrockAgentCoreControl",
-                action="DeleteMemory",
-                parameters={
-                    "memoryId": cr.PhysicalResourceIdReference(),
-                },
-            ),
-            policy=agentcore_policy,
+            service_token=provider.service_token,
+            properties={
+                "MemoryName": "homeagent_family_memory",
+                "MemoryDescription": "Long-term family memory: health, preferences, context",
+                "Region": self.region,
+            },
         )
 
-        member_memory = cr.AwsCustomResource(
+        member_memory = cdk.CustomResource(
             self,
             "MemberMemory",
-            install_latest_aws_sdk=True,
-            on_create=cr.AwsSdkCall(
-                service="BedrockAgentCoreControl",
-                action="CreateMemory",
-                parameters={
-                    "name": "homeagent_member_memory",
-                    "description": "Short-term member memory: session context and summaries",
-                },
-                physical_resource_id=cr.PhysicalResourceId.from_response(
-                    "memoryId"
-                ),
-            ),
-            on_delete=cr.AwsSdkCall(
-                service="BedrockAgentCoreControl",
-                action="DeleteMemory",
-                parameters={
-                    "memoryId": cr.PhysicalResourceIdReference(),
-                },
-            ),
-            policy=agentcore_policy,
+            service_token=provider.service_token,
+            properties={
+                "MemoryName": "homeagent_member_memory",
+                "MemoryDescription": "Short-term member memory: session context and summaries",
+                "Region": self.region,
+            },
         )
 
-        self.family_memory_id = family_memory.get_response_field("memoryId")
-        self.member_memory_id = member_memory.get_response_field("memoryId")
+        self.family_memory_id = family_memory.get_att_string("memoryId")
+        self.member_memory_id = member_memory.get_att_string("memoryId")
 
         # ------------------------------------------------------------------
         # AgentCore DynamoDB tables (empty for now — extend as needed)
