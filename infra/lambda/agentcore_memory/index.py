@@ -5,6 +5,7 @@ Uses boto3 bedrock-agentcore-control service (Python SDK only, no JS SDK).
 """
 
 import logging
+import time
 
 import boto3
 
@@ -28,8 +29,20 @@ def on_event(event: dict, context: object) -> dict:
             description=memory_description,
             eventExpiryDuration=event_expiry_days,
         )
-        memory_id = resp["memoryId"]
+        memory = resp["memory"]
+        memory_id = memory["id"]
         logger.info("Created memory %s with id %s", memory_name, memory_id)
+
+        # Wait for memory to become ACTIVE (up to 2 minutes)
+        for _ in range(24):
+            status = client.get_memory(memoryId=memory_id)["memory"]["status"]
+            if status == "ACTIVE":
+                break
+            if status in ("FAILED", "DELETING"):
+                raise RuntimeError(f"Memory {memory_id} entered {status} state")
+            logger.info("Memory %s status: %s, waiting...", memory_id, status)
+            time.sleep(5)
+
         return {
             "PhysicalResourceId": memory_id,
             "Data": {"memoryId": memory_id},
