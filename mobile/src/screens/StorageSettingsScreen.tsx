@@ -3,9 +3,11 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -15,8 +17,11 @@ import {useSession} from '../store';
 import type {StorageProviderInfo, StorageProviderType} from '../types';
 import {
   connectStorageProvider,
+  deleteStorageAdminCredentials,
   disconnectStorageProvider,
+  getStorageAdminCredentials,
   getStorageProviders,
+  saveStorageAdminCredentials,
   testStorageConnection,
 } from '../services/api';
 
@@ -39,8 +44,10 @@ const PROVIDER_ICONS: Record<StorageProviderType, string> = {
   box: '\uD83D\uDCE6',
 };
 
+type AdminCredentials = Record<string, {client_id: string; configured: boolean}>;
+
 export function StorageSettingsScreen({navigation}: Props) {
-  const {session, actions} = useSession();
+  const {session, actions, isOwnerOrAdmin} = useSession();
   const currentProvider = session.storage?.provider ?? 'local';
   const currentStatus = session.storage?.status ?? 'active';
 
@@ -50,12 +57,31 @@ export function StorageSettingsScreen({navigation}: Props) {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{reachable: boolean; latency_ms: number} | null>(null);
 
-  useEffect(() => {
-    getStorageProviders()
+  // Admin credential config state
+  const [adminCreds, setAdminCreds] = useState<AdminCredentials>({});
+  const [configModal, setConfigModal] = useState<{providerId: string; providerName: string} | null>(null);
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const loadProviders = useCallback(() => {
+    return getStorageProviders()
       .then(res => setProviders(res.providers))
-      .catch(() => Alert.alert('Error', 'Failed to load storage providers'))
-      .finally(() => setLoading(false));
+      .catch(() => Alert.alert('Error', 'Failed to load storage providers'));
   }, []);
+
+  useEffect(() => {
+    loadProviders().finally(() => setLoading(false));
+  }, [loadProviders]);
+
+  // Load admin credentials when admin
+  useEffect(() => {
+    if (isOwnerOrAdmin) {
+      getStorageAdminCredentials()
+        .then(setAdminCreds)
+        .catch(() => {/* ignore */});
+    }
+  }, [isOwnerOrAdmin]);
 
   // Listen for deep link callbacks from OAuth
   useEffect(() => {
@@ -256,6 +282,145 @@ export function StorageSettingsScreen({navigation}: Props) {
         );
       })}
 
+      {/* Admin: Configure Providers */}
+      {isOwnerOrAdmin && (
+        <>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionHeaderText}>ADMIN: CONFIGURE PROVIDERS</Text>
+          </View>
+          <View style={styles.adminCard}>
+            <Text style={styles.adminDescription}>
+              Enter OAuth credentials so family members can connect their cloud storage.
+            </Text>
+            {providers
+              .filter(p => p.requires_oauth)
+              .map(provider => {
+                const cred = adminCreds[provider.id];
+                const configured = cred?.configured ?? false;
+                return (
+                  <View key={provider.id} style={styles.adminProviderRow}>
+                    <View style={styles.adminProviderInfo}>
+                      <Text style={styles.providerIcon}>{PROVIDER_ICONS[provider.id]}</Text>
+                      <View style={{flex: 1}}>
+                        <Text style={styles.providerName}>{provider.name}</Text>
+                        <Text style={[styles.adminStatus, {color: configured ? '#34C759' : '#FF3B30'}]}>
+                          {configured ? `Configured (${cred.client_id})` : 'Not configured'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.adminActions}>
+                      <TouchableOpacity
+                        style={styles.adminConfigButton}
+                        onPress={() => {
+                          setClientId('');
+                          setClientSecret('');
+                          setConfigModal({providerId: provider.id, providerName: provider.name});
+                        }}>
+                        <Text style={styles.adminConfigButtonText}>
+                          {configured ? 'Update' : 'Configure'}
+                        </Text>
+                      </TouchableOpacity>
+                      {configured && (
+                        <TouchableOpacity
+                          style={styles.adminRemoveButton}
+                          onPress={() => {
+                            Alert.alert(
+                              'Remove Credentials',
+                              `Remove OAuth credentials for ${provider.name}? Users will no longer be able to connect this provider.`,
+                              [
+                                {text: 'Cancel', style: 'cancel'},
+                                {
+                                  text: 'Remove',
+                                  style: 'destructive',
+                                  onPress: async () => {
+                                    try {
+                                      await deleteStorageAdminCredentials(provider.id);
+                                      const creds = await getStorageAdminCredentials();
+                                      setAdminCreds(creds);
+                                      await loadProviders();
+                                    } catch {
+                                      Alert.alert('Error', 'Failed to remove credentials.');
+                                    }
+                                  },
+                                },
+                              ],
+                            );
+                          }}>
+                          <Text style={styles.adminRemoveButtonText}>Remove</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+          </View>
+        </>
+      )}
+
+      {/* Admin Config Modal */}
+      {configModal && (
+        <Modal
+          visible
+          transparent
+          animationType="slide"
+          onRequestClose={() => setConfigModal(null)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Configure {configModal.providerName}</Text>
+              <Text style={styles.modalDescription}>
+                Enter the OAuth Client ID and Client Secret from the provider's developer console.
+              </Text>
+              <Text style={styles.inputLabel}>Client ID</Text>
+              <TextInput
+                style={styles.input}
+                value={clientId}
+                onChangeText={setClientId}
+                placeholder="Enter Client ID"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Text style={styles.inputLabel}>Client Secret</Text>
+              <TextInput
+                style={styles.input}
+                value={clientSecret}
+                onChangeText={setClientSecret}
+                placeholder="Enter Client Secret"
+                autoCapitalize="none"
+                autoCorrect={false}
+                secureTextEntry
+              />
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={() => setConfigModal(null)}>
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalSaveButton, (!clientId.trim() || !clientSecret.trim()) && {opacity: 0.5}]}
+                  disabled={!clientId.trim() || !clientSecret.trim() || saving}
+                  onPress={async () => {
+                    setSaving(true);
+                    try {
+                      await saveStorageAdminCredentials(configModal.providerId, clientId.trim(), clientSecret.trim());
+                      setConfigModal(null);
+                      const creds = await getStorageAdminCredentials();
+                      setAdminCreds(creds);
+                      await loadProviders();
+                      Alert.alert('Saved', `${configModal.providerName} credentials saved successfully.`);
+                    } catch (err) {
+                      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to save credentials.');
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}>
+                  <Text style={styles.modalSaveText}>{saving ? 'Saving...' : 'Save'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
       {/* Data Awareness Note */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionHeaderText}>WHAT'S STORED WHERE</Text>
@@ -353,4 +518,75 @@ const styles = StyleSheet.create({
   dataLabel: {fontSize: 15, fontWeight: '600', color: '#000', marginBottom: 2},
   dataItems: {fontSize: 13, color: '#8E8E93', lineHeight: 18},
   dataDivider: {height: StyleSheet.hairlineWidth, backgroundColor: '#E5E5EA', marginVertical: 12},
+  // Admin styles
+  adminCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    borderRadius: 12,
+    padding: 16,
+  },
+  adminDescription: {fontSize: 13, color: '#8E8E93', marginBottom: 12, lineHeight: 18},
+  adminProviderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E5E5EA',
+  },
+  adminProviderInfo: {flexDirection: 'row', alignItems: 'center', flex: 1},
+  adminStatus: {fontSize: 12, marginTop: 2},
+  adminActions: {flexDirection: 'row', alignItems: 'center', gap: 8},
+  adminConfigButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  adminConfigButtonText: {fontSize: 13, color: '#FFFFFF', fontWeight: '600'},
+  adminRemoveButton: {
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  adminRemoveButtonText: {fontSize: 13, color: '#FF3B30', fontWeight: '500'},
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+  },
+  modalTitle: {fontSize: 20, fontWeight: '700', color: '#000', marginBottom: 8},
+  modalDescription: {fontSize: 14, color: '#8E8E93', marginBottom: 20, lineHeight: 20},
+  inputLabel: {fontSize: 13, fontWeight: '600', color: '#3C3C43', marginBottom: 6},
+  input: {
+    borderWidth: 1,
+    borderColor: '#D1D1D6',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#000',
+    marginBottom: 16,
+  },
+  modalButtons: {flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 4},
+  modalCancelButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  modalCancelText: {fontSize: 16, color: '#007AFF', fontWeight: '500'},
+  modalSaveButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  modalSaveText: {fontSize: 16, color: '#FFFFFF', fontWeight: '600'},
 });
