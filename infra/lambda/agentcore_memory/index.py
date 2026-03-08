@@ -17,6 +17,7 @@ def on_event(event: dict, context: object) -> dict:
     props = event["ResourceProperties"]
     memory_name = props["MemoryName"]
     memory_description = props.get("MemoryDescription", "")
+    event_expiry_days = int(props.get("EventExpiryDuration", 365))
     region = props.get("Region", "us-east-1")
 
     client = boto3.client("bedrock-agentcore-control", region_name=region)
@@ -25,6 +26,7 @@ def on_event(event: dict, context: object) -> dict:
         resp = client.create_memory(
             name=memory_name,
             description=memory_description,
+            eventExpiryDuration=event_expiry_days,
         )
         memory_id = resp["memoryId"]
         logger.info("Created memory %s with id %s", memory_name, memory_id)

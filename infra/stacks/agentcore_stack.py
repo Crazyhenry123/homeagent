@@ -96,6 +96,7 @@ class AgentCoreStack(cdk.Stack):
             properties={
                 "MemoryName": "homeagent_family_memory",
                 "MemoryDescription": "Long-term family memory: health, preferences, context",
+                "EventExpiryDuration": "365",
                 "Region": self.region,
             },
         )
@@ -107,6 +108,7 @@ class AgentCoreStack(cdk.Stack):
             properties={
                 "MemoryName": "homeagent_member_memory",
                 "MemoryDescription": "Short-term member memory: session context and summaries",
+                "EventExpiryDuration": "30",
                 "Region": self.region,
             },
         )
