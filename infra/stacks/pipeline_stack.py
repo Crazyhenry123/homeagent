@@ -81,7 +81,7 @@ class PipelineStack(cdk.Stack):
             input=source,
             install_commands=[
                 "pyenv install 3.12 -s && pyenv global 3.12",
-                "pip install -r backend/requirements.txt pytest hypothesis moto strands-agents strands-agents-tools",
+                "pip install -r backend/requirements.txt pytest hypothesis 'moto[cognitoidp]' strands-agents strands-agents-tools",
             ],
             commands=[
                 "docker run -d --name dynamodb-test -p 8000:8000 "
@@ -356,7 +356,7 @@ class PipelineStack(cdk.Stack):
                             "python": "3.12",
                         },
                         "commands": [
-                            "pip install -r backend/requirements.txt pytest hypothesis moto strands-agents strands-agents-tools",
+                            "pip install -r backend/requirements.txt pytest hypothesis 'moto[cognitoidp]' strands-agents strands-agents-tools",
                         ],
                     },
                     "pre_build": {
