@@ -54,9 +54,7 @@ class AgentCoreMemoryManager:
         if not member_memory_id or not member_memory_id.strip():
             raise ValueError("member_memory_id must be a non-empty string")
         if family_memory_id == member_memory_id:
-            raise ValueError(
-                "family_memory_id and member_memory_id must be distinct"
-            )
+            raise ValueError("family_memory_id and member_memory_id must be distinct")
         self._family_memory_id = family_memory_id
         self._member_memory_id = member_memory_id
         self._region = region
@@ -75,9 +73,7 @@ class AgentCoreMemoryManager:
     def _get_client(self) -> Any:
         """Return the bedrock-agentcore data plane client."""
         if self._client is None and self._region:
-            self._client = boto3.client(
-                "bedrock-agentcore", region_name=self._region
-            )
+            self._client = boto3.client("bedrock-agentcore", region_name=self._region)
         return self._client
 
     @property
@@ -88,9 +84,7 @@ class AgentCoreMemoryManager:
     def member_memory_id(self) -> str:
         return self._member_memory_id
 
-    def get_family_memory_config(
-        self, family_id: str, session_id: str
-    ) -> MemoryConfig:
+    def get_family_memory_config(self, family_id: str, session_id: str) -> MemoryConfig:
         """Build a MemoryConfig for the family long-term memory tier.
 
         Uses family_id as actor_id with retrieval namespaces:
@@ -112,9 +106,7 @@ class AgentCoreMemoryManager:
             ],
         )
 
-    def get_member_memory_config(
-        self, member_id: str, session_id: str
-    ) -> MemoryConfig:
+    def get_member_memory_config(self, member_id: str, session_id: str) -> MemoryConfig:
         """Build a MemoryConfig for the member short-term memory tier.
 
         Uses member_id as actor_id with retrieval namespaces:
@@ -241,14 +233,16 @@ class AgentCoreMemoryManager:
     def retrieve_family_memory(
         self,
         family_id: str,
+        query: str = "",
     ) -> list[FamilyMemoryRecord]:
         """Retrieve all family memory records for a given family_id.
 
-        Returns only records belonging to the specified family from the
-        family memory store, ensuring tier isolation.
+        First queries the AgentCore Memory API if a region/client is configured.
+        Falls back to in-memory store records.
 
         Args:
             family_id: The family whose records to retrieve.
+            query: Optional search query for semantic retrieval from AgentCore.
 
         Returns:
             List of FamilyMemoryRecord instances for the family.
@@ -259,6 +253,32 @@ class AgentCoreMemoryManager:
         if not family_id or not family_id.strip():
             raise ValueError("family_id must be a non-empty string")
 
+        # Try AgentCore API retrieval first
+        if query and self._get_client():
+            api_records = self._retrieve_memory_records(
+                memory_id=self._family_memory_id,
+                namespace=f"/family/{family_id}/health",
+                query=query,
+            )
+            if api_records:
+                now = datetime.now(timezone.utc).isoformat()
+                return [
+                    FamilyMemoryRecord(
+                        family_id=family_id,
+                        memory_key=f"health/api/{rec.get('memory_record_id', 'unknown')}",
+                        category="health",
+                        content=rec["content"],
+                        source_member_id="",
+                        agentcore_memory_id=self._family_memory_id,
+                        created_at=now,
+                        updated_at=now,
+                        ttl=None,
+                    )
+                    for rec in api_records
+                    if rec.get("content")
+                ]
+
+        # Fall back to in-memory store
         records = [
             record
             for (fid, _), record in self._family_store.items()
@@ -352,15 +372,16 @@ class AgentCoreMemoryManager:
     def retrieve_member_memory(
         self,
         member_id: str,
+        query: str = "",
     ) -> list[MemberMemoryRecord]:
         """Retrieve all member memory records for a given member_id.
 
-        Returns only records belonging to the specified member from the
-        member memory store, ensuring tier isolation.  Records for other
-        members are never returned.
+        First queries the AgentCore Memory API if a region/client is configured
+        and a search query is provided. Falls back to in-memory store records.
 
         Args:
             member_id: The member whose records to retrieve.
+            query: Optional search query for semantic retrieval from AgentCore.
 
         Returns:
             List of MemberMemoryRecord instances for the member.
@@ -371,6 +392,31 @@ class AgentCoreMemoryManager:
         if not member_id or not member_id.strip():
             raise ValueError("member_id must be a non-empty string")
 
+        # Try AgentCore API retrieval first
+        if query and self._get_client():
+            api_records = self._retrieve_memory_records(
+                memory_id=self._member_memory_id,
+                namespace=f"/member/{member_id}/context",
+                query=query,
+            )
+            if api_records:
+                now = datetime.now(timezone.utc).isoformat()
+                return [
+                    MemberMemoryRecord(
+                        member_id=member_id,
+                        session_id=rec.get("memory_record_id", "unknown"),
+                        agentcore_memory_id=self._member_memory_id,
+                        summary=rec["content"],
+                        message_count=0,
+                        created_at=now,
+                        updated_at=now,
+                        ttl=None,
+                    )
+                    for rec in api_records
+                    if rec.get("content")
+                ]
+
+        # Fall back to in-memory store
         records = [
             record
             for (mid, _), record in self._member_store.items()
@@ -449,12 +495,14 @@ class AgentCoreMemoryManager:
                 content_obj = summary.get("content", {})
                 if isinstance(content_obj, dict):
                     text = content_obj.get("text", "")
-                records.append({
-                    "content": text,
-                    "score": summary.get("score", 0.0),
-                    "memory_record_id": summary.get("memoryRecordId", ""),
-                    "namespaces": summary.get("namespaces", []),
-                })
+                records.append(
+                    {
+                        "content": text,
+                        "score": summary.get("score", 0.0),
+                        "memory_record_id": summary.get("memoryRecordId", ""),
+                        "namespaces": summary.get("namespaces", []),
+                    }
+                )
             return records
         except Exception:
             logger.warning(
@@ -479,9 +527,7 @@ class AgentCoreMemoryManager:
 
     # ── Safe wrappers with error handling ───────────────────────────────
 
-    def safe_retrieve_family_memory(
-        self, family_id: str
-    ) -> list[FamilyMemoryRecord]:
+    def safe_retrieve_family_memory(self, family_id: str) -> list[FamilyMemoryRecord]:
         """Retrieve family memory, returning empty list on failure.
 
         When the memory service is unavailable (_available is False),
@@ -505,9 +551,7 @@ class AgentCoreMemoryManager:
             )
             return []
 
-    def safe_retrieve_member_memory(
-        self, member_id: str
-    ) -> list[MemberMemoryRecord]:
+    def safe_retrieve_member_memory(self, member_id: str) -> list[MemberMemoryRecord]:
         """Retrieve member memory, returning empty list on failure.
 
         When the memory service is unavailable (_available is False),
@@ -657,5 +701,3 @@ class AgentCoreMemoryManager:
                 remaining.append(item)
         self._retry_queue = remaining
         return remaining
-
-

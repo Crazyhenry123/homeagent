@@ -82,6 +82,7 @@ def _get_agentcore_chat_stream(
         agent_id=cfg.AGENTCORE_ORCHESTRATOR_AGENT_ID or "orchestrator",
         region=cfg.AWS_REGION,
         agent_runtime_arn=cfg.AGENTCORE_RUNTIME_ARN,
+        model_id=cfg.BEDROCK_MODEL_ID,
     )
     agent_mgmt = AgentManagementClient(region=cfg.AWS_REGION)
     memory_manager = AgentCoreMemoryManager(
@@ -281,6 +282,7 @@ def chat():
                     )
                 except Exception:
                     import logging
+
                     logging.getLogger(__name__).warning(
                         "Audio transcription failed, sending as untranscribed",
                         exc_info=True,
@@ -339,7 +341,9 @@ def chat():
         full_content = ""
         total_tokens = 0
 
-        for chunk in _get_chat_stream(messages, g.user_id, conversation_id, images, is_voice_message):
+        for chunk in _get_chat_stream(
+            messages, g.user_id, conversation_id, images, is_voice_message
+        ):
             if chunk["type"] == "text_delta":
                 event_data = json.dumps(
                     {

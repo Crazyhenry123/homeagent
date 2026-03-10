@@ -16,7 +16,6 @@ from __future__ import annotations
 import json
 import logging
 import time
-import uuid
 from dataclasses import dataclass, field
 from typing import Any, Generator
 
@@ -74,14 +73,16 @@ class AgentSession:
 # Transient error detection
 # ---------------------------------------------------------------------------
 
-_TRANSIENT_ERROR_KEYWORDS = frozenset([
-    "throttl",
-    "timeout",
-    "service unavailable",
-    "internal server error",
-    "connection",
-    "temporarily",
-])
+_TRANSIENT_ERROR_KEYWORDS = frozenset(
+    [
+        "throttl",
+        "timeout",
+        "service unavailable",
+        "internal server error",
+        "connection",
+        "temporarily",
+    ]
+)
 
 
 def _is_transient_error(error: Exception) -> bool:
@@ -111,12 +112,14 @@ class AgentCoreRuntimeClient:
         agent_id: str,
         region: str,
         agent_runtime_arn: str | None = None,
+        model_id: str = "us.anthropic.claude-opus-4-6-v1",
     ) -> None:
         if not agent_id or not agent_id.strip():
             raise ValueError("agent_id must be a non-empty string")
         self._agent_id = agent_id
         self._region = region
         self._agent_runtime_arn = agent_runtime_arn
+        self._model_id = model_id
 
         # Lazy-initialised boto3 clients
         self._agentcore_client: Any = None
@@ -124,6 +127,10 @@ class AgentCoreRuntimeClient:
 
         # In-memory session metadata (lives for the process lifecycle)
         self._sessions: dict[str, AgentSession] = {}
+
+        # Sub-agent clients and deployment registry
+        self._sub_agent_clients: dict[str, AgentCoreRuntimeClient] = {}
+        self._deployments: dict[str, DeploymentConfig] = {}
 
         # Callbacks for persistence and fallback
         self._persist_message_callback: Any = None
@@ -274,7 +281,7 @@ class AgentCoreRuntimeClient:
         # Session ID must be 33+ characters for AgentCore
         runtime_session_id = session.session_id
         if len(runtime_session_id) < 33:
-            runtime_session_id = runtime_session_id + "-" + uuid.uuid4().hex
+            runtime_session_id = runtime_session_id.ljust(33, "0")
 
         payload = json.dumps({"prompt": message}).encode()
 
@@ -315,9 +322,7 @@ class AgentCoreRuntimeClient:
                         content=full_text,
                     )
 
-                    session.messages.append(
-                        {"role": "assistant", "content": full_text}
-                    )
+                    session.messages.append({"role": "assistant", "content": full_text})
                     if self._persist_message_callback:
                         try:
                             self._persist_message_callback(
@@ -406,14 +411,16 @@ class AgentCoreRuntimeClient:
         # Build converse API messages from session history
         converse_messages = []
         for msg in session.messages:
-            converse_messages.append({
-                "role": msg["role"],
-                "content": [{"text": msg["content"]}],
-            })
+            converse_messages.append(
+                {
+                    "role": msg["role"],
+                    "content": [{"text": msg["content"]}],
+                }
+            )
 
         try:
             response = client.converse_stream(
-                modelId="us.anthropic.claude-opus-4-6-v1",
+                modelId=self._model_id,
                 messages=converse_messages,
                 system=[{"text": session.system_prompt}],
                 inferenceConfig={
@@ -575,19 +582,13 @@ class AgentCoreRuntimeClient:
         )
 
     # ------------------------------------------------------------------
-    # Sub-agent routing (delegates to separate runtime clients)
-    # ------------------------------------------------------------------
-
-    # ------------------------------------------------------------------
-    # Sub-agent routing (compatibility with existing tests)
+    # Sub-agent routing
     # ------------------------------------------------------------------
 
     def register_sub_agent_client(
         self, agent_type: str, client: "AgentCoreRuntimeClient"
     ) -> None:
         """Register a sub-agent runtime client for routing."""
-        if not hasattr(self, "_sub_agent_clients"):
-            self._sub_agent_clients: dict[str, AgentCoreRuntimeClient] = {}
         self._sub_agent_clients[agent_type] = client
 
     def invoke_sub_agent(
@@ -599,9 +600,6 @@ class AgentCoreRuntimeClient:
         domain_tool_ids: list[str] | None = None,
     ) -> Generator[StreamEvent, None, None]:
         """Route a query to a sub-agent via its registered client."""
-        if not hasattr(self, "_sub_agent_clients"):
-            self._sub_agent_clients = {}
-
         sub_client = self._sub_agent_clients.get(agent_type)
         if sub_client is None:
             raise ValueError(f"No sub-agent client registered for: {agent_type}")
@@ -656,25 +654,19 @@ class AgentCoreRuntimeClient:
         )
 
     # ------------------------------------------------------------------
-    # Deployment model support (compatibility with existing tests)
+    # Deployment model support
     # ------------------------------------------------------------------
 
     def register_deployment(self, config: DeploymentConfig) -> None:
         """Register a deployment configuration for an agent type."""
-        if not hasattr(self, "_deployments"):
-            self._deployments: dict[str, DeploymentConfig] = {}
         self._deployments[config.agent_type] = config
 
     def get_deployment(self, agent_type: str) -> DeploymentConfig | None:
         """Return the deployment config for an agent type, or None."""
-        if not hasattr(self, "_deployments"):
-            self._deployments = {}
         return self._deployments.get(agent_type)
 
     def list_deployments(self) -> list[DeploymentConfig]:
         """Return all registered deployment configurations."""
-        if not hasattr(self, "_deployments"):
-            self._deployments = {}
         return list(self._deployments.values())
 
     def resolve_family_context(

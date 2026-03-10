@@ -67,7 +67,7 @@ def on_event(event: dict, context: object) -> dict:
     if request_type == "Create":
         return _handle_create(client, props)
     elif request_type == "Update":
-        return _handle_update(event, props)
+        return _handle_update(event, client, props)
     elif request_type == "Delete":
         return _handle_delete(client, event)
     else:
@@ -140,15 +140,33 @@ def _handle_create(client: "boto3.client", props: dict) -> dict:
     }
 
 
-def _handle_update(event: dict, props: dict) -> dict:
+def _handle_update(event: dict, client: "boto3.client", props: dict) -> dict:
     physical_id = event.get("PhysicalResourceId", "")
-    logger.info("Update requested for runtime %s — no-op", physical_id)
+    logger.info("Update requested for runtime %s — fetching current state", physical_id)
+
+    # Retrieve existing runtime ARN and endpoint name
+    runtime_arn = ""
+    endpoint_name = ""
+    try:
+        resp = client.get_agent_runtime(agentRuntimeId=physical_id)
+        runtime_arn = resp.get("agentRuntimeArn", "")
+    except Exception as e:
+        logger.warning("Failed to get runtime %s during update: %s", physical_id, e)
+
+    try:
+        endpoints = client.list_agent_runtime_endpoints(agentRuntimeId=physical_id)
+        eps = endpoints.get("agentRuntimeEndpoints", [])
+        if eps:
+            endpoint_name = eps[0].get("name", "")
+    except Exception as e:
+        logger.warning("Failed to list endpoints for %s during update: %s", physical_id, e)
+
     return {
         "PhysicalResourceId": physical_id,
         "Data": {
             "agentRuntimeId": physical_id,
-            "agentRuntimeArn": "",
-            "endpointName": "",
+            "agentRuntimeArn": runtime_arn,
+            "endpointName": endpoint_name,
         },
     }
 

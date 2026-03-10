@@ -141,7 +141,6 @@ class AgentCoreStack(cdk.Stack):
         agent_code_bucket = s3.Bucket(
             self,
             "AgentCodeBucket",
-            bucket_name=f"homeagent-agent-code-{self.account}-{self.region}",
             removal_policy=cdk.RemovalPolicy.DESTROY,
             auto_delete_objects=True,
         )

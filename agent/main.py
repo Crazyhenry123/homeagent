@@ -4,6 +4,8 @@ Uses Strands Agent with Claude for family assistant orchestration.
 Invoked via bedrock-agentcore:invoke_agent_runtime from the Flask backend.
 """
 
+import os
+
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 from strands import Agent
 from strands.models import BedrockModel
@@ -11,8 +13,8 @@ from strands.models import BedrockModel
 app = BedrockAgentCoreApp()
 
 model = BedrockModel(
-    model_id="us.anthropic.claude-opus-4-6-v1",
-    region_name="us-east-1",
+    model_id=os.environ.get("BEDROCK_MODEL_ID", "us.anthropic.claude-opus-4-6-v1"),
+    region_name=os.environ.get("AWS_REGION", "us-east-1"),
 )
 
 SYSTEM_PROMPT = (
@@ -39,7 +41,10 @@ def invoke(payload: dict) -> dict:
     """
     user_message = payload.get("prompt", "Hello!")
     result = agent(user_message)
-    text = result.message["content"][0]["text"]
+    try:
+        text = result.message["content"][0]["text"]
+    except (KeyError, IndexError, TypeError):
+        text = str(result)
     return {"result": text}
 
 
