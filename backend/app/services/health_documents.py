@@ -10,11 +10,10 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 import boto3
-from boto3.dynamodb.conditions import Key
 from flask import current_app
 from ulid import ULID
 
-from app.models.dynamo import get_table
+from app.dal import get_dal
 
 if TYPE_CHECKING:
     from app.storage.base import StorageProvider
@@ -96,8 +95,8 @@ def create_document_metadata(
             "upload_via": "backend",
         }
 
-    table = get_table("HealthDocuments")
-    table.put_item(Item=item)
+    dal = get_dal()
+    dal.health_documents.create(item)
 
     # Generate presigned PUT URL
     bucket = current_app.config["S3_HEALTH_DOCUMENTS_BUCKET"]
@@ -130,9 +129,8 @@ def get_download_url(
         file_url = storage.get_file_url(item.get("s3_key", ""))
         return {**item, "download_url": file_url or ""}
 
-    table = get_table("HealthDocuments")
-    result = table.get_item(Key={"user_id": user_id, "document_id": document_id})
-    item = result.get("Item")
+    dal = get_dal()
+    item = dal.health_documents.get_document(user_id, document_id)
     if not item:
         return None
 
@@ -155,11 +153,9 @@ def list_documents(
     if storage is not None:
         return storage.query_records(_COLLECTION, {"user_id": user_id})
 
-    table = get_table("HealthDocuments")
-    result = table.query(
-        KeyConditionExpression=Key("user_id").eq(user_id),
-    )
-    return result.get("Items", [])
+    dal = get_dal()
+    result = dal.health_documents.query_by_user(user_id)
+    return result.items
 
 
 def delete_document(
@@ -182,9 +178,8 @@ def delete_document(
         )
         return True
 
-    table = get_table("HealthDocuments")
-    result = table.get_item(Key={"user_id": user_id, "document_id": document_id})
-    item = result.get("Item")
+    dal = get_dal()
+    item = dal.health_documents.get_document(user_id, document_id)
     if not item:
         return False
 
@@ -194,7 +189,7 @@ def delete_document(
     s3.delete_object(Bucket=bucket, Key=item["s3_key"])
 
     # Delete from DynamoDB
-    table.delete_item(Key={"user_id": user_id, "document_id": document_id})
+    dal.health_documents.delete({"user_id": user_id, "document_id": document_id})
     return True
 
 
@@ -212,12 +207,9 @@ def delete_all_documents(
         storage.delete_all_records(_COLLECTION, {"user_id": user_id})
         return
 
-    table = get_table("HealthDocuments")
-    result = table.query(
-        KeyConditionExpression=Key("user_id").eq(user_id),
-        ProjectionExpression="user_id, document_id, s3_key",
-    )
-    items = result.get("Items", [])
+    dal = get_dal()
+    result = dal.health_documents.query_by_user(user_id)
+    items = result.items
     if not items:
         return
 
@@ -227,8 +219,9 @@ def delete_all_documents(
         for item in items:
             s3.delete_object(Bucket=bucket, Key=item["s3_key"])
 
-    with table.batch_writer() as batch:
-        for item in items:
-            batch.delete_item(
-                Key={"user_id": item["user_id"], "document_id": item["document_id"]}
-            )
+    dal.health_documents.batch_delete(
+        [
+            {"user_id": item["user_id"], "document_id": item["document_id"]}
+            for item in items
+        ]
+    )

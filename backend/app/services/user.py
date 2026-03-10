@@ -4,12 +4,11 @@ import uuid
 from datetime import datetime, timezone
 
 import boto3
-from boto3.dynamodb.conditions import Attr, Key
-from botocore.exceptions import ClientError
 from flask import current_app
 from ulid import ULID
 
-from app.models.dynamo import get_table
+from app.dal import get_dal
+from app.dal.exceptions import DuplicateEntityError
 from app.services.agent_config import put_agent_config
 from app.services.agent_template import get_default_agent_types
 from app.services.profile import create_profile
@@ -28,10 +27,10 @@ def register_device(
     Returns dict with user_id and device_token.
     Raises ValueError if invite code is invalid.
     """
-    codes_table = get_table("InviteCodes")
+    dal = get_dal()
 
     # Fetch and validate invite code
-    code_item = codes_table.get_item(Key={"code": invite_code}).get("Item")
+    code_item = dal.invite_codes.get_by_id({"code": invite_code})
     if not code_item:
         raise ValueError("Invalid invite code")
     if code_item["status"] != "active":
@@ -42,19 +41,15 @@ def register_device(
 
     # Mark invite code as used immediately to prevent reuse
     user_id = str(ULID())
-    codes_table.update_item(
-        Key={"code": invite_code},
-        UpdateExpression="SET #s = :used, used_by = :uid",
-        ExpressionAttributeNames={"#s": "status"},
-        ExpressionAttributeValues={":used": "used", ":uid": user_id},
+    dal.invite_codes.update(
+        {"code": invite_code},
+        {"status": "used", "used_by": user_id},
     )
 
     # Create user
-    users_table = get_table("Users")
     now = datetime.now(timezone.utc).isoformat()
-
-    users_table.put_item(
-        Item={
+    dal.users.create(
+        {
             "user_id": user_id,
             "name": display_name,
             "role": "admin" if is_admin else "member",
@@ -65,10 +60,9 @@ def register_device(
     # Create device
     device_id = str(uuid.uuid4())
     device_token = secrets.token_urlsafe(48)
-    devices_table = get_table("Devices")
 
-    devices_table.put_item(
-        Item={
+    dal.devices.create(
+        {
             "device_id": device_id,
             "user_id": user_id,
             "device_token": device_token,
@@ -121,9 +115,9 @@ def generate_invite_code(
 
     Returns dict with code, expires_at, and optional invited_email/family_id.
     """
+    dal = get_dal()
     expires_at = datetime(2099, 12, 31, tzinfo=timezone.utc).isoformat()
     now = datetime.now(timezone.utc).isoformat()
-    codes_table = get_table("InviteCodes")
 
     for _ in range(5):
         code = secrets.token_hex(3).upper()[:6]
@@ -144,20 +138,15 @@ def generate_invite_code(
             item["family_id"] = family_id
 
         try:
-            codes_table.put_item(
-                Item=item,
-                ConditionExpression="attribute_not_exists(code)",
-            )
+            dal.invite_codes.create(item)
             result: dict = {"code": code, "expires_at": expires_at}
             if invited_email:
                 result["invited_email"] = invited_email
             if family_id:
                 result["family_id"] = family_id
             return result
-        except ClientError as e:
-            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-                continue
-            raise
+        except DuplicateEntityError:
+            continue
 
     raise RuntimeError("Failed to generate a unique invite code after 5 attempts")
 
@@ -221,17 +210,25 @@ def send_invite_email(
 
 
 def get_pending_invites_by_creator(created_by: str) -> list[dict]:
-    """Get all active invite codes created by a user."""
-    codes_table = get_table("InviteCodes")
+    """Get all active invite codes created by a user.
+
+    Note: This still uses a scan with filter since there's no GSI on
+    created_by. Consider adding a created_by-status-index GSI if this
+    becomes a performance bottleneck.
+    """
+    dal = get_dal()
     items = []
     last_key = None
     while True:
-        kwargs = {
-            "FilterExpression": Attr("created_by").eq(created_by) & Attr("status").eq("active"),
+        from boto3.dynamodb.conditions import Attr
+
+        kwargs: dict = {
+            "FilterExpression": Attr("created_by").eq(created_by)
+            & Attr("status").eq("active"),
         }
         if last_key:
             kwargs["ExclusiveStartKey"] = last_key
-        result = codes_table.scan(**kwargs)
+        result = dal.invite_codes._table.scan(**kwargs)
         items.extend(result.get("Items", []))
         last_key = result.get("LastEvaluatedKey")
         if not last_key:
@@ -244,8 +241,8 @@ def cancel_invite_code(code: str, user_id: str) -> bool:
 
     Returns True if cancelled, False if not found or not authorized.
     """
-    codes_table = get_table("InviteCodes")
-    item = codes_table.get_item(Key={"code": code}).get("Item")
+    dal = get_dal()
+    item = dal.invite_codes.get_by_id({"code": code})
     if not item:
         return False
     if item.get("created_by") != user_id:
@@ -253,12 +250,7 @@ def cancel_invite_code(code: str, user_id: str) -> bool:
     if item.get("status") != "active":
         return False
 
-    codes_table.update_item(
-        Key={"code": code},
-        UpdateExpression="SET #s = :cancelled",
-        ExpressionAttributeNames={"#s": "status"},
-        ExpressionAttributeValues={":cancelled": "cancelled"},
-    )
+    dal.invite_codes.update({"code": code}, {"status": "cancelled"})
     return True
 
 
@@ -272,22 +264,18 @@ def create_owner_user(
     Returns dict with user_id.
     Raises ValueError if email is already registered.
     """
-    users_table = get_table("Users")
+    dal = get_dal()
 
     # Check if email already exists
-    result = users_table.query(
-        IndexName="email-index",
-        KeyConditionExpression=Key("email").eq(email),
-        Limit=1,
-    )
-    if result.get("Items"):
+    existing = dal.users.get_by_email(email)
+    if existing:
         raise ValueError("An account with this email already exists")
 
     user_id = str(ULID())
     now = datetime.now(timezone.utc).isoformat()
 
-    users_table.put_item(
-        Item={
+    dal.users.create(
+        {
             "user_id": user_id,
             "name": display_name,
             "email": email,
@@ -309,26 +297,14 @@ def create_owner_user(
 
 def get_user_by_email(email: str) -> dict | None:
     """Look up a user by email using the email-index GSI."""
-    users_table = get_table("Users")
-    result = users_table.query(
-        IndexName="email-index",
-        KeyConditionExpression=Key("email").eq(email),
-        Limit=1,
-    )
-    items = result.get("Items", [])
-    return items[0] if items else None
+    dal = get_dal()
+    return dal.users.get_by_email(email)
 
 
 def get_user_by_cognito_sub(cognito_sub: str) -> dict | None:
     """Look up a user by cognito_sub using the cognito_sub-index GSI."""
-    users_table = get_table("Users")
-    result = users_table.query(
-        IndexName="cognito_sub-index",
-        KeyConditionExpression=Key("cognito_sub").eq(cognito_sub),
-        Limit=1,
-    )
-    items = result.get("Items", [])
-    return items[0] if items else None
+    dal = get_dal()
+    return dal.users.get_by_cognito_sub(cognito_sub)
 
 
 def delete_member(user_id: str) -> None:
@@ -339,46 +315,34 @@ def delete_member(user_id: str) -> None:
     from app.services.conversation import delete_conversation
     from app.services.family_tree import delete_all_relationships
 
+    dal = get_dal()
+
     # 1. Fetch user — reject if admin
-    users_table = get_table("Users")
-    user = users_table.get_item(Key={"user_id": user_id}).get("Item")
+    user = dal.users.get_by_id({"user_id": user_id})
     if not user:
         raise ValueError("User not found")
     if user.get("role") == "admin":
         raise ValueError("Cannot delete an admin user")
 
     # 2. Delete Devices (query user_id-index GSI)
-    devices_table = get_table("Devices")
-    result = devices_table.query(
-        IndexName="user_id-index",
-        KeyConditionExpression=Key("user_id").eq(user_id),
-        ProjectionExpression="device_id",
-    )
-    with devices_table.batch_writer() as batch:
-        for item in result.get("Items", []):
-            batch.delete_item(Key={"device_id": item["device_id"]})
+    devices = dal.devices.query_by_user(user_id, limit=100)
+    if devices.items:
+        dal.devices.batch_delete([{"device_id": d["device_id"]} for d in devices.items])
 
     # 3. Delete Conversations + Messages
-    convos_table = get_table("Conversations")
-    result = convos_table.query(
-        IndexName="user_conversations-index",
-        KeyConditionExpression=Key("user_id").eq(user_id),
-        ProjectionExpression="conversation_id",
-    )
-    for item in result.get("Items", []):
+    convos = dal.conversations.query_by_user(user_id, limit=100)
+    for item in convos.items:
         delete_conversation(item["conversation_id"])
 
     # 4. Delete AgentConfigs
-    configs_table = get_table("AgentConfigs")
-    result = configs_table.query(
-        KeyConditionExpression=Key("user_id").eq(user_id),
-        ProjectionExpression="user_id, agent_type",
-    )
-    with configs_table.batch_writer() as batch:
-        for item in result.get("Items", []):
-            batch.delete_item(
-                Key={"user_id": item["user_id"], "agent_type": item["agent_type"]}
-            )
+    configs = dal.agent_configs.query_by_user(user_id, limit=100)
+    if configs.items:
+        dal.agent_configs.batch_delete(
+            [
+                {"user_id": c["user_id"], "agent_type": c["agent_type"]}
+                for c in configs.items
+            ]
+        )
 
     # 5. Delete FamilyRelationships (both directions)
     delete_all_relationships(user_id)
@@ -407,8 +371,7 @@ def delete_member(user_id: str) -> None:
     delete_all_documents(user_id, storage=storage)
 
     # 6. Delete MemberProfile
-    profiles_table = get_table("MemberProfiles")
-    profiles_table.delete_item(Key={"user_id": user_id})
+    dal.profiles.delete({"user_id": user_id})
 
     # 7. Delete User record
-    users_table.delete_item(Key={"user_id": user_id})
+    dal.users.delete({"user_id": user_id})

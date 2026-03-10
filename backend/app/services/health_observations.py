@@ -9,10 +9,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from boto3.dynamodb.conditions import Key
 from ulid import ULID
 
-from app.models.dynamo import get_table
+from app.dal import get_dal
 
 if TYPE_CHECKING:
     from app.storage.base import StorageProvider
@@ -61,8 +60,8 @@ def create_observation(
     if storage is not None:
         storage.put_record(_COLLECTION, item)
     else:
-        table = get_table("HealthObservations")
-        table.put_item(Item=item)
+        dal = get_dal()
+        dal.health_observations.create(item)
 
     return item
 
@@ -84,21 +83,14 @@ def list_observations(
             )
         return storage.query_records(_COLLECTION, key_condition)
 
-    table = get_table("HealthObservations")
+    dal = get_dal()
 
     if category:
-        result = table.query(
-            IndexName="category-index",
-            KeyConditionExpression=(
-                Key("user_id").eq(user_id) & Key("category").eq(category)
-            ),
-        )
+        result = dal.health_observations.query_by_category(user_id, category)
     else:
-        result = table.query(
-            KeyConditionExpression=Key("user_id").eq(user_id),
-        )
+        result = dal.health_observations.query_by_user(user_id)
 
-    return result.get("Items", [])
+    return result.items
 
 
 def delete_all_observations(
@@ -110,16 +102,15 @@ def delete_all_observations(
         storage.delete_all_records(_COLLECTION, {"user_id": user_id})
         return
 
-    table = get_table("HealthObservations")
-    result = table.query(
-        KeyConditionExpression=Key("user_id").eq(user_id),
-        ProjectionExpression="user_id, observation_id",
-    )
-    with table.batch_writer() as batch:
-        for item in result.get("Items", []):
-            batch.delete_item(
-                Key={
+    dal = get_dal()
+    result = dal.health_observations.query_by_user(user_id)
+    if result.items:
+        dal.health_observations.batch_delete(
+            [
+                {
                     "user_id": item["user_id"],
                     "observation_id": item["observation_id"],
                 }
-            )
+                for item in result.items
+            ]
+        )

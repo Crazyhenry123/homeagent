@@ -1,8 +1,6 @@
 from datetime import datetime, timezone
 
-from boto3.dynamodb.conditions import Key
-
-from app.models.dynamo import get_table
+from app.dal import get_dal
 from app.services.profile import get_profile
 
 VALID_RELATIONSHIP_TYPES = {"parent_of", "child_of", "spouse_of", "sibling_of"}
@@ -17,11 +15,9 @@ INVERSE_MAP = {
 
 def get_relationships(user_id: str) -> list[dict]:
     """Get all relationships for a user."""
-    table = get_table("FamilyRelationships")
-    result = table.query(
-        KeyConditionExpression=Key("user_id").eq(user_id),
-    )
-    return result.get("Items", [])
+    dal = get_dal()
+    result = dal.family_relationships.query_by_user(user_id)
+    return result.items
 
 
 def set_relationship(
@@ -39,17 +35,17 @@ def set_relationship(
     if user_id == related_user_id:
         raise ValueError("Cannot create a relationship with yourself")
 
-    table = get_table("FamilyRelationships")
+    dal = get_dal()
     now = datetime.now(timezone.utc).isoformat()
 
-    # Forward direction
+    # Forward direction (upsert — put_item without condition)
     forward_item = {
         "user_id": user_id,
         "related_user_id": related_user_id,
         "relationship_type": relationship_type,
         "created_at": now,
     }
-    table.put_item(Item=forward_item)
+    dal.family_relationships._table.put_item(Item=forward_item)
 
     # Inverse direction
     inverse_type = INVERSE_MAP[relationship_type]
@@ -59,51 +55,35 @@ def set_relationship(
         "relationship_type": inverse_type,
         "created_at": now,
     }
-    table.put_item(Item=inverse_item)
+    dal.family_relationships._table.put_item(Item=inverse_item)
 
     return forward_item
 
 
 def delete_relationship(user_id: str, related_user_id: str) -> None:
     """Delete a relationship in both directions."""
-    table = get_table("FamilyRelationships")
-    table.delete_item(
-        Key={"user_id": user_id, "related_user_id": related_user_id}
-    )
-    table.delete_item(
-        Key={"user_id": related_user_id, "related_user_id": user_id}
-    )
+    dal = get_dal()
+    dal.family_relationships.delete_relationship(user_id, related_user_id)
+    dal.family_relationships.delete_relationship(related_user_id, user_id)
 
 
 def delete_all_relationships(user_id: str) -> None:
     """Delete all relationships for a user (both directions)."""
-    table = get_table("FamilyRelationships")
+    dal = get_dal()
 
     # Get all relationships where this user is the subject
-    result = table.query(
-        KeyConditionExpression=Key("user_id").eq(user_id),
-    )
-    for item in result.get("Items", []):
+    result = dal.family_relationships.query_by_user(user_id)
+    for item in result.items:
         # Delete the inverse record
-        table.delete_item(
-            Key={
-                "user_id": item["related_user_id"],
-                "related_user_id": user_id,
-            }
-        )
+        dal.family_relationships.delete_relationship(item["related_user_id"], user_id)
         # Delete the forward record
-        table.delete_item(
-            Key={
-                "user_id": user_id,
-                "related_user_id": item["related_user_id"],
-            }
-        )
+        dal.family_relationships.delete_relationship(user_id, item["related_user_id"])
 
 
 def get_family_tree() -> list[dict]:
     """Get all relationships (full scan) for the tree view."""
-    table = get_table("FamilyRelationships")
-    result = table.scan()
+    dal = get_dal()
+    result = dal.family_relationships._table.scan()
     items = result.get("Items", [])
 
     # Enrich with display names

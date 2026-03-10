@@ -2,10 +2,9 @@
 
 from datetime import datetime, timezone
 
-from boto3.dynamodb.conditions import Key
 from ulid import ULID
 
-from app.models.dynamo import get_table
+from app.dal import get_dal
 
 
 def log_audit_event(
@@ -26,7 +25,7 @@ def log_audit_event(
         changes: Before/after dict for updates.
         record_snapshot: Full record for create/delete actions.
     """
-    table = get_table("HealthAuditLog")
+    dal = get_dal()
     now = datetime.now(timezone.utc).isoformat()
     audit_id = str(ULID())
     audit_sk = f"{now}#{audit_id}"
@@ -45,26 +44,19 @@ def log_audit_event(
     if record_snapshot is not None:
         item["record_snapshot"] = record_snapshot
 
-    table.put_item(Item=item)
+    dal.health_audit.create(item)
     return item
 
 
 def list_audit_log(record_id: str) -> list[dict]:
     """List audit entries for a specific health record, newest first."""
-    table = get_table("HealthAuditLog")
-    result = table.query(
-        KeyConditionExpression=Key("record_id").eq(record_id),
-        ScanIndexForward=False,
-    )
-    return result.get("Items", [])
+    dal = get_dal()
+    result = dal.health_audit.query(record_id, scan_forward=False)
+    return result.items
 
 
 def list_user_audit_log(user_id: str) -> list[dict]:
     """List all audit entries for a user, newest first."""
-    table = get_table("HealthAuditLog")
-    result = table.query(
-        IndexName="user-audit-index",
-        KeyConditionExpression=Key("user_id").eq(user_id),
-        ScanIndexForward=False,
-    )
-    return result.get("Items", [])
+    dal = get_dal()
+    result = dal.health_audit.query_by_user(user_id, newest_first=True)
+    return result.items

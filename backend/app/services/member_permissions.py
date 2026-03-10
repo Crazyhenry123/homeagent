@@ -8,9 +8,7 @@ and configuration.
 
 from datetime import datetime, timezone
 
-from boto3.dynamodb.conditions import Key
-
-from app.models.dynamo import get_table
+from app.dal import get_dal
 
 VALID_PERMISSION_TYPES = {
     "email_access",
@@ -39,7 +37,7 @@ def grant_permission(
     if permission_type not in VALID_PERMISSION_TYPES:
         raise ValueError(f"Invalid permission type: {permission_type}")
 
-    table = get_table("MemberPermissions")
+    dal = get_dal()
     now = datetime.now(timezone.utc).isoformat()
 
     item = {
@@ -50,7 +48,7 @@ def grant_permission(
         "granted_by": granted_by or user_id,
         "status": "active",
     }
-    table.put_item(Item=item)
+    dal.member_permissions._table.put_item(Item=item)
     return item
 
 
@@ -62,11 +60,11 @@ def revoke_permission(user_id: str, permission_type: str) -> bool:
     if permission_type not in VALID_PERMISSION_TYPES:
         raise ValueError(f"Invalid permission type: {permission_type}")
 
-    table = get_table("MemberPermissions")
+    dal = get_dal()
     now = datetime.now(timezone.utc).isoformat()
 
     try:
-        table.update_item(
+        dal.member_permissions._table.update_item(
             Key={"user_id": user_id, "permission_type": permission_type},
             UpdateExpression="SET #s = :revoked, revoked_at = :now",
             ExpressionAttributeNames={"#s": "status"},
@@ -74,17 +72,15 @@ def revoke_permission(user_id: str, permission_type: str) -> bool:
             ConditionExpression="attribute_exists(user_id)",
         )
         return True
-    except table.meta.client.exceptions.ConditionalCheckFailedException:
+    except dal.member_permissions._table.meta.client.exceptions.ConditionalCheckFailedException:
         return False
 
 
 def get_permissions(user_id: str) -> list[dict]:
     """Get all permissions for a user (including revoked)."""
-    table = get_table("MemberPermissions")
-    result = table.query(
-        KeyConditionExpression=Key("user_id").eq(user_id),
-    )
-    return result.get("Items", [])
+    dal = get_dal()
+    result = dal.member_permissions.query_by_user(user_id)
+    return result.items
 
 
 def get_active_permissions(user_id: str) -> list[dict]:
@@ -98,34 +94,19 @@ def check_permission(user_id: str, permission_type: str) -> bool:
     if permission_type not in VALID_PERMISSION_TYPES:
         raise ValueError(f"Invalid permission type: {permission_type}")
 
-    table = get_table("MemberPermissions")
-    item = table.get_item(
-        Key={"user_id": user_id, "permission_type": permission_type}
-    ).get("Item")
-
+    dal = get_dal()
+    item = dal.member_permissions.get_permission(user_id, permission_type)
     return item is not None and item.get("status") == "active"
 
 
 def delete_all_permissions(user_id: str) -> None:
     """Delete all permissions for a user. Used during member deletion."""
-    table = get_table("MemberPermissions")
-    last_key = None
-    while True:
-        kwargs = {
-            "KeyConditionExpression": Key("user_id").eq(user_id),
-            "ProjectionExpression": "user_id, permission_type",
-        }
-        if last_key:
-            kwargs["ExclusiveStartKey"] = last_key
-        result = table.query(**kwargs)
-        with table.batch_writer() as batch:
-            for item in result.get("Items", []):
-                batch.delete_item(
-                    Key={
-                        "user_id": item["user_id"],
-                        "permission_type": item["permission_type"],
-                    }
-                )
-        last_key = result.get("LastEvaluatedKey")
-        if not last_key:
-            break
+    dal = get_dal()
+    result = dal.member_permissions.query_by_user(user_id)
+    if result.items:
+        dal.member_permissions.batch_delete(
+            [
+                {"user_id": item["user_id"], "permission_type": item["permission_type"]}
+                for item in result.items
+            ]
+        )

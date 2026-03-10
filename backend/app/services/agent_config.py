@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from app.models.dynamo import get_table
+from app.dal import get_dal
 from app.services.agent_template import get_template_by_type, list_templates
 
 
@@ -25,21 +25,15 @@ def get_available_agent_types() -> dict:
 
 def get_agent_configs(user_id: str) -> list[dict]:
     """Get all agent configs for a user."""
-    table = get_table("AgentConfigs")
-    result = table.query(
-        KeyConditionExpression="user_id = :uid",
-        ExpressionAttributeValues={":uid": user_id},
-    )
-    return result.get("Items", [])
+    dal = get_dal()
+    result = dal.agent_configs.query_by_user(user_id)
+    return result.items
 
 
 def get_agent_config(user_id: str, agent_type: str) -> dict | None:
     """Get a specific agent config for a user."""
-    table = get_table("AgentConfigs")
-    item = table.get_item(
-        Key={"user_id": user_id, "agent_type": agent_type}
-    ).get("Item")
-    return item
+    dal = get_dal()
+    return dal.agent_configs.get_config(user_id, agent_type)
 
 
 def put_agent_config(
@@ -56,7 +50,7 @@ def put_agent_config(
     if not template:
         raise ValueError(f"Unknown agent type: {agent_type}")
 
-    table = get_table("AgentConfigs")
+    dal = get_dal()
     now = datetime.now(timezone.utc).isoformat()
 
     default_config = template.get("default_config", {})
@@ -69,18 +63,20 @@ def put_agent_config(
         "config": merged_config,
         "updated_at": now,
     }
-    table.put_item(Item=item)
+    dal.agent_configs._table.put_item(Item=item)
     return item
 
 
 def delete_agent_config(user_id: str, agent_type: str) -> bool:
     """Delete an agent config. Returns True if it existed."""
-    table = get_table("AgentConfigs")
+    dal = get_dal()
     try:
-        table.delete_item(
+        dal.agent_configs._table.delete_item(
             Key={"user_id": user_id, "agent_type": agent_type},
             ConditionExpression="attribute_exists(user_id)",
         )
         return True
-    except table.meta.client.exceptions.ConditionalCheckFailedException:
+    except (
+        dal.agent_configs._table.meta.client.exceptions.ConditionalCheckFailedException
+    ):
         return False

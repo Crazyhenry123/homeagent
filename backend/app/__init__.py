@@ -2,7 +2,10 @@ from flask import Flask
 from flask_cors import CORS
 from flask_sock import Sock
 
+import boto3
+
 from app.config import Config
+from app.dal import DAL
 from app.models.dynamo import init_tables
 from app.routes.agent_config_routes import agent_config_bp
 from app.routes.agent_template_routes import agent_template_bp
@@ -28,6 +31,17 @@ from app.services.agent_management import AgentManagementClient
 from app.services.agent_template import seed_builtin_templates
 
 
+def _init_dal(app: Flask) -> None:
+    """Initialize the Data Access Layer and store on app.extensions."""
+    kwargs: dict[str, str] = {"region_name": app.config["AWS_REGION"]}
+    endpoint_url = app.config.get("DYNAMODB_ENDPOINT")
+    if endpoint_url:
+        kwargs["endpoint_url"] = endpoint_url
+    dynamodb_resource = boto3.resource("dynamodb", **kwargs)
+    table_prefix = app.config.get("TABLE_PREFIX", "")
+    app.extensions["dal"] = DAL(dynamodb_resource, table_prefix)
+
+
 def _seed_agentcore_templates(app: Flask) -> None:
     """Seed built-in templates via the AgentManagementClient."""
     region = app.config["AWS_REGION"]
@@ -45,6 +59,10 @@ def create_app(config: Config | None = None) -> Flask:
     CORS(app)
 
     init_tables(app)
+
+    # Initialize DAL (coexists with legacy get_table() during migration)
+    _init_dal(app)
+
     seed_builtin_templates(app)
     _seed_agentcore_templates(app)
 

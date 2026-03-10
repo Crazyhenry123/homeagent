@@ -9,10 +9,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from boto3.dynamodb.conditions import Key
 from ulid import ULID
 
-from app.models.dynamo import get_table
+from app.dal import get_dal
 from app.services.health_audit import log_audit_event
 
 if TYPE_CHECKING:
@@ -64,8 +63,8 @@ def create_health_record(
     if storage is not None:
         storage.put_record(_COLLECTION, item)
     else:
-        table = get_table("HealthRecords")
-        table.put_item(Item=item)
+        dal = get_dal()
+        dal.health_records.create(item)
 
     # Audit log always goes to local DynamoDB
     log_audit_event(
@@ -90,9 +89,8 @@ def get_health_record(
             _COLLECTION, {"user_id": user_id, "record_id": record_id}
         )
 
-    table = get_table("HealthRecords")
-    result = table.get_item(Key={"user_id": user_id, "record_id": record_id})
-    return result.get("Item")
+    dal = get_dal()
+    return dal.health_records.get_by_id({"user_id": user_id, "record_id": record_id})
 
 
 def list_health_records(
@@ -112,21 +110,14 @@ def list_health_records(
             )
         return storage.query_records(_COLLECTION, key_condition)
 
-    table = get_table("HealthRecords")
+    dal = get_dal()
 
     if record_type:
-        result = table.query(
-            IndexName="record_type-index",
-            KeyConditionExpression=(
-                Key("user_id").eq(user_id) & Key("record_type").eq(record_type)
-            ),
-        )
+        result = dal.health_records.query_by_record_type(user_id, record_type)
     else:
-        result = table.query(
-            KeyConditionExpression=Key("user_id").eq(user_id),
-        )
+        result = dal.health_records.query_by_user(user_id)
 
-    return result.get("Items", [])
+    return result.items
 
 
 def update_health_record(
@@ -169,7 +160,7 @@ def update_health_record(
             )
         return merged
 
-    table = get_table("HealthRecords")
+    dal = get_dal()
     now = datetime.now(timezone.utc).isoformat()
     filtered["updated_at"] = now
 
@@ -184,7 +175,7 @@ def update_health_record(
         expr_values[attr_value] = value
 
     try:
-        result = table.update_item(
+        result = dal.health_records._table.update_item(
             Key={"user_id": user_id, "record_id": record_id},
             UpdateExpression="SET " + ", ".join(expr_parts),
             ExpressionAttributeNames=expr_names,
@@ -204,7 +195,9 @@ def update_health_record(
             )
 
         return updated
-    except table.meta.client.exceptions.ConditionalCheckFailedException:
+    except (
+        dal.health_records._table.meta.client.exceptions.ConditionalCheckFailedException
+    ):
         return None
 
 
@@ -233,9 +226,9 @@ def delete_health_record(
             )
         return deleted
 
-    table = get_table("HealthRecords")
+    dal = get_dal()
     try:
-        table.delete_item(
+        dal.health_records._table.delete_item(
             Key={"user_id": user_id, "record_id": record_id},
             ConditionExpression="attribute_exists(user_id)",
         )
@@ -248,7 +241,9 @@ def delete_health_record(
                 record_snapshot=snapshot,
             )
         return True
-    except table.meta.client.exceptions.ConditionalCheckFailedException:
+    except (
+        dal.health_records._table.meta.client.exceptions.ConditionalCheckFailedException
+    ):
         return False
 
 
@@ -261,16 +256,15 @@ def delete_all_health_records(
         storage.delete_all_records(_COLLECTION, {"user_id": user_id})
         return
 
-    table = get_table("HealthRecords")
-    result = table.query(
-        KeyConditionExpression=Key("user_id").eq(user_id),
-        ProjectionExpression="user_id, record_id",
-    )
-    with table.batch_writer() as batch:
-        for item in result.get("Items", []):
-            batch.delete_item(
-                Key={"user_id": item["user_id"], "record_id": item["record_id"]}
-            )
+    dal = get_dal()
+    result = dal.health_records.query_by_user(user_id)
+    if result.items:
+        dal.health_records.batch_delete(
+            [
+                {"user_id": item["user_id"], "record_id": item["record_id"]}
+                for item in result.items
+            ]
+        )
 
 
 def get_health_summary(

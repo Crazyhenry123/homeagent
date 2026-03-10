@@ -1,13 +1,13 @@
 from datetime import datetime, timezone
 
-from app.models.dynamo import get_table
+from app.dal import get_dal
+from app.dal.exceptions import EntityNotFoundError
 
 
 def get_profile(user_id: str) -> dict | None:
     """Get a member profile by user_id."""
-    table = get_table("MemberProfiles")
-    item = table.get_item(Key={"user_id": user_id}).get("Item")
-    return item
+    dal = get_dal()
+    return dal.profiles.get_by_id({"user_id": user_id})
 
 
 def create_profile(
@@ -16,7 +16,7 @@ def create_profile(
     role: str = "member",
 ) -> dict:
     """Create a default member profile."""
-    table = get_table("MemberProfiles")
+    dal = get_dal()
     now = datetime.now(timezone.utc).isoformat()
     item = {
         "user_id": user_id,
@@ -29,7 +29,7 @@ def create_profile(
         "created_at": now,
         "updated_at": now,
     }
-    table.put_item(Item=item)
+    dal.profiles.create(item)
     return item
 
 
@@ -50,36 +50,15 @@ def update_profile(user_id: str, updates: dict) -> dict | None:
     if not filtered:
         return get_profile(user_id)
 
-    table = get_table("MemberProfiles")
-    now = datetime.now(timezone.utc).isoformat()
-    filtered["updated_at"] = now
-
-    expr_parts = []
-    expr_names = {}
-    expr_values = {}
-    for i, (key, value) in enumerate(filtered.items()):
-        attr_name = f"#k{i}"
-        attr_value = f":v{i}"
-        expr_parts.append(f"{attr_name} = {attr_value}")
-        expr_names[attr_name] = key
-        expr_values[attr_value] = value
-
+    dal = get_dal()
     try:
-        result = table.update_item(
-            Key={"user_id": user_id},
-            UpdateExpression="SET " + ", ".join(expr_parts),
-            ExpressionAttributeNames=expr_names,
-            ExpressionAttributeValues=expr_values,
-            ConditionExpression="attribute_exists(user_id)",
-            ReturnValues="ALL_NEW",
-        )
-        return result["Attributes"]
-    except table.meta.client.exceptions.ConditionalCheckFailedException:
+        return dal.profiles.update({"user_id": user_id}, filtered)
+    except EntityNotFoundError:
         return None
 
 
 def list_profiles() -> list[dict]:
     """List all member profiles (admin use)."""
-    table = get_table("MemberProfiles")
-    result = table.scan()
+    dal = get_dal()
+    result = dal.profiles._table.scan()
     return result.get("Items", [])

@@ -303,6 +303,12 @@ TABLE_DEFINITIONS = {
             "Enabled": True,
         },
     },
+    "FamilyMemoryStores": {
+        "KeySchema": [{"AttributeName": "family_id", "KeyType": "HASH"}],
+        "AttributeDefinitions": [
+            {"AttributeName": "family_id", "AttributeType": "S"},
+        ],
+    },
 }
 
 

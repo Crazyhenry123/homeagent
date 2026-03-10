@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from ulid import ULID
 
-from app.models.dynamo import get_table
+from app.dal import get_dal
 
 
 # Built-in agent definitions that get seeded as templates on startup
@@ -101,11 +101,11 @@ def seed_builtin_templates(app) -> None:
                     "default_config": info["default_config"],
                     "required_permissions": info.get("required_permissions", []),
                     "is_default": info.get("is_default", False),
-                "is_builtin": True,
-                "available_to": "all",
-                "created_by": "system",
-                "created_at": now,
-                "updated_at": now,
+                    "is_builtin": True,
+                    "available_to": "all",
+                    "created_by": "system",
+                    "created_at": now,
+                    "updated_at": now,
                 },
                 ConditionExpression="attribute_not_exists(template_id)",
             )
@@ -115,28 +115,22 @@ def seed_builtin_templates(app) -> None:
 
 def list_templates() -> list[dict]:
     """Return all agent templates."""
-    table = get_table("AgentTemplates")
-    result = table.scan()
+    dal = get_dal()
+    result = dal.agent_templates._table.scan()
     return result.get("Items", [])
 
 
 def get_template(template_id: str) -> dict | None:
     """Get a single template by its primary key."""
-    table = get_table("AgentTemplates")
-    return table.get_item(Key={"template_id": template_id}).get("Item")
+    dal = get_dal()
+    return dal.agent_templates.get_by_id({"template_id": template_id})
 
 
 def get_template_by_type(agent_type: str) -> dict | None:
     """Look up a template by its agent_type slug via GSI."""
-    table = get_table("AgentTemplates")
-    result = table.query(
-        IndexName="agent_type-index",
-        KeyConditionExpression="agent_type = :at",
-        ExpressionAttributeValues={":at": agent_type},
-        Limit=1,
-    )
-    items = result.get("Items", [])
-    return items[0] if items else None
+    dal = get_dal()
+    result = dal.agent_templates.query_by_agent_type(agent_type)
+    return result.items[0] if result.items else None
 
 
 def create_template(
@@ -155,7 +149,7 @@ def create_template(
     if get_template_by_type(agent_type):
         raise ValueError(f"Agent type already exists: {agent_type}")
 
-    table = get_table("AgentTemplates")
+    dal = get_dal()
     now = datetime.now(timezone.utc).isoformat()
     template_id = str(ULID())
 
@@ -172,7 +166,7 @@ def create_template(
         "created_at": now,
         "updated_at": now,
     }
-    table.put_item(Item=item)
+    dal.agent_templates._table.put_item(Item=item)
     return item
 
 
@@ -183,7 +177,11 @@ def update_template(template_id: str, **updates) -> dict | None:
         return None
 
     allowed_fields = {
-        "name", "description", "system_prompt", "default_config", "available_to",
+        "name",
+        "description",
+        "system_prompt",
+        "default_config",
+        "available_to",
     }
     filtered = {k: v for k, v in updates.items() if k in allowed_fields}
     if not filtered:
@@ -201,8 +199,8 @@ def update_template(template_id: str, **updates) -> dict | None:
         attr_names[placeholder] = key
         attr_values[val_placeholder] = value
 
-    table = get_table("AgentTemplates")
-    result = table.update_item(
+    dal = get_dal()
+    result = dal.agent_templates._table.update_item(
         Key={"template_id": template_id},
         UpdateExpression="SET " + ", ".join(update_parts),
         ExpressionAttributeNames=attr_names,
@@ -227,19 +225,18 @@ def delete_template(template_id: str) -> bool:
     agent_type = template["agent_type"]
 
     # Cascade-delete all AgentConfigs referencing this agent_type
-    configs_table = get_table("AgentConfigs")
-    result = configs_table.scan(
+    dal = get_dal()
+    configs_result = dal.agent_configs._table.scan(
         FilterExpression="agent_type = :at",
         ExpressionAttributeValues={":at": agent_type},
     )
-    for item in result.get("Items", []):
-        configs_table.delete_item(
+    for item in configs_result.get("Items", []):
+        dal.agent_configs._table.delete_item(
             Key={"user_id": item["user_id"], "agent_type": item["agent_type"]}
         )
 
     # Delete the template itself
-    table = get_table("AgentTemplates")
-    table.delete_item(Key={"template_id": template_id})
+    dal.agent_templates.delete({"template_id": template_id})
     return True
 
 

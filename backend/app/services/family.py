@@ -1,11 +1,10 @@
 import logging
 from datetime import datetime, timezone
 
-from boto3.dynamodb.conditions import Key
-from botocore.exceptions import ClientError
 from ulid import ULID
 
-from app.models.dynamo import get_table
+from app.dal import get_dal
+from app.dal.exceptions import DuplicateEntityError
 
 logger = logging.getLogger(__name__)
 
@@ -15,35 +14,27 @@ def create_family(owner_user_id: str, family_name: str) -> dict:
 
     Returns the created family dict.
     """
+    dal = get_dal()
     family_id = str(ULID())
     now = datetime.now(timezone.utc).isoformat()
 
-    families_table = get_table("Families")
     try:
-        families_table.put_item(
-            Item={
+        dal.families.create(
+            {
                 "family_id": family_id,
                 "name": family_name,
                 "owner_user_id": owner_user_id,
                 "created_at": now,
-            },
-            ConditionExpression="attribute_not_exists(family_id)",
+            }
         )
-    except ClientError as e:
-        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-            raise ValueError("Family already exists (duplicate creation detected)")
-        raise
+    except DuplicateEntityError:
+        raise ValueError("Family already exists (duplicate creation detected)")
 
     # Add owner as first member
     add_member_to_family(family_id, owner_user_id, role="owner")
 
     # Update user record with family_id
-    users_table = get_table("Users")
-    users_table.update_item(
-        Key={"user_id": owner_user_id},
-        UpdateExpression="SET family_id = :fid",
-        ExpressionAttributeValues={":fid": family_id},
-    )
+    dal.users.update({"user_id": owner_user_id}, {"family_id": family_id})
 
     return {
         "family_id": family_id,
@@ -55,27 +46,20 @@ def create_family(owner_user_id: str, family_name: str) -> dict:
 
 def get_family(family_id: str) -> dict | None:
     """Get family details by family_id."""
-    families_table = get_table("Families")
-    item = families_table.get_item(Key={"family_id": family_id}).get("Item")
-    return item
+    dal = get_dal()
+    return dal.families.get_by_id({"family_id": family_id})
 
 
 def get_family_by_owner(owner_user_id: str) -> dict | None:
     """Get a family by owner user ID."""
-    families_table = get_table("Families")
-    result = families_table.query(
-        IndexName="owner-index",
-        KeyConditionExpression=Key("owner_user_id").eq(owner_user_id),
-        Limit=1,
-    )
-    items = result.get("Items", [])
-    return items[0] if items else None
+    dal = get_dal()
+    return dal.families.get_by_owner(owner_user_id)
 
 
 def get_user_family_id(user_id: str) -> str | None:
     """Get the family_id for a user from the Users table."""
-    users_table = get_table("Users")
-    user = users_table.get_item(Key={"user_id": user_id}).get("Item")
+    dal = get_dal()
+    user = dal.users.get_by_id({"user_id": user_id})
     if not user:
         return None
     return user.get("family_id")
@@ -83,17 +67,21 @@ def get_user_family_id(user_id: str) -> str | None:
 
 def get_family_members(family_id: str) -> list[dict]:
     """List all members of a family."""
-    members_table = get_table("FamilyMembers")
-    result = members_table.query(
-        KeyConditionExpression=Key("family_id").eq(family_id),
-    )
-    members = result.get("Items", [])
+    dal = get_dal()
+    result = dal.memberships.query_by_family(family_id)
+    members = result.items
 
-    # Enrich with user info
-    users_table = get_table("Users")
+    # Enrich with user info (batch get for efficiency)
+    user_ids = [m["user_id"] for m in members]
+    if user_ids:
+        users = dal.users.batch_get([{"user_id": uid} for uid in user_ids])
+        user_map = {u["user_id"]: u for u in users}
+    else:
+        user_map = {}
+
     enriched = []
     for member in members:
-        user = users_table.get_item(Key={"user_id": member["user_id"]}).get("Item")
+        user = user_map.get(member["user_id"])
         enriched.append(
             {
                 **member,
@@ -106,23 +94,18 @@ def get_family_members(family_id: str) -> list[dict]:
 
 def add_member_to_family(family_id: str, user_id: str, role: str = "member") -> dict:
     """Add a user to a family. Returns the membership record."""
+    dal = get_dal()
     now = datetime.now(timezone.utc).isoformat()
-    members_table = get_table("FamilyMembers")
     item = {
         "family_id": family_id,
         "user_id": user_id,
         "role": role,
         "joined_at": now,
     }
-    members_table.put_item(Item=item)
+    dal.memberships.create(item)
 
     # Update user record with family_id
-    users_table = get_table("Users")
-    users_table.update_item(
-        Key={"user_id": user_id},
-        UpdateExpression="SET family_id = :fid",
-        ExpressionAttributeValues={":fid": family_id},
-    )
+    dal.users.update({"user_id": user_id}, {"family_id": family_id})
 
     return item
 
@@ -137,35 +120,27 @@ def get_family_settings(family_id: str) -> dict:
 
 def update_family_settings(family_id: str, settings: dict) -> dict:
     """Update family settings. Merges with existing settings."""
+    dal = get_dal()
     allowed_keys = {"web_search_enabled"}
     filtered = {k: v for k, v in settings.items() if k in allowed_keys}
     if not filtered:
         raise ValueError(f"No valid settings provided. Allowed: {allowed_keys}")
 
-    families_table = get_table("Families")
-
     # Merge with existing
     current = get_family_settings(family_id)
     current.update(filtered)
 
-    families_table.update_item(
-        Key={"family_id": family_id},
-        UpdateExpression="SET settings = :s",
-        ExpressionAttributeValues={":s": current},
-    )
+    dal.families.update({"family_id": family_id}, {"settings": current})
     return current
 
 
 def remove_member_from_family(family_id: str, user_id: str) -> None:
     """Remove a member from a family."""
-    members_table = get_table("FamilyMembers")
-    members_table.delete_item(
-        Key={"family_id": family_id, "user_id": user_id},
-    )
+    dal = get_dal()
+    dal.memberships.delete_membership(family_id, user_id)
 
     # Remove family_id from user record
-    users_table = get_table("Users")
-    users_table.update_item(
+    dal.users._table.update_item(
         Key={"user_id": user_id},
         UpdateExpression="REMOVE family_id",
     )

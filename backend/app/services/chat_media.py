@@ -7,7 +7,7 @@ import boto3
 from flask import current_app
 from ulid import ULID
 
-from app.models.dynamo import get_table
+from app.dal import get_dal
 
 CHAT_MEDIA_MAX_PER_MESSAGE = 5
 UPLOAD_TTL_SECONDS = 3600  # 1 hour for orphaned uploads
@@ -40,15 +40,15 @@ def _get_presigned_s3_client() -> "boto3.client":
     presigned_endpoint = current_app.config.get("S3_PRESIGNED_ENDPOINT")
     if presigned_endpoint:
         if not presigned_endpoint.startswith(("http://", "https://")):
-            raise ValueError(f"S3_PRESIGNED_ENDPOINT must be an HTTP(S) URL, got: {presigned_endpoint}")
+            raise ValueError(
+                f"S3_PRESIGNED_ENDPOINT must be an HTTP(S) URL, got: {presigned_endpoint}"
+            )
         return boto3.client(
             "s3",
             region_name=current_app.config["AWS_REGION"],
             endpoint_url=presigned_endpoint,
             config=boto3.session.Config(s3={"addressing_style": "path"}),
-            aws_access_key_id=current_app.config.get(
-                "S3_ACCESS_KEY_ID", "local"
-            ),
+            aws_access_key_id=current_app.config.get("S3_ACCESS_KEY_ID", "local"),
             aws_secret_access_key=current_app.config.get(
                 "S3_SECRET_ACCESS_KEY", "locallocal"
             ),
@@ -56,9 +56,7 @@ def _get_presigned_s3_client() -> "boto3.client":
     return _get_s3_client()
 
 
-def create_upload(
-    user_id: str, content_type: str, file_size: int
-) -> dict:
+def create_upload(user_id: str, content_type: str, file_size: int) -> dict:
     """Create a chat media upload record and return a presigned PUT URL.
 
     Raises ValueError for invalid content type or file size.
@@ -81,13 +79,11 @@ def create_upload(
             f"Allowed: {', '.join(sorted(allowed_types))}"
         )
     if file_size > max_size:
-        raise ValueError(
-            f"File size {file_size} exceeds maximum of {max_size} bytes"
-        )
+        raise ValueError(f"File size {file_size} exceeds maximum of {max_size} bytes")
     if file_size <= 0:
         raise ValueError("File size must be positive")
 
-    table = get_table("ChatMedia")
+    dal = get_dal()
     now = datetime.now(timezone.utc)
     media_id = str(ULID())
 
@@ -98,6 +94,7 @@ def create_upload(
     prefix = "audio" if is_audio else "image"
     s3_key = f"chat-media/{user_id}/{media_id}/{prefix}.{ext}"
 
+    expires_at = int(time.time()) + UPLOAD_TTL_SECONDS
     item = {
         "media_id": media_id,
         "user_id": user_id,
@@ -106,9 +103,8 @@ def create_upload(
         "file_size": file_size,
         "status": "pending",
         "uploaded_at": now.isoformat(),
-        "expires_at": int(time.time()) + UPLOAD_TTL_SECONDS,
     }
-    table.put_item(Item=item)
+    dal.chat_media.create_with_ttl(item, expires_at=expires_at)
 
     # Generate presigned PUT URL (use presigned client for correct hostname)
     bucket = current_app.config["S3_HEALTH_DOCUMENTS_BUCKET"]
@@ -144,16 +140,15 @@ def upload_file_to_s3(media_id: str, file_data: bytes, content_type: str) -> Non
 
 def get_media(media_id: str) -> dict | None:
     """Get a chat media record by ID."""
-    table = get_table("ChatMedia")
-    result = table.get_item(Key={"media_id": media_id})
-    return result.get("Item")
+    dal = get_dal()
+    return dal.chat_media.get_by_id({"media_id": media_id})
 
 
 def mark_attached(media_id: str) -> bool:
     """Mark a media item as attached to a message. Returns True if successful."""
-    table = get_table("ChatMedia")
+    dal = get_dal()
     try:
-        table.update_item(
+        dal.chat_media._table.update_item(
             Key={"media_id": media_id},
             UpdateExpression="SET #s = :attached REMOVE expires_at",
             ExpressionAttributeNames={"#s": "status"},
@@ -161,13 +156,11 @@ def mark_attached(media_id: str) -> bool:
             ConditionExpression="attribute_exists(media_id)",
         )
         return True
-    except table.meta.client.exceptions.ConditionalCheckFailedException:
+    except dal.chat_media._table.meta.client.exceptions.ConditionalCheckFailedException:
         return False
 
 
-def resolve_media_for_message(
-    media_ids: list[str], user_id: str
-) -> list[dict]:
+def resolve_media_for_message(media_ids: list[str], user_id: str) -> list[dict]:
     """Resolve media IDs to S3 URIs for Bedrock. Validates ownership.
 
     Returns list of {s3_uri, content_type, format} dicts.

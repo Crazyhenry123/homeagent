@@ -1,7 +1,8 @@
 """Service for user storage provider configuration — stub for migration branch."""
+
 from datetime import datetime, timezone
 
-from app.models.dynamo import get_table
+from app.dal import get_dal
 
 VALID_PROVIDERS = {"local", "google_drive", "onedrive", "dropbox", "box"}
 
@@ -9,9 +10,8 @@ VALID_PROVIDERS = {"local", "google_drive", "onedrive", "dropbox", "box"}
 def get_storage_config(user_id: str) -> dict | None:
     """Get user's storage provider configuration."""
     try:
-        table = get_table("StorageConfig")
-        result = table.get_item(Key={"user_id": user_id})
-        return result.get("Item")
+        dal = get_dal()
+        return dal.storage_config.get_by_id({"user_id": user_id})
     except Exception:
         return None
 
@@ -23,7 +23,7 @@ def set_storage_config(
     if provider not in VALID_PROVIDERS:
         raise ValueError(f"Invalid provider: {provider}")
 
-    table = get_table("StorageConfig")
+    dal = get_dal()
     now = datetime.now(timezone.utc).isoformat()
     item = {
         "user_id": user_id,
@@ -33,16 +33,16 @@ def set_storage_config(
         "connected_at": now,
         "updated_at": now,
     }
-    table.put_item(Item=item)
+    dal.storage_config._table.put_item(Item=item)
     return item
 
 
 def update_storage_status(user_id: str, status: str) -> dict | None:
     """Update the status field."""
-    table = get_table("StorageConfig")
+    dal = get_dal()
     now = datetime.now(timezone.utc).isoformat()
     try:
-        result = table.update_item(
+        result = dal.storage_config._table.update_item(
             Key={"user_id": user_id},
             UpdateExpression="SET #s = :s, updated_at = :u",
             ExpressionAttributeNames={"#s": "status"},
@@ -57,5 +57,5 @@ def update_storage_status(user_id: str, status: str) -> dict | None:
 
 def clear_storage_config(user_id: str) -> None:
     """Remove storage config (reverts to local)."""
-    table = get_table("StorageConfig")
-    table.delete_item(Key={"user_id": user_id})
+    dal = get_dal()
+    dal.storage_config.delete({"user_id": user_id})

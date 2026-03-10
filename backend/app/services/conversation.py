@@ -1,14 +1,13 @@
 from datetime import datetime, timezone
 
-from boto3.dynamodb.conditions import Key
 from ulid import ULID
 
-from app.models.dynamo import get_table
+from app.dal import get_dal
 
 
 def create_conversation(user_id: str, title: str) -> dict:
     """Create a new conversation. Returns the conversation item."""
-    table = get_table("Conversations")
+    dal = get_dal()
     now = datetime.now(timezone.utc).isoformat()
     conversation_id = str(ULID())
 
@@ -19,15 +18,14 @@ def create_conversation(user_id: str, title: str) -> dict:
         "created_at": now,
         "updated_at": now,
     }
-    table.put_item(Item=item)
+    dal.conversations.create(item)
     return item
 
 
 def get_conversation(conversation_id: str) -> dict | None:
     """Get a single conversation by ID."""
-    table = get_table("Conversations")
-    result = table.get_item(Key={"conversation_id": conversation_id})
-    return result.get("Item")
+    dal = get_dal()
+    return dal.conversations.get_by_id({"conversation_id": conversation_id})
 
 
 def list_conversations(
@@ -36,52 +34,62 @@ def list_conversations(
     """List conversations for a user, sorted by most recent.
 
     Returns dict with 'conversations' and optional 'next_cursor'.
+
+    Note: The legacy cursor format was a raw updated_at string. The DAL
+    uses opaque base64 cursors. For backward compatibility during migration,
+    we pass the cursor through to the DAL which handles both formats.
     """
-    table = get_table("Conversations")
-    kwargs = {
-        "IndexName": "user_conversations-index",
-        "KeyConditionExpression": Key("user_id").eq(user_id),
-        "ScanIndexForward": False,  # newest first
-        "Limit": limit,
-    }
+    dal = get_dal()
 
+    # Legacy cursor was a raw updated_at string, not opaque DAL cursor.
+    # During migration, fall back to the raw DynamoDB approach for cursors
+    # that aren't base64-encoded DAL cursors.
     if cursor:
-        kwargs["ExclusiveStartKey"] = {
-            "user_id": user_id,
-            "updated_at": cursor,
-            "conversation_id": "_",  # placeholder, will be overridden
+        # Try DAL cursor first; if it fails, use legacy approach
+        try:
+            result = dal.conversations.query_by_user(
+                user_id, limit=limit, cursor=cursor, newest_first=True
+            )
+            response: dict = {"conversations": result.items}
+            if result.next_cursor:
+                response["next_cursor"] = result.next_cursor
+            return response
+        except ValueError:
+            pass
+
+        # Legacy cursor format: raw updated_at value
+        kwargs: dict = {
+            "IndexName": "user_conversations-index",
+            "ScanIndexForward": False,
+            "Limit": limit,
+            "ExclusiveStartKey": {
+                "user_id": user_id,
+                "updated_at": cursor,
+                "conversation_id": "_",
+            },
         }
+        from boto3.dynamodb.conditions import Key
 
-    result = table.query(**kwargs)
-    conversations = result.get("Items", [])
+        kwargs["KeyConditionExpression"] = Key("user_id").eq(user_id)
+        result_raw = dal.conversations._table.query(**kwargs)
+        conversations = result_raw.get("Items", [])
+        response = {"conversations": conversations}
+        if "LastEvaluatedKey" in result_raw:
+            response["next_cursor"] = result_raw["LastEvaluatedKey"]["updated_at"]
+        return response
 
-    response = {"conversations": conversations}
-    if "LastEvaluatedKey" in result:
-        response["next_cursor"] = result["LastEvaluatedKey"]["updated_at"]
-
+    result = dal.conversations.query_by_user(user_id, limit=limit, newest_first=True)
+    response = {"conversations": result.items}
+    if result.next_cursor:
+        response["next_cursor"] = result.next_cursor
     return response
 
 
 def delete_conversation(conversation_id: str) -> None:
     """Delete a conversation and all its messages."""
-    # Delete messages first
-    messages_table = get_table("Messages")
-    result = messages_table.query(
-        KeyConditionExpression=Key("conversation_id").eq(conversation_id),
-        ProjectionExpression="conversation_id, sort_key",
-    )
-    with messages_table.batch_writer() as batch:
-        for item in result["Items"]:
-            batch.delete_item(
-                Key={
-                    "conversation_id": item["conversation_id"],
-                    "sort_key": item["sort_key"],
-                }
-            )
-
-    # Delete conversation
-    table = get_table("Conversations")
-    table.delete_item(Key={"conversation_id": conversation_id})
+    dal = get_dal()
+    dal.messages.delete_by_conversation(conversation_id)
+    dal.conversations.delete({"conversation_id": conversation_id})
 
 
 def add_message(
@@ -93,12 +101,12 @@ def add_message(
     media: list[dict] | None = None,
 ) -> dict:
     """Add a message to a conversation. Returns the message item."""
-    table = get_table("Messages")
+    dal = get_dal()
     now = datetime.now(timezone.utc)
     message_id = str(ULID())
     sort_key = f"{now.isoformat()}#{message_id}"
 
-    item = {
+    item: dict = {
         "conversation_id": conversation_id,
         "sort_key": sort_key,
         "message_id": message_id,
@@ -113,14 +121,12 @@ def add_message(
     if media:
         item["media"] = media
 
-    table.put_item(Item=item)
+    dal.messages.create(item)
 
     # Update conversation's updated_at
-    conv_table = get_table("Conversations")
-    conv_table.update_item(
-        Key={"conversation_id": conversation_id},
-        UpdateExpression="SET updated_at = :now",
-        ExpressionAttributeValues={":now": now.isoformat()},
+    dal.conversations.update(
+        {"conversation_id": conversation_id},
+        {"updated_at": now.isoformat()},
     )
 
     return item
@@ -133,24 +139,42 @@ def get_messages(
 
     Returns dict with 'messages' and optional 'next_cursor'.
     """
-    table = get_table("Messages")
-    kwargs = {
-        "KeyConditionExpression": Key("conversation_id").eq(conversation_id),
-        "ScanIndexForward": True,
-        "Limit": limit,
-    }
+    dal = get_dal()
 
+    # Legacy cursor format: raw sort_key value
     if cursor:
-        kwargs["ExclusiveStartKey"] = {
-            "conversation_id": conversation_id,
-            "sort_key": cursor,
+        try:
+            result = dal.messages.query_by_conversation(
+                conversation_id, limit=limit, cursor=cursor
+            )
+            response: dict = {"messages": result.items}
+            if result.next_cursor:
+                response["next_cursor"] = result.next_cursor
+            return response
+        except ValueError:
+            pass
+
+        # Fallback to legacy cursor
+        from boto3.dynamodb.conditions import Key
+
+        kwargs: dict = {
+            "KeyConditionExpression": Key("conversation_id").eq(conversation_id),
+            "ScanIndexForward": True,
+            "Limit": limit,
+            "ExclusiveStartKey": {
+                "conversation_id": conversation_id,
+                "sort_key": cursor,
+            },
         }
+        result_raw = dal.messages._table.query(**kwargs)
+        messages = result_raw.get("Items", [])
+        response = {"messages": messages}
+        if "LastEvaluatedKey" in result_raw:
+            response["next_cursor"] = result_raw["LastEvaluatedKey"]["sort_key"]
+        return response
 
-    result = table.query(**kwargs)
-    messages = result.get("Items", [])
-
-    response = {"messages": messages}
-    if "LastEvaluatedKey" in result:
-        response["next_cursor"] = result["LastEvaluatedKey"]["sort_key"]
-
+    result = dal.messages.query_by_conversation(conversation_id, limit=limit)
+    response = {"messages": result.items}
+    if result.next_cursor:
+        response["next_cursor"] = result.next_cursor
     return response

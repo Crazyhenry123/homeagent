@@ -8,7 +8,7 @@ each member's agent system prompt so the agent has family awareness.
 import logging
 from datetime import datetime, timezone
 
-from app.models.dynamo import get_table
+from app.dal import get_dal
 from app.services.profile import get_profile
 
 logger = logging.getLogger(__name__)
@@ -28,9 +28,8 @@ def get_sharing_config(user_id: str) -> dict:
 
     Returns the stored config or defaults if none exists.
     """
-    table = get_table("MemorySharingConfig")
-    result = table.get_item(Key={"user_id": user_id})
-    item = result.get("Item")
+    dal = get_dal()
+    item = dal.memory_sharing_config.get_by_id({"user_id": user_id})
     if not item:
         return {"user_id": user_id, **DEFAULT_SHARING_CONFIG}
     return item
@@ -58,7 +57,7 @@ def update_sharing_config(user_id: str, updates: dict) -> dict:
         if filtered["sharing_level"] not in ("none", "basic", "full"):
             raise ValueError("sharing_level must be 'none', 'basic', or 'full'")
 
-    table = get_table("MemorySharingConfig")
+    dal = get_dal()
     now = datetime.now(timezone.utc).isoformat()
     filtered["updated_at"] = now
 
@@ -66,18 +65,19 @@ def update_sharing_config(user_id: str, updates: dict) -> dict:
     existing = get_sharing_config(user_id)
     existing.update(filtered)
     existing["user_id"] = user_id
-    table.put_item(Item=existing)
+    dal.memory_sharing_config._table.put_item(Item=existing)
     return existing
 
 
 def _get_family_member_ids(user_id: str) -> list[str]:
     """Get all family member user_ids for the same family as user_id."""
-    table = get_table("FamilyMembers")
+    dal = get_dal()
 
     # Scan FamilyMembers to find this user's family_id
     # (FamilyMembers has composite key: family_id HASH, user_id RANGE)
     from boto3.dynamodb.conditions import Attr
 
+    table = dal.memberships._table
     result = table.scan(FilterExpression=Attr("user_id").eq(user_id))
     items = result.get("Items", [])
     while "LastEvaluatedKey" in result:
@@ -92,21 +92,8 @@ def _get_family_member_ids(user_id: str) -> list[str]:
     family_id = items[0]["family_id"]
 
     # Get all members of this family
-    from boto3.dynamodb.conditions import Key
-
-    members_result = table.query(
-        KeyConditionExpression=Key("family_id").eq(family_id)
-    )
-    all_members = list(members_result.get("Items", []))
-    while "LastEvaluatedKey" in members_result:
-        members_result = table.query(
-            KeyConditionExpression=Key("family_id").eq(family_id),
-            ExclusiveStartKey=members_result["LastEvaluatedKey"],
-        )
-        all_members.extend(members_result.get("Items", []))
-    member_ids = [
-        m["user_id"] for m in all_members if m["user_id"] != user_id
-    ]
+    members_result = dal.memberships.query_by_family(family_id)
+    member_ids = [m["user_id"] for m in members_result.items if m["user_id"] != user_id]
     return member_ids
 
 
