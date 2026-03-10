@@ -25,6 +25,7 @@ class ServiceStack(cdk.Stack):
         agentcore_memory_id: str | None = None,
         agentcore_family_memory_id: str | None = None,
         agentcore_member_memory_id: str | None = None,
+        agentcore_runtime_arn: str | None = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, id, **kwargs)
@@ -76,6 +77,7 @@ class ServiceStack(cdk.Stack):
                 **({"AGENTCORE_MEMORY_ID": agentcore_memory_id} if agentcore_memory_id else {}),
                 **({"AGENTCORE_FAMILY_MEMORY_ID": agentcore_family_memory_id} if agentcore_family_memory_id else {}),
                 **({"AGENTCORE_MEMBER_MEMORY_ID": agentcore_member_memory_id} if agentcore_member_memory_id else {}),
+                **({"AGENTCORE_RUNTIME_ARN": agentcore_runtime_arn} if agentcore_runtime_arn else {}),
             },
             health_check=ecs.HealthCheck(
                 command=[

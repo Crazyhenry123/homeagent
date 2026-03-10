@@ -81,11 +81,14 @@ def _get_agentcore_chat_stream(
     runtime_client = AgentCoreRuntimeClient(
         agent_id=cfg.AGENTCORE_ORCHESTRATOR_AGENT_ID or "orchestrator",
         region=cfg.AWS_REGION,
+        agent_runtime_arn=cfg.AGENTCORE_RUNTIME_ARN,
+        model_id=cfg.BEDROCK_MODEL_ID,
     )
     agent_mgmt = AgentManagementClient(region=cfg.AWS_REGION)
     memory_manager = AgentCoreMemoryManager(
         family_memory_id=cfg.AGENTCORE_FAMILY_MEMORY_ID or "family-mem",
         member_memory_id=cfg.AGENTCORE_MEMBER_MEMORY_ID or "member-mem",
+        region=cfg.AWS_REGION,
     )
 
     # --- Per-family isolation path ---
@@ -279,6 +282,7 @@ def chat():
                     )
                 except Exception:
                     import logging
+
                     logging.getLogger(__name__).warning(
                         "Audio transcription failed, sending as untranscribed",
                         exc_info=True,
@@ -337,7 +341,9 @@ def chat():
         full_content = ""
         total_tokens = 0
 
-        for chunk in _get_chat_stream(messages, g.user_id, conversation_id, images, is_voice_message):
+        for chunk in _get_chat_stream(
+            messages, g.user_id, conversation_id, images, is_voice_message
+        ):
             if chunk["type"] == "text_delta":
                 event_data = json.dumps(
                     {

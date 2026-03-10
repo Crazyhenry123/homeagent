@@ -37,6 +37,7 @@ class HomeAgentStage(cdk.Stage):
             agentcore_memory_id=agentcore.family_memory_id,
             agentcore_family_memory_id=agentcore.family_memory_id,
             agentcore_member_memory_id=agentcore.member_memory_id,
+            agentcore_runtime_arn=agentcore.agent_runtime_arn,
         )
         self.webui_stack = WebUiStack(
             self,

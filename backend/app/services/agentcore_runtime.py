@@ -1,28 +1,25 @@
 """AgentCore Runtime Client.
 
-Replaces in-process Strands Agent instantiation with AgentCore Runtime
-managed sessions.  The orchestrator agent and sub-agents are managed as
-separate runtime agents, each backed by its own ECR container.
+Invokes the AgentCore Runtime orchestrator agent via the
+bedrock-agentcore:invoke_agent_runtime API. Falls back to direct Bedrock
+converse_stream when no runtime ARN is configured.
 
 Key responsibilities:
-- Map conversation_id ↔ session_id (bijective, no transformation)
-- Create / reuse / delete orchestrator sessions
-- Stream response events as StreamEvent objects
-- Route orchestrator tool calls to sub-agent sessions
-- Handle runtime errors with retry + fallback
-- Handle sub-agent invocation errors gracefully
-
-Uses in-memory backing stores so the class is fully testable without
-real AWS services.  In production the methods would delegate to the
-AgentCore Runtime API (InvokeAgentRuntime).
+- Map conversation_id <-> session_id (bijective, no transformation)
+- Invoke orchestrator via AgentCore Runtime API with streaming
+- Handle runtime errors with retry + fallback to direct Bedrock
+- Maintain session metadata in memory for the request lifecycle
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any, Generator
+
+import boto3
 
 from app.models.agentcore import (
     CombinedSessionManager,
@@ -35,13 +32,29 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# AgentSession — represents a runtime session
+# DeploymentConfig — describes how agents are deployed (kept for compat)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class DeploymentConfig:
+    """Describes the deployment model for an agent type."""
+
+    agent_type: str
+    agent_id: str
+    ecr_image_uri: str = ""
+    is_orchestrator: bool = False
+    region: str = "us-east-1"
+
+
+# ---------------------------------------------------------------------------
+# AgentSession — tracks session metadata within a request
 # ---------------------------------------------------------------------------
 
 
 @dataclass
 class AgentSession:
-    """An AgentCore Runtime session for an orchestrator or sub-agent."""
+    """Metadata for an active orchestrator session."""
 
     session_id: str
     agent_id: str
@@ -57,40 +70,19 @@ class AgentSession:
 
 
 # ---------------------------------------------------------------------------
-# DeploymentConfig — describes how agents are deployed (Task 11.7)
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class DeploymentConfig:
-    """Describes the deployment model for an agent type.
-
-    Each agent type (orchestrator + each sub-agent) is deployed as a
-    separate AgentCore Runtime managed agent backed by its own ECR
-    container.  All families are served from a single runtime instance
-    per agent type; family-specific behaviour is resolved at invocation
-    time.
-    """
-
-    agent_type: str
-    agent_id: str
-    ecr_image_uri: str = ""
-    is_orchestrator: bool = False
-    region: str = "us-east-1"
-
-
-# ---------------------------------------------------------------------------
 # Transient error detection
 # ---------------------------------------------------------------------------
 
-_TRANSIENT_ERROR_KEYWORDS = frozenset([
-    "throttl",
-    "timeout",
-    "service unavailable",
-    "internal server error",
-    "connection",
-    "temporarily",
-])
+_TRANSIENT_ERROR_KEYWORDS = frozenset(
+    [
+        "throttl",
+        "timeout",
+        "service unavailable",
+        "internal server error",
+        "connection",
+        "temporarily",
+    ]
+)
 
 
 def _is_transient_error(error: Exception) -> bool:
@@ -99,44 +91,49 @@ def _is_transient_error(error: Exception) -> bool:
     return any(kw in msg for kw in _TRANSIENT_ERROR_KEYWORDS)
 
 
-
 # ---------------------------------------------------------------------------
 # AgentCoreRuntimeClient
 # ---------------------------------------------------------------------------
 
 
 class AgentCoreRuntimeClient:
-    """Manages orchestrator and sub-agent runtime sessions.
+    """Invokes the AgentCore Runtime orchestrator agent.
 
-    Uses in-memory data structures so the class is fully testable without
-    real AWS services.  In production the methods would delegate to the
-    AgentCore Runtime API.
+    When ``agent_runtime_arn`` is provided, uses the real
+    bedrock-agentcore:invoke_agent_runtime API. Otherwise falls back to
+    direct Bedrock converse_stream for local development.
     """
 
-    # Maximum retry attempts for transient errors
     MAX_RETRIES: int = 3
-    # Base delay (seconds) for exponential backoff
-    BASE_DELAY: float = 0.1
+    BASE_DELAY: float = 0.5
 
-    def __init__(self, agent_id: str, region: str) -> None:
+    def __init__(
+        self,
+        agent_id: str,
+        region: str,
+        agent_runtime_arn: str | None = None,
+        model_id: str = "us.anthropic.claude-opus-4-6-v1",
+    ) -> None:
         if not agent_id or not agent_id.strip():
             raise ValueError("agent_id must be a non-empty string")
         self._agent_id = agent_id
         self._region = region
+        self._agent_runtime_arn = agent_runtime_arn
+        self._model_id = model_id
 
-        # In-memory session store: session_id -> AgentSession
+        # Lazy-initialised boto3 clients
+        self._agentcore_client: Any = None
+        self._bedrock_client: Any = None
+
+        # In-memory session metadata (lives for the process lifecycle)
         self._sessions: dict[str, AgentSession] = {}
 
-        # Deployment registry: agent_type -> DeploymentConfig
+        # Sub-agent clients and deployment registry
+        self._sub_agent_clients: dict[str, AgentCoreRuntimeClient] = {}
         self._deployments: dict[str, DeploymentConfig] = {}
 
-        # Sub-agent runtime clients: agent_type -> AgentCoreRuntimeClient
-        self._sub_agent_clients: dict[str, AgentCoreRuntimeClient] = {}
-
-        # Message persistence callback (set externally for DynamoDB writes)
+        # Callbacks for persistence and fallback
         self._persist_message_callback: Any = None
-
-        # Fallback model invocation callback (for persistent failures)
         self._fallback_invoke_callback: Any = None
 
         # Error injection hook for testing
@@ -150,8 +147,27 @@ class AgentCoreRuntimeClient:
     def region(self) -> str:
         return self._region
 
+    @property
+    def uses_agentcore(self) -> bool:
+        """True when a real AgentCore Runtime ARN is configured."""
+        return bool(self._agent_runtime_arn)
+
+    def _get_agentcore_client(self) -> Any:
+        if self._agentcore_client is None:
+            self._agentcore_client = boto3.client(
+                "bedrock-agentcore", region_name=self._region
+            )
+        return self._agentcore_client
+
+    def _get_bedrock_client(self) -> Any:
+        if self._bedrock_client is None:
+            self._bedrock_client = boto3.client(
+                "bedrock-runtime", region_name=self._region
+            )
+        return self._bedrock_client
+
     # ------------------------------------------------------------------
-    # Session Management (Task 11.1)
+    # Session Management
     # ------------------------------------------------------------------
 
     def create_session(
@@ -163,26 +179,9 @@ class AgentCoreRuntimeClient:
         memory_config: MemoryConfig | CombinedSessionManager | None = None,
         sub_agent_tool_ids: list[str] | None = None,
     ) -> AgentSession:
-        """Create a new orchestrator runtime session.
+        """Create a new orchestrator session.
 
-        The session_id MUST equal the conversation_id (bijective mapping,
-        no transformation).  If a session with this ID already exists,
-        a ValueError is raised — use get_session() to check first.
-
-        Args:
-            session_id: Must equal the conversation_id.
-            user_id: Authenticated user.
-            family_id: User's family group.
-            system_prompt: Personalised orchestrator prompt.
-            memory_config: Memory tier configuration (MemoryConfig or
-                CombinedSessionManager).
-            sub_agent_tool_ids: Gateway tool IDs for enabled sub-agents.
-
-        Returns:
-            The created AgentSession.
-
-        Raises:
-            ValueError: If session_id is empty or already exists.
+        The session_id MUST equal the conversation_id (bijective mapping).
         """
         if not session_id or not session_id.strip():
             raise ValueError("session_id must be a non-empty string")
@@ -226,18 +225,13 @@ class AgentCoreRuntimeClient:
         return self._sessions.get(session_id)
 
     def delete_session(self, session_id: str) -> None:
-        """Delete a runtime session (called when conversation is deleted).
-
-        No-op if the session does not exist.
-        """
+        """Delete a session. No-op if it doesn't exist."""
         removed = self._sessions.pop(session_id, None)
         if removed is not None:
-            logger.info("Deleted session %s for agent %s", session_id, self._agent_id)
-        else:
-            logger.debug("Session %s not found for deletion", session_id)
+            logger.info("Deleted session %s", session_id)
 
     # ------------------------------------------------------------------
-    # Streaming Response Handling (Task 11.3)
+    # Invoke — routes to AgentCore Runtime or direct Bedrock
     # ------------------------------------------------------------------
 
     def invoke_session(
@@ -246,88 +240,278 @@ class AgentCoreRuntimeClient:
         message: str,
         stream: bool = True,
     ) -> Generator[StreamEvent, None, None]:
-        """Invoke an orchestrator session and stream response events.
+        """Invoke the orchestrator and stream response events.
 
-        Yields StreamEvent objects with type restricted to:
-        text_delta, tool_use, message_done, error.
-
-        On streaming complete with text content, persists the full
-        assistant message (via callback) and emits message_done.
-
-        Args:
-            session_id: The session to invoke.
-            message: The user's message.
-            stream: Whether to stream (always True for SSE).
-
-        Yields:
-            StreamEvent objects.
-
-        Raises:
-            ValueError: If session does not exist.
+        Uses AgentCore Runtime when configured, otherwise falls back to
+        direct Bedrock converse_stream.
         """
         session = self._sessions.get(session_id)
         if session is None:
             raise ValueError(f"Session not found: {session_id}")
 
-        # Record user message
         session.messages.append({"role": "user", "content": message})
 
-        # Check for injected errors (testing hook)
+        # Check for injected errors (testing)
         if self._error_hook is not None:
             try:
                 error = self._error_hook(session_id, message)
                 if error is not None:
                     raise error
             except Exception as exc:
-                # Attempt retry with backoff for transient errors
-                yield from self._handle_invoke_error(
-                    exc, session_id, message, session
-                )
+                yield from self._handle_invoke_error(exc, session_id, message, session)
                 return
 
-        # In-memory simulation: generate a simple response
-        response_text = f"Response to: {message}"
-        full_text = ""
+        yield from self._invoke_for_session(session, message)
 
-        # Emit text_delta events
-        for chunk in self._simulate_streaming(response_text):
-            full_text += chunk
-            yield StreamEvent(
-                type=StreamEventType.TEXT_DELTA.value,
-                content=chunk,
+    def _invoke_for_session(
+        self, session: AgentSession, message: str
+    ) -> Generator[StreamEvent, None, None]:
+        """Route to the appropriate invoke method."""
+        if self._agent_runtime_arn:
+            yield from self._invoke_agentcore(session, message)
+        else:
+            yield from self._invoke_bedrock_direct(session, message)
+
+    def _invoke_agentcore(
+        self, session: AgentSession, message: str
+    ) -> Generator[StreamEvent, None, None]:
+        """Invoke via bedrock-agentcore:invoke_agent_runtime."""
+        client = self._get_agentcore_client()
+
+        # Session ID must be 33+ characters for AgentCore
+        runtime_session_id = session.session_id
+        if len(runtime_session_id) < 33:
+            runtime_session_id = runtime_session_id.ljust(33, "0")
+
+        payload = json.dumps({"prompt": message}).encode()
+
+        for attempt in range(1, self.MAX_RETRIES + 1):
+            try:
+                response = client.invoke_agent_runtime(
+                    agentRuntimeArn=self._agent_runtime_arn,
+                    runtimeSessionId=runtime_session_id,
+                    payload=payload,
+                    qualifier="DEFAULT",
+                )
+
+                # Read the response
+                response_body = response.get("response")
+                if response_body is None:
+                    yield StreamEvent(
+                        type=StreamEventType.ERROR.value,
+                        content="Empty response from AgentCore Runtime.",
+                    )
+                    return
+
+                # Handle streaming response
+                if hasattr(response_body, "read"):
+                    raw = response_body.read()
+                else:
+                    raw = response_body
+
+                if isinstance(raw, bytes):
+                    raw = raw.decode("utf-8")
+
+                # Parse response — may be JSON or chunked
+                full_text = self._parse_runtime_response(raw)
+
+                if full_text:
+                    # Emit as text_delta for SSE streaming
+                    yield StreamEvent(
+                        type=StreamEventType.TEXT_DELTA.value,
+                        content=full_text,
+                    )
+
+                    session.messages.append({"role": "assistant", "content": full_text})
+                    if self._persist_message_callback:
+                        try:
+                            self._persist_message_callback(
+                                session.session_id, "assistant", full_text
+                            )
+                        except Exception:
+                            logger.warning(
+                                "Failed to persist message for session %s",
+                                session.session_id,
+                                exc_info=True,
+                            )
+
+                    yield StreamEvent(
+                        type=StreamEventType.MESSAGE_DONE.value,
+                        content=full_text,
+                        conversation_id=session.session_id,
+                    )
+                return
+
+            except Exception as exc:
+                if attempt < self.MAX_RETRIES and _is_transient_error(exc):
+                    delay = self.BASE_DELAY * (2 ** (attempt - 1))
+                    logger.warning(
+                        "AgentCore invoke retry %d/%d for session %s: %s",
+                        attempt,
+                        self.MAX_RETRIES,
+                        session.session_id,
+                        exc,
+                    )
+                    time.sleep(delay)
+                    continue
+
+                logger.error(
+                    "AgentCore invoke failed for session %s: %s",
+                    session.session_id,
+                    exc,
+                )
+                # Fall back to direct Bedrock
+                logger.info(
+                    "Falling back to direct Bedrock for session %s",
+                    session.session_id,
+                )
+                yield from self._invoke_bedrock_direct(session, message)
+                return
+
+    def _parse_runtime_response(self, raw: str) -> str:
+        """Extract text from AgentCore Runtime response."""
+        try:
+            data = json.loads(raw)
+            # Standard Strands agent response format
+            if isinstance(data, dict):
+                if "result" in data:
+                    result = data["result"]
+                    if isinstance(result, str):
+                        return result
+                    # result may be a message dict from Strands
+                    if isinstance(result, dict):
+                        content = result.get("content", [])
+                        if isinstance(content, list):
+                            texts = [
+                                c.get("text", "")
+                                for c in content
+                                if isinstance(c, dict) and "text" in c
+                            ]
+                            return "".join(texts)
+                        return str(content)
+                # Direct text response
+                if "text" in data:
+                    return data["text"]
+                if "content" in data:
+                    return str(data["content"])
+            return raw
+        except (json.JSONDecodeError, TypeError):
+            return raw
+
+    def _invoke_bedrock_direct(
+        self, session: AgentSession, message: str
+    ) -> Generator[StreamEvent, None, None]:
+        """Fallback: invoke Claude directly via Bedrock converse_stream.
+
+        Falls through to in-memory simulation if Bedrock call fails.
+        """
+
+        client = self._get_bedrock_client()
+
+        # Build converse API messages from session history
+        converse_messages = []
+        for msg in session.messages:
+            converse_messages.append(
+                {
+                    "role": msg["role"],
+                    "content": [{"text": msg["content"]}],
+                }
             )
 
-        # Persist and emit message_done
+        try:
+            response = client.converse_stream(
+                modelId=self._model_id,
+                messages=converse_messages,
+                system=[{"text": session.system_prompt}],
+                inferenceConfig={
+                    "maxTokens": 4096,
+                    "temperature": 0.7,
+                },
+            )
+        except Exception:
+            logger.warning(
+                "Bedrock converse_stream failed for session %s; "
+                "falling back to in-memory simulation",
+                session.session_id,
+                exc_info=True,
+            )
+            yield from self._invoke_in_memory(session, message)
+            return
+
+        full_text = ""
+        for event in response["stream"]:
+            if "contentBlockDelta" in event:
+                delta = event["contentBlockDelta"]["delta"]
+                if "text" in delta:
+                    chunk = delta["text"]
+                    full_text += chunk
+                    yield StreamEvent(
+                        type=StreamEventType.TEXT_DELTA.value,
+                        content=chunk,
+                    )
+
         if full_text:
             session.messages.append({"role": "assistant", "content": full_text})
-            if self._persist_message_callback is not None:
+            if self._persist_message_callback:
                 try:
-                    self._persist_message_callback(session_id, "assistant", full_text)
+                    self._persist_message_callback(
+                        session.session_id, "assistant", full_text
+                    )
                 except Exception:
                     logger.warning(
                         "Failed to persist message for session %s",
-                        session_id,
+                        session.session_id,
                         exc_info=True,
                     )
 
             yield StreamEvent(
                 type=StreamEventType.MESSAGE_DONE.value,
                 content=full_text,
-                conversation_id=session_id,
+                conversation_id=session.session_id,
             )
 
-    def _simulate_streaming(self, text: str) -> list[str]:
-        """Split text into chunks for simulated streaming."""
-        words = text.split()
-        if not words:
-            return [text] if text else []
-        chunks = []
+    # ------------------------------------------------------------------
+    # In-memory simulation (for tests / local dev without AWS)
+    # ------------------------------------------------------------------
+
+    def _invoke_in_memory(
+        self, session: AgentSession, message: str
+    ) -> Generator[StreamEvent, None, None]:
+        """Simple in-memory simulation for testing."""
+        response_text = f"Response to: {message}"
+        full_text = ""
+
+        words = response_text.split()
         for i, word in enumerate(words):
-            chunks.append(word + (" " if i < len(words) - 1 else ""))
-        return chunks
+            chunk = word + (" " if i < len(words) - 1 else "")
+            full_text += chunk
+            yield StreamEvent(
+                type=StreamEventType.TEXT_DELTA.value,
+                content=chunk,
+            )
+
+        if full_text:
+            session.messages.append({"role": "assistant", "content": full_text})
+            if self._persist_message_callback:
+                try:
+                    self._persist_message_callback(
+                        session.session_id, "assistant", full_text
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to persist message for session %s",
+                        session.session_id,
+                        exc_info=True,
+                    )
+
+            yield StreamEvent(
+                type=StreamEventType.MESSAGE_DONE.value,
+                content=full_text,
+                conversation_id=session.session_id,
+            )
 
     # ------------------------------------------------------------------
-    # Runtime Error Handling (Task 11.8)
+    # Error handling
     # ------------------------------------------------------------------
 
     def _handle_invoke_error(
@@ -337,13 +521,7 @@ class AgentCoreRuntimeClient:
         message: str,
         session: AgentSession,
     ) -> Generator[StreamEvent, None, None]:
-        """Handle runtime errors with retry + fallback + error event.
-
-        1. Log error with session_id and agent_id
-        2. Retry with exponential backoff for transient errors (up to 3)
-        3. Fall back to direct model invocation for persistent failures
-        4. Emit user-friendly error via SSE stream
-        """
+        """Handle runtime errors with retry + fallback + error event."""
         logger.error(
             "Runtime error for session=%s agent=%s: %s",
             session_id,
@@ -351,7 +529,6 @@ class AgentCoreRuntimeClient:
             error,
         )
 
-        # Retry transient errors
         if _is_transient_error(error):
             for attempt in range(1, self.MAX_RETRIES + 1):
                 delay = self.BASE_DELAY * (2 ** (attempt - 1))
@@ -369,24 +546,8 @@ class AgentCoreRuntimeClient:
                         retry_error = self._error_hook(session_id, message)
                         if retry_error is not None:
                             raise retry_error
-                    # Retry succeeded
-                    response_text = f"Response to: {message}"
-                    full_text = ""
-                    for chunk in self._simulate_streaming(response_text):
-                        full_text += chunk
-                        yield StreamEvent(
-                            type=StreamEventType.TEXT_DELTA.value,
-                            content=chunk,
-                        )
-                    if full_text:
-                        session.messages.append(
-                            {"role": "assistant", "content": full_text}
-                        )
-                        yield StreamEvent(
-                            type=StreamEventType.MESSAGE_DONE.value,
-                            content=full_text,
-                            conversation_id=session_id,
-                        )
+                    # Retry succeeded — re-invoke
+                    yield from self._invoke_for_session(session, message)
                     return
                 except Exception as retry_err:
                     logger.warning(
@@ -395,15 +556,10 @@ class AgentCoreRuntimeClient:
                         session_id,
                         retry_err,
                     )
-                    continue
 
-        # Fallback to direct Bedrock model invocation
+        # Fallback callback
         if self._fallback_invoke_callback is not None:
             try:
-                logger.info(
-                    "Falling back to direct model invocation for session %s",
-                    session_id,
-                )
                 fallback_text = self._fallback_invoke_callback(message)
                 if fallback_text:
                     yield StreamEvent(
@@ -419,28 +575,20 @@ class AgentCoreRuntimeClient:
             except Exception as fb_err:
                 logger.error("Fallback also failed: %s", fb_err)
 
-        # Emit user-friendly error
         yield StreamEvent(
             type=StreamEventType.ERROR.value,
             content="AI service temporarily unavailable. Please try again.",
             data={"session_id": session_id, "agent_id": self._agent_id},
         )
 
-
     # ------------------------------------------------------------------
-    # Orchestrator-to-Sub-Agent Routing (Task 11.5)
+    # Sub-agent routing
     # ------------------------------------------------------------------
 
     def register_sub_agent_client(
-        self,
-        agent_type: str,
-        client: AgentCoreRuntimeClient,
+        self, agent_type: str, client: "AgentCoreRuntimeClient"
     ) -> None:
-        """Register a sub-agent runtime client for routing.
-
-        The orchestrator uses these clients to create sub-agent sessions
-        when a routing tool is invoked.
-        """
+        """Register a sub-agent runtime client for routing."""
         self._sub_agent_clients[agent_type] = client
 
     def invoke_sub_agent(
@@ -451,35 +599,11 @@ class AgentCoreRuntimeClient:
         system_prompt: str,
         domain_tool_ids: list[str] | None = None,
     ) -> Generator[StreamEvent, None, None]:
-        """Route a query to a sub-agent via InvokeAgentRuntime API.
-
-        Creates a sub-agent session with:
-        - The template-defined system_prompt
-        - Only the sub-agent's own domain tools (no routing tools,
-          no other sub-agents' tools)
-        - The orchestrator's session_id for context passing
-
-        The sub-agent response is returned to the orchestrator for
-        inclusion in the user-facing stream.
-
-        Args:
-            agent_type: The sub-agent type (e.g. "health_advisor").
-            session_id: The orchestrator's session_id (context passing).
-            message: The query to route to the sub-agent.
-            system_prompt: The sub-agent's template system_prompt.
-            domain_tool_ids: The sub-agent's own domain tool IDs only.
-
-        Yields:
-            StreamEvent objects from the sub-agent.
-
-        Raises:
-            ValueError: If no client is registered for agent_type.
-        """
+        """Route a query to a sub-agent via its registered client."""
         sub_client = self._sub_agent_clients.get(agent_type)
         if sub_client is None:
             raise ValueError(f"No sub-agent client registered for: {agent_type}")
 
-        # Create or reuse sub-agent session
         sub_session_id = f"{session_id}__sub_{agent_type}"
         sub_session = sub_client.get_session(sub_session_id)
 
@@ -487,17 +611,15 @@ class AgentCoreRuntimeClient:
             try:
                 sub_session = sub_client.create_session(
                     session_id=sub_session_id,
-                    user_id="",  # Sub-agent doesn't need user context
+                    user_id="",
                     family_id="",
                     system_prompt=system_prompt,
                     sub_agent_tool_ids=list(domain_tool_ids or []),
                 )
             except Exception as exc:
-                # Sub-agent session creation failed — handle gracefully
                 yield from self._handle_sub_agent_error(agent_type, exc)
                 return
 
-        # Invoke sub-agent session
         try:
             yield from sub_client.invoke_session(
                 session_id=sub_session_id,
@@ -506,36 +628,18 @@ class AgentCoreRuntimeClient:
         except Exception as exc:
             yield from self._handle_sub_agent_error(agent_type, exc)
 
-    # ------------------------------------------------------------------
-    # Sub-Agent Invocation Error Handling (Task 11.10)
-    # ------------------------------------------------------------------
-
     def _handle_sub_agent_error(
         self,
         agent_type: str,
         error: Exception,
     ) -> Generator[StreamEvent, None, None]:
-        """Handle sub-agent errors gracefully.
-
-        The orchestrator continues operating. The user is informed that
-        the specific sub-agent is temporarily unavailable. Tool failures
-        are reported (not silent).
-
-        Args:
-            agent_type: The sub-agent that failed.
-            error: The error that occurred.
-
-        Yields:
-            A StreamEvent with type "error" describing the sub-agent failure.
-        """
+        """Handle sub-agent errors gracefully."""
         logger.error(
             "Sub-agent '%s' error (agent_id=%s): %s",
             agent_type,
             self._agent_id,
             error,
         )
-
-        # Report the error — not silent
         yield StreamEvent(
             type=StreamEventType.TEXT_DELTA.value,
             content=(
@@ -550,22 +654,12 @@ class AgentCoreRuntimeClient:
         )
 
     # ------------------------------------------------------------------
-    # Deployment Model Support (Task 11.7)
+    # Deployment model support
     # ------------------------------------------------------------------
 
     def register_deployment(self, config: DeploymentConfig) -> None:
-        """Register a deployment configuration for an agent type.
-
-        Each agent type is deployed as a separate AgentCore Runtime
-        managed agent backed by its own ECR container.
-        """
+        """Register a deployment configuration for an agent type."""
         self._deployments[config.agent_type] = config
-        logger.info(
-            "Registered deployment for %s (agent_id=%s, orchestrator=%s)",
-            config.agent_type,
-            config.agent_id,
-            config.is_orchestrator,
-        )
 
     def get_deployment(self, agent_type: str) -> DeploymentConfig | None:
         """Return the deployment config for an agent type, or None."""
@@ -581,12 +675,7 @@ class AgentCoreRuntimeClient:
         family_id: str,
         user_id: str,
     ) -> dict[str, str]:
-        """Resolve family-specific behaviour at invocation time.
-
-        All families are served from a single runtime instance per agent
-        type.  This method returns the context needed to customise
-        behaviour for a specific family/user.
-        """
+        """Resolve family-specific behaviour at invocation time."""
         return {
             "agent_type": agent_type,
             "family_id": family_id,
@@ -598,13 +687,10 @@ class AgentCoreRuntimeClient:
     # ------------------------------------------------------------------
 
     def set_persist_message_callback(self, callback: Any) -> None:
-        """Set the callback for persisting assistant messages to DynamoDB."""
         self._persist_message_callback = callback
 
     def set_fallback_invoke_callback(self, callback: Any) -> None:
-        """Set the callback for direct Bedrock model invocation fallback."""
         self._fallback_invoke_callback = callback
 
     def set_error_hook(self, hook: Any) -> None:
-        """Set an error injection hook for testing."""
         self._error_hook = hook

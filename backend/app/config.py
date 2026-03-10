@@ -77,6 +77,7 @@ class Config:
     BOX_CLIENT_SECRET: str = os.environ.get("BOX_CLIENT_SECRET", "")
 
     # AgentCore configuration
+    AGENTCORE_RUNTIME_ARN: str | None = os.environ.get("AGENTCORE_RUNTIME_ARN")
     AGENTCORE_ORCHESTRATOR_AGENT_ID: str | None = os.environ.get(
         "AGENTCORE_ORCHESTRATOR_AGENT_ID"
     )

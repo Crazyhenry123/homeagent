@@ -74,6 +74,17 @@ class SecurityStack(cdk.Stack):
             )
         )
 
+        # Bedrock AgentCore Runtime invocation permissions
+        # Uses "bedrock-agentcore" namespace for invoke_agent_runtime
+        self.task_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "bedrock-agentcore:InvokeAgentRuntime",
+                ],
+                resources=["*"],
+            )
+        )
+
         # Cognito permissions (token verification)
         self.task_role.add_to_policy(
             iam.PolicyStatement(
