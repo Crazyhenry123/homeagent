@@ -115,6 +115,12 @@ def _handle_create(client: "boto3.client", props: dict) -> dict:
         source_bucket, source_key, agent_name, region
     )
 
+    # Wait for IAM role propagation — CloudFormation may have just created the
+    # role in the same stack update.  AgentCore validates role permissions at
+    # creation time, so a freshly-created role may not be visible yet.
+    logger.info("Waiting 15s for IAM role propagation before creating runtime")
+    time.sleep(15)
+
     # Create the agent runtime with code configuration
     resp = client.create_agent_runtime(
         agentRuntimeName=agent_name,
