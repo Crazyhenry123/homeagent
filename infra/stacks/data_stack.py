@@ -21,13 +21,9 @@ class DataStack(cdk.Stack):
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=cdk.RemovalPolicy.RETAIN,
         )
-        self.tables["Users"].add_global_secondary_index(
-            index_name="email-index",
-            partition_key=dynamodb.Attribute(
-                name="email", type=dynamodb.AttributeType.STRING
-            ),
-            projection_type=dynamodb.ProjectionType.ALL,
-        )
+        # NOTE: Users email-index GSI already exists on the physical table
+        # but is not tracked by CloudFormation. Do NOT add it here or CFN will
+        # fail with "index already exists". The GSI was created out-of-band.
         self.tables["Users"].add_global_secondary_index(
             index_name="cognito_sub-index",
             partition_key=dynamodb.Attribute(
@@ -65,13 +61,9 @@ class DataStack(cdk.Stack):
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=cdk.RemovalPolicy.RETAIN,
         )
-        self.tables["InviteCodes"].add_global_secondary_index(
-            index_name="invited_email-index",
-            partition_key=dynamodb.Attribute(
-                name="invited_email", type=dynamodb.AttributeType.STRING
-            ),
-            projection_type=dynamodb.ProjectionType.ALL,
-        )
+        # NOTE: InviteCodes invited_email-index GSI already exists on the physical
+        # table but is not tracked by CloudFormation. Do NOT add it here or CFN
+        # will fail with "index already exists". The GSI was created out-of-band.
 
         # Conversations table
         self.tables["Conversations"] = dynamodb.Table(
