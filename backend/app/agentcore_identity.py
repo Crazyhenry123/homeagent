@@ -301,7 +301,7 @@ class AgentCoreIdentityMiddleware:
         if not device:
             return jsonify({"error": "Invalid token"}), 401
 
-        user = dal.users.get_by_id({"user_id": device["user_id"]})
+        user = dal.users.get_user(device["user_id"])
         if not user:
             return jsonify({"error": "User not found"}), 401
 

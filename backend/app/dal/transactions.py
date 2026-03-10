@@ -6,6 +6,7 @@ across multiple tables.
 
 from __future__ import annotations
 
+import decimal
 import logging
 import time
 from typing import Any
@@ -193,22 +194,7 @@ class TransactionHelper:
         """
         serialized: dict[str, Any] = {}
         for k, v in item.items():
-            if isinstance(v, str):
-                serialized[k] = {"S": v}
-            elif isinstance(v, bool):
-                serialized[k] = {"BOOL": v}
-            elif isinstance(v, (int, float)):
-                serialized[k] = {"N": str(v)}
-            elif v is None:
-                serialized[k] = {"NULL": True}
-            elif isinstance(v, list):
-                serialized[k] = {
-                    "L": [TransactionHelper._serialize_value(i) for i in v]
-                }
-            elif isinstance(v, dict):
-                serialized[k] = {"M": TransactionHelper._serialize_item(v)}
-            else:
-                serialized[k] = {"S": str(v)}
+            serialized[k] = TransactionHelper._serialize_value(v)
         return serialized
 
     @staticmethod
@@ -216,14 +202,26 @@ class TransactionHelper:
         """Serialize a single value for DynamoDB low-level format."""
         if isinstance(value, str):
             return {"S": value}
-        elif isinstance(value, bool):
+        if isinstance(value, bool):
             return {"BOOL": value}
-        elif isinstance(value, (int, float)):
+        if isinstance(value, decimal.Decimal):
             return {"N": str(value)}
-        elif value is None:
+        if isinstance(value, (int, float)):
+            return {"N": str(value)}
+        if value is None:
             return {"NULL": True}
-        elif isinstance(value, dict):
+        if isinstance(value, bytes):
+            return {"B": value}
+        if isinstance(value, set):
+            if all(isinstance(i, str) for i in value):
+                return {"SS": sorted(value)}
+            if all(isinstance(i, (int, float, decimal.Decimal)) for i in value):
+                return {"NS": [str(i) for i in value]}
+            raise TypeError(f"Unsupported set element types in: {value!r}")
+        if isinstance(value, dict):
             return {"M": TransactionHelper._serialize_item(value)}
-        elif isinstance(value, list):
+        if isinstance(value, list):
             return {"L": [TransactionHelper._serialize_value(i) for i in value]}
-        return {"S": str(value)}
+        raise TypeError(
+            f"Cannot serialize type {type(value).__name__} for DynamoDB: {value!r}"
+        )

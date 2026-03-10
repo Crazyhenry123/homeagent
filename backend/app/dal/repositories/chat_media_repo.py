@@ -22,6 +22,10 @@ class ChatMediaRepository(BaseRepository):
     def __init__(self, dynamodb_resource: Any, table_prefix: str = "") -> None:
         super().__init__(self.CONFIG, dynamodb_resource, table_prefix)
 
+    def get_media(self, media_id: str) -> dict[str, Any] | None:
+        """Get a single media record by media_id."""
+        return self.get_by_id({"media_id": media_id})
+
     def create_with_ttl(self, item: dict[str, Any], expires_at: int) -> dict[str, Any]:
         """Create a media record with a TTL expiration timestamp."""
         item = {**item, "expires_at": expires_at}

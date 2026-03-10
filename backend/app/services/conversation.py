@@ -25,7 +25,7 @@ def create_conversation(user_id: str, title: str) -> dict:
 def get_conversation(conversation_id: str) -> dict | None:
     """Get a single conversation by ID."""
     dal = get_dal()
-    return dal.conversations.get_by_id({"conversation_id": conversation_id})
+    return dal.conversations.get_conversation(conversation_id)
 
 
 def list_conversations(
@@ -41,9 +41,10 @@ def list_conversations(
     """
     dal = get_dal()
 
-    # Legacy cursor was a raw updated_at string, not opaque DAL cursor.
-    # During migration, fall back to the raw DynamoDB approach for cursors
-    # that aren't base64-encoded DAL cursors.
+    # TODO(DAL-migration): Remove legacy cursor fallback once all mobile
+    # clients (iOS 2.x+, Android 2.x+) send opaque DAL cursors.  The legacy
+    # format was a raw updated_at string returned directly from DynamoDB.
+    # Target removal: next major mobile release after DAL migration ships.
     if cursor:
         # Try DAL cursor first; if it fails, use legacy approach
         try:
@@ -57,7 +58,12 @@ def list_conversations(
         except ValueError:
             pass
 
-        # Legacy cursor format: raw updated_at value
+        # Legacy cursor format: raw updated_at value.
+        # ExclusiveStartKey requires all key attributes of the GSI
+        # projection; conversation_id is the table PK projected into the
+        # index.  We use "_" as a sentinel — DynamoDB will start scanning
+        # after this key position, which may skip the very first item that
+        # shares this updated_at value.  Acceptable during migration.
         kwargs: dict = {
             "IndexName": "user_conversations-index",
             "ScanIndexForward": False,

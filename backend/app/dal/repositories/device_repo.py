@@ -27,6 +27,10 @@ class DeviceRepository(BaseRepository):
     def __init__(self, dynamodb_resource: Any, table_prefix: str = "") -> None:
         super().__init__(self.CONFIG, dynamodb_resource, table_prefix)
 
+    def get_device(self, device_id: str) -> dict[str, Any] | None:
+        """Get a device by device_id."""
+        return self.get_by_id({"device_id": device_id})
+
     def get_by_token(self, device_token: str) -> dict[str, Any] | None:
         """Look up a device by its token via device_token-index GSI."""
         result = self.query(device_token, index_name="device_token-index", limit=1)

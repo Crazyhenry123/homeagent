@@ -321,7 +321,7 @@ class TestRequireAuth:
             }
 
             mock_dal.devices.get_by_token.return_value = device_item
-            mock_dal.users.get_by_id.return_value = user_item
+            mock_dal.users.get_user.return_value = user_item
 
             app = self._make_app_with_route(middleware)
             with app.test_client() as c:
@@ -362,7 +362,7 @@ class TestRequireAuth:
                 "device_token": "orphan-token",
             }
             mock_dal.devices.get_by_token.return_value = device_item
-            mock_dal.users.get_by_id.return_value = None
+            mock_dal.users.get_user.return_value = None
 
             app = self._make_app_with_route(middleware)
             with app.test_client() as c:
@@ -708,7 +708,7 @@ class TestFamilyGroupResolution:
 
         mock_dal = MagicMock()
         mock_dal.devices.get_by_token.return_value = device_item
-        mock_dal.users.get_by_id.return_value = user_item
+        mock_dal.users.get_user.return_value = user_item
         mock_dal.memberships._table.query.return_value = {"Items": [family_item]}
 
         app = self._make_app_with_route(middleware)

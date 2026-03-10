@@ -7,7 +7,7 @@ from app.dal.exceptions import EntityNotFoundError
 def get_profile(user_id: str) -> dict | None:
     """Get a member profile by user_id."""
     dal = get_dal()
-    return dal.profiles.get_by_id({"user_id": user_id})
+    return dal.profiles.get_profile(user_id)
 
 
 def create_profile(

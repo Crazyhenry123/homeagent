@@ -26,6 +26,10 @@ class FamilyRepository(BaseRepository):
     def __init__(self, dynamodb_resource: Any, table_prefix: str = "") -> None:
         super().__init__(self.CONFIG, dynamodb_resource, table_prefix)
 
+    def get_family(self, family_id: str) -> dict[str, Any] | None:
+        """Get a family by family_id."""
+        return self.get_by_id({"family_id": family_id})
+
     def get_by_owner(self, owner_user_id: str) -> dict[str, Any] | None:
         """Look up a family by owner user ID via owner-index GSI."""
         result = self.query(owner_user_id, index_name="owner-index", limit=1)

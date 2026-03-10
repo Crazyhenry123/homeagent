@@ -1,3 +1,5 @@
+import warnings
+
 import boto3
 from flask import Flask, g, current_app
 
@@ -324,7 +326,17 @@ def get_dynamodb():
 
 
 def get_table(table_name: str):
-    """Get a DynamoDB Table resource."""
+    """Get a DynamoDB Table resource.
+
+    .. deprecated::
+        Use ``get_dal()`` from ``app.dal`` instead.  This function will be
+        removed once all callers have been migrated to the DAL.
+    """
+    warnings.warn(
+        f"get_table('{table_name}') is deprecated — use get_dal() from app.dal instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return get_dynamodb().Table(table_name)
 
 

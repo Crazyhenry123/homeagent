@@ -11,7 +11,7 @@ def get_storage_config(user_id: str) -> dict | None:
     """Get user's storage provider configuration."""
     try:
         dal = get_dal()
-        return dal.storage_config.get_by_id({"user_id": user_id})
+        return dal.storage_config.get_config(user_id)
     except Exception:
         return None
 
@@ -33,7 +33,7 @@ def set_storage_config(
         "connected_at": now,
         "updated_at": now,
     }
-    dal.storage_config._table.put_item(Item=item)
+    dal.storage_config.upsert(item)
     return item
 
 

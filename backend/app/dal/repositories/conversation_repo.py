@@ -30,6 +30,10 @@ class ConversationRepository(BaseRepository):
     def __init__(self, dynamodb_resource: Any, table_prefix: str = "") -> None:
         super().__init__(self.CONFIG, dynamodb_resource, table_prefix)
 
+    def get_conversation(self, conversation_id: str) -> dict[str, Any] | None:
+        """Get a conversation by ID."""
+        return self.get_by_id({"conversation_id": conversation_id})
+
     def query_by_user(
         self,
         user_id: str,

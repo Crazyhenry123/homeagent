@@ -26,7 +26,7 @@ def _authenticate_ws(token: str) -> dict | None:
     if not device:
         return None
 
-    user = dal.users.get_by_id({"user_id": device["user_id"]})
+    user = dal.users.get_user(device["user_id"])
     if not user:
         return None
 

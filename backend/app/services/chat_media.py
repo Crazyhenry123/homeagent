@@ -141,7 +141,7 @@ def upload_file_to_s3(media_id: str, file_data: bytes, content_type: str) -> Non
 def get_media(media_id: str) -> dict | None:
     """Get a chat media record by ID."""
     dal = get_dal()
-    return dal.chat_media.get_by_id({"media_id": media_id})
+    return dal.chat_media.get_media(media_id)
 
 
 def mark_attached(media_id: str) -> bool:
