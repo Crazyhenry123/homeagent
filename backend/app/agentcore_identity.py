@@ -18,8 +18,8 @@ import requests
 from flask import g, jsonify, request
 from ulid import ULID
 
+from app.dal import get_dal
 from app.models.agentcore import IdentityContext
-from app.models.dynamo import get_table
 
 logger = logging.getLogger(__name__)
 
@@ -139,18 +139,10 @@ class AgentCoreIdentityMiddleware:
 
     def _resolve_user(self, cognito_sub: str) -> IdentityContext:
         """Look up cognito_sub in Users table via cognito_sub-index GSI."""
-        users_table = get_table("Users")
-        result = users_table.query(
-            IndexName="cognito_sub-index",
-            KeyConditionExpression="cognito_sub = :sub",
-            ExpressionAttributeValues={":sub": cognito_sub},
-            Limit=1,
-        )
-        items = result.get("Items", [])
-        if not items:
+        dal = get_dal()
+        user = dal.users.get_by_cognito_sub(cognito_sub)
+        if not user:
             raise LookupError(f"User not registered for cognito_sub={cognito_sub}")
-
-        user = items[0]
         return IdentityContext(
             user_id=user["user_id"],
             family_id=user.get("family_id"),
@@ -174,7 +166,9 @@ class AgentCoreIdentityMiddleware:
         entirely (Requirement 24.1 — proceed with member-only memory).
         """
         try:
-            family_table = get_table("FamilyGroups")
+            dal = get_dal()
+            # FamilyGroups uses member-family-index GSI (member_id → family_id)
+            family_table = dal.memberships._table
             result = family_table.query(
                 IndexName="member-family-index",
                 KeyConditionExpression="member_id = :uid",
@@ -278,7 +272,8 @@ class AgentCoreIdentityMiddleware:
                 # already set on the identity (Requirement 24.1, 24.2).
                 if not g.family_id:
                     g.family_id = self._resolve_family_group(
-                        identity.user_id, identity.role,
+                        identity.user_id,
+                        identity.role,
                     )
 
                 return f(*args, **kwargs)
@@ -301,21 +296,12 @@ class AgentCoreIdentityMiddleware:
         Mirrors the logic in ``auth.require_auth`` so that existing
         device-token clients continue to work during the migration period.
         """
-        devices_table = get_table("Devices")
-        result = devices_table.query(
-            IndexName="device_token-index",
-            KeyConditionExpression="device_token = :token",
-            ExpressionAttributeValues={":token": token},
-            Limit=1,
-        )
-        items = result.get("Items", [])
-        if not items:
+        dal = get_dal()
+        device = dal.devices.get_by_token(token)
+        if not device:
             return jsonify({"error": "Invalid token"}), 401
 
-        device = items[0]
-
-        users_table = get_table("Users")
-        user = users_table.get_item(Key={"user_id": device["user_id"]}).get("Item")
+        user = dal.users.get_by_id({"user_id": device["user_id"]})
         if not user:
             return jsonify({"error": "User not found"}), 401
 
@@ -330,7 +316,8 @@ class AgentCoreIdentityMiddleware:
         # Resolve family group if not already set (Requirement 24.1, 24.2)
         if not g.family_id:
             g.family_id = AgentCoreIdentityMiddleware._resolve_family_group(
-                g.user_id, g.user_role,
+                g.user_id,
+                g.user_role,
             )
 
         return f(*args, **kwargs)
@@ -354,9 +341,7 @@ class AgentCoreIdentityMiddleware:
                 user_role = g.get("user_role")
                 if user_role != role:
                     return (
-                        jsonify(
-                            {"error": f"Forbidden: requires role '{role}'"}
-                        ),
+                        jsonify({"error": f"Forbidden: requires role '{role}'"}),
                         403,
                     )
                 return f(*args, **kwargs)

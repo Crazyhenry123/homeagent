@@ -10,7 +10,7 @@ from typing import Any
 from flask import Blueprint, Response, g, jsonify
 
 from app.auth import require_auth
-from app.models.dynamo import get_table
+from app.dal import get_dal
 from app.services.agent_config import get_agent_configs, get_available_agent_types
 from app.services.agent_template import get_available_templates
 from app.services.conversation import list_conversations
@@ -46,8 +46,8 @@ def get_session() -> tuple[Response, int] | Response:
 
     try:
         # 1. User info (from auth middleware + Users table for email)
-        users_table = get_table("Users")
-        user_record = users_table.get_item(Key={"user_id": user_id}).get("Item", {})
+        dal = get_dal()
+        user_record = dal.users.get_by_id({"user_id": user_id}) or {}
         user = {
             "user_id": user_id,
             "name": g.user_name,
@@ -76,12 +76,9 @@ def get_session() -> tuple[Response, int] | Response:
         # 4. Agents — available templates + user's configs + type definitions
         available = get_available_templates(user_id)
         configs = get_agent_configs(user_id)
-        enabled_types = {
-            c["agent_type"] for c in configs if c.get("enabled", False)
-        }
+        enabled_types = {c["agent_type"] for c in configs if c.get("enabled", False)}
         available_with_status = [
-            {**t, "enabled": t["agent_type"] in enabled_types}
-            for t in available
+            {**t, "enabled": t["agent_type"] in enabled_types} for t in available
         ]
 
         # Include agent type definitions for admin screens
@@ -98,8 +95,12 @@ def get_session() -> tuple[Response, int] | Response:
         # 7. Storage configuration
         storage_config = get_storage_config(user_id)
         storage_data = {
-            "provider": storage_config.get("provider", "local") if storage_config else "local",
-            "status": storage_config.get("status", "active") if storage_config else "active",
+            "provider": storage_config.get("provider", "local")
+            if storage_config
+            else "local",
+            "status": storage_config.get("status", "active")
+            if storage_config
+            else "active",
         }
 
         result = {

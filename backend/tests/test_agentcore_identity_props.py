@@ -164,7 +164,9 @@ class TestAuthTokenValidation:
         role=_role_st,
         cognito_sub=_cognito_sub_st,
     )
-    @settings(max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(
+        max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture]
+    )
     def test_valid_jwt_sets_all_four_context_fields(
         self,
         user_id: str,
@@ -182,15 +184,25 @@ class TestAuthTokenValidation:
             "family_id": family_id,
             "role": role,
         }
-        mock_table = MagicMock()
-        mock_table.query.return_value = {"Items": [user_item]}
+        mock_dal = MagicMock()
+        mock_dal.users.get_by_cognito_sub.return_value = user_item
+        # Configure memberships table for family group resolution when
+        # family_id is None on the user record.
+        if family_id is not None:
+            mock_dal.memberships._table.query.return_value = {
+                "Items": [{"family_id": family_id, "member_id": user_id}],
+            }
+        else:
+            mock_dal.memberships._table.query.return_value = {"Items": []}
 
         token = _make_token(sub=cognito_sub)
 
-        with patch("app.agentcore_identity.requests.get", return_value=_mock_jwks_response()):
+        with patch(
+            "app.agentcore_identity.requests.get", return_value=_mock_jwks_response()
+        ):
             mw = _create_middleware()
             app = _make_flask_app(mw)
-            with patch("app.agentcore_identity.get_table", return_value=mock_table):
+            with patch("app.agentcore_identity.get_dal", return_value=mock_dal):
                 with app.test_client() as c:
                     resp = c.get(
                         "/protected",
@@ -200,7 +212,12 @@ class TestAuthTokenValidation:
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["user_id"] == user_id
-        assert data["family_id"] == family_id
+        if family_id is not None:
+            assert data["family_id"] == family_id
+        else:
+            # Auto-created family group
+            assert data["family_id"] is not None
+            assert data["family_id"].startswith("fam_")
         assert data["user_role"] == role
         assert data["cognito_sub"] == cognito_sub
 
@@ -209,7 +226,9 @@ class TestAuthTokenValidation:
             alphabet=string.ascii_letters, min_size=1, max_size=20
         ).filter(lambda s: s.lower() != "authorization"),
     )
-    @settings(max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(
+        max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture]
+    )
     def test_missing_authorization_header_returns_401(
         self,
         header_name: str,
@@ -217,7 +236,9 @@ class TestAuthTokenValidation:
         """Requirement 17.4: Requests without an Authorization header
         return HTTP 401.
         """
-        with patch("app.agentcore_identity.requests.get", return_value=_mock_jwks_response()):
+        with patch(
+            "app.agentcore_identity.requests.get", return_value=_mock_jwks_response()
+        ):
             mw = _create_middleware()
             app = _make_flask_app(mw)
             with app.test_client() as c:
@@ -231,7 +252,9 @@ class TestAuthTokenValidation:
             lambda s: "\r" not in s and "\n" not in s
         ),
     )
-    @settings(max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(
+        max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture]
+    )
     def test_non_bearer_auth_header_returns_401(
         self,
         prefix: str,
@@ -242,7 +265,9 @@ class TestAuthTokenValidation:
         """
         auth_value = prefix + value
 
-        with patch("app.agentcore_identity.requests.get", return_value=_mock_jwks_response()):
+        with patch(
+            "app.agentcore_identity.requests.get", return_value=_mock_jwks_response()
+        ):
             mw = _create_middleware()
             app = _make_flask_app(mw)
             with app.test_client() as c:
@@ -254,7 +279,9 @@ class TestAuthTokenValidation:
         assert resp.status_code == 401
 
     @given(malformed_token=_malformed_token_st)
-    @settings(max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(
+        max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture]
+    )
     def test_malformed_token_returns_401(
         self,
         malformed_token: str,
@@ -265,12 +292,15 @@ class TestAuthTokenValidation:
         With dual-auth mode, malformed JWTs fall through to device-token
         lookup which also fails → 401.
         """
-        mock_devices_table = MagicMock()
-        mock_devices_table.query.return_value = {"Items": []}
+        mock_dal = MagicMock()
+        mock_dal.devices.get_by_token.return_value = None
 
         with (
-            patch("app.agentcore_identity.requests.get", return_value=_mock_jwks_response()),
-            patch("app.agentcore_identity.get_table", return_value=mock_devices_table),
+            patch(
+                "app.agentcore_identity.requests.get",
+                return_value=_mock_jwks_response(),
+            ),
+            patch("app.agentcore_identity.get_dal", return_value=mock_dal),
         ):
             mw = _create_middleware()
             app = _make_flask_app(mw)
@@ -286,7 +316,9 @@ class TestAuthTokenValidation:
         cognito_sub=_cognito_sub_st,
         seconds_expired=st.integers(min_value=1, max_value=86400),
     )
-    @settings(max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(
+        max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture]
+    )
     def test_expired_token_returns_401_with_token_expired_code(
         self,
         cognito_sub: str,
@@ -297,7 +329,9 @@ class TestAuthTokenValidation:
         """
         token = _make_token(sub=cognito_sub, exp_offset=-seconds_expired)
 
-        with patch("app.agentcore_identity.requests.get", return_value=_mock_jwks_response()):
+        with patch(
+            "app.agentcore_identity.requests.get", return_value=_mock_jwks_response()
+        ):
             mw = _create_middleware()
             app = _make_flask_app(mw)
             with app.test_client() as c:
@@ -311,7 +345,9 @@ class TestAuthTokenValidation:
         assert data["code"] == "TOKEN_EXPIRED"
 
     @given(cognito_sub=_cognito_sub_st)
-    @settings(max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(
+        max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture]
+    )
     def test_token_signed_with_unknown_key_returns_401(
         self,
         cognito_sub: str,
@@ -328,12 +364,15 @@ class TestAuthTokenValidation:
             private_key=_WRONG_PRIVATE_KEY,
         )
 
-        mock_devices_table = MagicMock()
-        mock_devices_table.query.return_value = {"Items": []}
+        mock_dal = MagicMock()
+        mock_dal.devices.get_by_token.return_value = None
 
         with (
-            patch("app.agentcore_identity.requests.get", return_value=_mock_jwks_response()),
-            patch("app.agentcore_identity.get_table", return_value=mock_devices_table),
+            patch(
+                "app.agentcore_identity.requests.get",
+                return_value=_mock_jwks_response(),
+            ),
+            patch("app.agentcore_identity.get_dal", return_value=mock_dal),
         ):
             mw = _create_middleware()
             app = _make_flask_app(mw)
@@ -375,15 +414,17 @@ def _authenticated_request(user_role: str, required_role: str) -> int:
         "family_id": "fam_role_test",
         "role": user_role,
     }
-    mock_table = MagicMock()
-    mock_table.query.return_value = {"Items": [user_item]}
+    mock_dal = MagicMock()
+    mock_dal.users.get_by_cognito_sub.return_value = user_item
 
     token = _make_token(sub=cognito_sub)
 
-    with patch("app.agentcore_identity.requests.get", return_value=_mock_jwks_response()):
+    with patch(
+        "app.agentcore_identity.requests.get", return_value=_mock_jwks_response()
+    ):
         mw = _create_middleware()
         app = _make_role_flask_app(mw, required_role)
-        with patch("app.agentcore_identity.get_table", return_value=mock_table):
+        with patch("app.agentcore_identity.get_dal", return_value=mock_dal):
             with app.test_client() as c:
                 resp = c.get(
                     "/role-protected",
@@ -412,7 +453,9 @@ class TestRoleBasedAccessEnforcement:
         cognito_sub=_cognito_sub_st,
         required_role=_role_st,
     )
-    @settings(max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(
+        max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture]
+    )
     def test_matching_role_grants_access(
         self,
         user_id: str,
@@ -429,15 +472,17 @@ class TestRoleBasedAccessEnforcement:
             "family_id": family_id,
             "role": required_role,  # role matches requirement
         }
-        mock_table = MagicMock()
-        mock_table.query.return_value = {"Items": [user_item]}
+        mock_dal = MagicMock()
+        mock_dal.users.get_by_cognito_sub.return_value = user_item
 
         token = _make_token(sub=cognito_sub)
 
-        with patch("app.agentcore_identity.requests.get", return_value=_mock_jwks_response()):
+        with patch(
+            "app.agentcore_identity.requests.get", return_value=_mock_jwks_response()
+        ):
             mw = _create_middleware()
             app = _make_role_flask_app(mw, required_role)
-            with patch("app.agentcore_identity.get_table", return_value=mock_table):
+            with patch("app.agentcore_identity.get_dal", return_value=mock_dal):
                 with app.test_client() as c:
                     resp = c.get(
                         "/role-protected",
@@ -453,7 +498,9 @@ class TestRoleBasedAccessEnforcement:
         user_role=_role_st,
         required_role=_role_st,
     )
-    @settings(max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(
+        max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture]
+    )
     def test_mismatched_role_returns_403(
         self,
         user_id: str,
@@ -475,15 +522,17 @@ class TestRoleBasedAccessEnforcement:
             "family_id": family_id,
             "role": user_role,
         }
-        mock_table = MagicMock()
-        mock_table.query.return_value = {"Items": [user_item]}
+        mock_dal = MagicMock()
+        mock_dal.users.get_by_cognito_sub.return_value = user_item
 
         token = _make_token(sub=cognito_sub)
 
-        with patch("app.agentcore_identity.requests.get", return_value=_mock_jwks_response()):
+        with patch(
+            "app.agentcore_identity.requests.get", return_value=_mock_jwks_response()
+        ):
             mw = _create_middleware()
             app = _make_role_flask_app(mw, required_role)
-            with patch("app.agentcore_identity.get_table", return_value=mock_table):
+            with patch("app.agentcore_identity.get_dal", return_value=mock_dal):
                 with app.test_client() as c:
                     resp = c.get(
                         "/role-protected",
@@ -540,7 +589,9 @@ class TestFamilyMembershipValidation:
         family_id=_family_id_st.filter(lambda s: s is not None),
         role=_role_st,
     )
-    @settings(max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(
+        max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture]
+    )
     def test_existing_family_group_resolves_correct_family_id(
         self,
         user_id: str,
@@ -556,14 +607,14 @@ class TestFamilyMembershipValidation:
             "member_id": user_id,
             "role": role,
         }
-        mock_table = MagicMock()
-        mock_table.query.return_value = {"Items": [family_item]}
+        mock_dal = MagicMock()
+        mock_dal.memberships._table.query.return_value = {"Items": [family_item]}
 
-        with patch("app.agentcore_identity.get_table", return_value=mock_table):
+        with patch("app.agentcore_identity.get_dal", return_value=mock_dal):
             result = AgentCoreIdentityMiddleware._resolve_family_group(user_id, role)
 
         assert result == family_id
-        mock_table.query.assert_called_once_with(
+        mock_dal.memberships._table.query.assert_called_once_with(
             IndexName="member-family-index",
             KeyConditionExpression="member_id = :uid",
             ExpressionAttributeValues={":uid": user_id},
@@ -574,7 +625,9 @@ class TestFamilyMembershipValidation:
         user_id=_user_id_st,
         role=_role_st,
     )
-    @settings(max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(
+        max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture]
+    )
     def test_no_family_group_auto_creates_single_member_group(
         self,
         user_id: str,
@@ -584,17 +637,17 @@ class TestFamilyMembershipValidation:
         the system auto-creates a single-member family group and returns
         a new family_id starting with 'fam_'.
         """
-        mock_table = MagicMock()
-        mock_table.query.return_value = {"Items": []}
+        mock_dal = MagicMock()
+        mock_dal.memberships._table.query.return_value = {"Items": []}
 
-        with patch("app.agentcore_identity.get_table", return_value=mock_table):
+        with patch("app.agentcore_identity.get_dal", return_value=mock_dal):
             result = AgentCoreIdentityMiddleware._resolve_family_group(user_id, role)
 
         assert result is not None
         assert result.startswith("fam_")
 
-        mock_table.put_item.assert_called_once()
-        put_kwargs = mock_table.put_item.call_args[1]
+        mock_dal.memberships._table.put_item.assert_called_once()
+        put_kwargs = mock_dal.memberships._table.put_item.call_args[1]
         item = put_kwargs["Item"]
         assert item["family_id"] == result
         assert item["member_id"] == user_id
@@ -605,7 +658,9 @@ class TestFamilyMembershipValidation:
         user_id=_user_id_st,
         role=_role_st,
     )
-    @settings(max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(
+        max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture]
+    )
     def test_family_lookup_failure_returns_none_for_member_only_memory(
         self,
         user_id: str,
@@ -615,10 +670,12 @@ class TestFamilyMembershipValidation:
         lookup fails, the system returns family_id=None so the user
         proceeds with member-only memory.
         """
-        mock_table = MagicMock()
-        mock_table.query.side_effect = Exception("DynamoDB unavailable")
+        mock_dal = MagicMock()
+        mock_dal.memberships._table.query.side_effect = Exception(
+            "DynamoDB unavailable"
+        )
 
-        with patch("app.agentcore_identity.get_table", return_value=mock_table):
+        with patch("app.agentcore_identity.get_dal", return_value=mock_dal):
             result = AgentCoreIdentityMiddleware._resolve_family_group(user_id, role)
 
         assert result is None
