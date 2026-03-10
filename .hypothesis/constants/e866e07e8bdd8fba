@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/routes/profiles.py
+# hypothesis_version: 6.151.9
+
+[400, 404, '/profiles', '/profiles/<user_id>', '/profiles/me', 'DELETE', 'GET', 'PUT', 'Profile not found', 'admin_profiles', 'error', 'not found', 'profiles', 'success']

@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/services/agent_config.py
+# hypothesis_version: 6.151.9
+
+[':uid', 'AgentConfigs', 'Item', 'Items', 'agent_type', 'config', 'default_config', 'description', 'enabled', 'name', 'updated_at', 'user_id', 'user_id = :uid']

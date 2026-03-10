@@ -11,4 +11,5 @@ dist/
 web-build/
 .env
 
+.hypothesis/
 backend/.hypothesis/

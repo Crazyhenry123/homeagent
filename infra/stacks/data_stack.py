@@ -63,7 +63,7 @@ class DataStack(cdk.Stack):
         )
         # NOTE: InviteCodes invited_email-index GSI already exists on the physical
         # table but is not tracked by CloudFormation. Do NOT add it here or CFN
-        # will fail with "index already exists". The GSI was created out-of-band.
+        # will fail with "index already exists". The GSI was created out-of-band. origin/main
 
         # Conversations table
         self.tables["Conversations"] = dynamodb.Table(
@@ -387,6 +387,21 @@ class DataStack(cdk.Stack):
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=cdk.RemovalPolicy.RETAIN,
+        )
+
+        # FamilyMemoryStores table (family-to-AgentCore Memory store mapping)
+        self.tables["FamilyMemoryStores"] = dynamodb.Table(
+            self,
+            "FamilyMemoryStoresTable",
+            table_name="FamilyMemoryStores",
+            partition_key=dynamodb.Attribute(
+                name="family_id", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True,
+            ),
         )
 
         # S3 bucket for health documents

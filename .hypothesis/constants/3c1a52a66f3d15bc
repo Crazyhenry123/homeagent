@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/services/user.py
+# hypothesis_version: 6.151.9
+
+[2099, '#s', ':uid', ':used', 'AgentConfigs', 'Conversations', 'Devices', 'Invalid invite code', 'InviteCodes', 'Item', 'Items', 'MemberProfiles', 'User not found', 'Users', 'active', 'admin', 'agent_type', 'code', 'conversation_id', 'created_at', 'created_by', 'device_id', 'device_name', 'device_token', 'expires_at', 'is_admin', 'member', 'name', 'platform', 'registered_at', 'role', 'status', 'used', 'user_id', 'user_id, agent_type', 'user_id-index']

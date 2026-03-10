@@ -1,0 +1,4 @@
+# file: /Users/elideng/homeagent/backend/app/services/health_extraction.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1024, 'HealthObservations', 'bedrock-runtime', 'category', 'confidence', 'content', 'created_at', 'detail', 'diet', 'dynamodb', 'endpoint_url', 'exercise', 'general', 'maxTokens', 'medium', 'message', 'mood', 'observation_id', 'observed_at', 'output', 'region_name', 'role', 'sleep', 'summary', 'symptom', 'temperature', 'text', 'user', 'user_id']
