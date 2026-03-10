@@ -6,7 +6,7 @@ import logging
 from flask import Blueprint, request
 from flask_sock import Sock
 
-from app.models.dynamo import get_table
+from app.dal import get_dal
 from app.services.conversation import add_message
 from app.services.voice_session import VoiceSession
 
@@ -21,20 +21,12 @@ def _authenticate_ws(token: str) -> dict | None:
     if not token:
         return None
 
-    devices_table = get_table("Devices")
-    result = devices_table.query(
-        IndexName="device_token-index",
-        KeyConditionExpression="device_token = :token",
-        ExpressionAttributeValues={":token": token},
-        Limit=1,
-    )
-    items = result.get("Items", [])
-    if not items:
+    dal = get_dal()
+    device = dal.devices.get_by_token(token)
+    if not device:
         return None
 
-    device = items[0]
-    users_table = get_table("Users")
-    user = users_table.get_item(Key={"user_id": device["user_id"]}).get("Item")
+    user = dal.users.get_by_id({"user_id": device["user_id"]})
     if not user:
         return None
 
@@ -62,13 +54,17 @@ def voice_ws(ws: "simple_websocket.Server") -> None:
     user_id = user["user_id"]
     session = VoiceSession(user_id=user_id, conversation_id=conversation_id)
 
-    logger.info("Voice WS connected for user %s, conversation %s", user_id, conversation_id)
+    logger.info(
+        "Voice WS connected for user %s, conversation %s", user_id, conversation_id
+    )
     try:
         session.start()
         logger.info("Voice session started successfully")
     except Exception:
         logger.exception("Failed to start voice session")
-        ws.send(json.dumps({"type": "error", "content": "Failed to start voice session"}))
+        ws.send(
+            json.dumps({"type": "error", "content": "Failed to start voice session"})
+        )
         ws.close()
         return
 
@@ -120,7 +116,12 @@ def voice_ws(ws: "simple_websocket.Server") -> None:
                     # Strip WAV header if present (iOS LINEARPCM wraps in WAV container)
                     if had_wav:
                         pcm = pcm[44:]
-                    logger.info("audio_chunk received: %d bytes b64, %d bytes pcm, wav_header=%s", len(data), len(pcm), had_wav)
+                    logger.info(
+                        "audio_chunk received: %d bytes b64, %d bytes pcm, wav_header=%s",
+                        len(data),
+                        len(pcm),
+                        had_wav,
+                    )
                     session.send_audio(pcm)
 
             elif msg_type == "audio_end":

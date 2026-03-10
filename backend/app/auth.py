@@ -4,7 +4,7 @@ from typing import Callable
 
 from flask import g, jsonify, request
 
-from app.models.dynamo import get_table
+from app.dal import get_dal
 
 logger = logging.getLogger(__name__)
 
@@ -45,22 +45,12 @@ def _try_device_auth(token: str) -> bool:
     Returns True and populates Flask g if successful, False otherwise.
     """
     try:
-        devices_table = get_table("Devices")
-        result = devices_table.query(
-            IndexName="device_token-index",
-            KeyConditionExpression="device_token = :token",
-            ExpressionAttributeValues={":token": token},
-            Limit=1,
-        )
-
-        items = result.get("Items", [])
-        if not items:
+        dal = get_dal()
+        device = dal.devices.get_by_token(token)
+        if not device:
             return False
 
-        device = items[0]
-
-        users_table = get_table("Users")
-        user = users_table.get_item(Key={"user_id": device["user_id"]}).get("Item")
+        user = dal.users.get_by_id({"user_id": device["user_id"]})
         if not user:
             return False
 
@@ -93,7 +83,9 @@ def _resolve_storage_provider() -> None:
     except ImportError:
         g.storage_provider = None
     except Exception:
-        logger.debug("Failed to resolve storage provider for user %s", g.user_id, exc_info=True)
+        logger.debug(
+            "Failed to resolve storage provider for user %s", g.user_id, exc_info=True
+        )
         g.storage_provider = None
 
 
