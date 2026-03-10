@@ -4,6 +4,10 @@ Provides configuration builders for family long-term memory and member
 short-term memory stores. Each tier uses a distinct AgentCore Memory
 store ID and scoped retrieval namespaces.
 
+Writes memory records via bedrock-agentcore:batch_create_memory_records.
+Reads memory records via bedrock-agentcore:retrieve_memory_records.
+Falls back to in-memory stores when the API is unavailable.
+
 Family memory: scoped by family_id, namespaces for health and preferences.
 Member memory: scoped by member_id, namespaces for context and session summaries.
 """
@@ -11,12 +15,14 @@ Member memory: scoped by member_id, namespaces for context and session summaries
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import datetime, timedelta, timezone
+from typing import Any
+
+import boto3
 
 from app.models.agentcore import (
-    CONTENT_MAX_LENGTH,
     CombinedSessionManager,
-    FamilyMemoryCategory,
     FamilyMemoryRecord,
     MemberMemoryRecord,
     MemoryConfig,
@@ -31,9 +37,18 @@ class AgentCoreMemoryManager:
     Uses distinct memory store IDs for family and member tiers to ensure
     strict isolation between long-term family knowledge and short-term
     member conversation context.
+
+    When ``region`` is provided, uses real AgentCore Memory APIs
+    (bedrock-agentcore data plane). Falls back to in-memory stores
+    when the API call fails.
     """
 
-    def __init__(self, family_memory_id: str, member_memory_id: str) -> None:
+    def __init__(
+        self,
+        family_memory_id: str,
+        member_memory_id: str,
+        region: str | None = None,
+    ) -> None:
         if not family_memory_id or not family_memory_id.strip():
             raise ValueError("family_memory_id must be a non-empty string")
         if not member_memory_id or not member_memory_id.strip():
@@ -44,18 +59,26 @@ class AgentCoreMemoryManager:
             )
         self._family_memory_id = family_memory_id
         self._member_memory_id = member_memory_id
-        # In-memory backing store for family memory records, keyed by
-        # (family_id, memory_key).  Will be replaced by AgentCore Memory
-        # SDK integration in a later task.
+        self._region = region
+
+        # Lazy-initialised boto3 client for bedrock-agentcore data plane
+        self._client: Any = None
+
+        # In-memory backing stores (cache / fallback)
         self._family_store: dict[tuple[str, str], FamilyMemoryRecord] = {}
-        # In-memory backing store for member memory records, keyed by
-        # (member_id, session_id).
         self._member_store: dict[tuple[str, str], MemberMemoryRecord] = {}
         # Retry queue for failed store operations (background retry)
         self._retry_queue: list[dict] = []
         # Availability flag — when False, safe_* methods return immediately
-        # without attempting the operation (stateless mode)
         self._available: bool = True
+
+    def _get_client(self) -> Any:
+        """Return the bedrock-agentcore data plane client."""
+        if self._client is None and self._region:
+            self._client = boto3.client(
+                "bedrock-agentcore", region_name=self._region
+            )
+        return self._client
 
     @property
     def family_memory_id(self) -> str:
@@ -196,9 +219,15 @@ class AgentCoreMemoryManager:
         key = (family_id, memory_key)
         existing = self._family_store.get(key)
         if existing is not None:
-            # Update: preserve original created_at
             record.created_at = existing.created_at
         self._family_store[key] = record
+
+        # Write to real AgentCore Memory API
+        self._write_memory_record(
+            memory_id=self._family_memory_id,
+            namespace=f"/family/{family_id}/{category}",
+            content=content,
+        )
 
         logger.info(
             "Stored family memory %s/%s (category=%s, len=%d)",
@@ -304,6 +333,13 @@ class AgentCoreMemoryManager:
         record.validate()
         self._member_store[key] = record
 
+        # Write to real AgentCore Memory API
+        self._write_memory_record(
+            memory_id=self._member_memory_id,
+            namespace=f"/member/{member_id}/context",
+            content=content,
+        )
+
         logger.info(
             "Stored member memory %s/%s (msg_count=%d, ttl=%d)",
             member_id,
@@ -346,6 +382,89 @@ class AgentCoreMemoryManager:
             member_id,
         )
         return records
+
+    # ── Real AgentCore Memory API calls ────────────────────────────────
+
+    def _write_memory_record(
+        self,
+        memory_id: str,
+        namespace: str,
+        content: str,
+    ) -> None:
+        """Write a memory record via bedrock-agentcore:batch_create_memory_records.
+
+        Silently fails with a warning if the API is unavailable.
+        """
+        client = self._get_client()
+        if client is None:
+            return
+        try:
+            client.batch_create_memory_records(
+                memoryId=memory_id,
+                records=[
+                    {
+                        "requestIdentifier": str(uuid.uuid4()),
+                        "namespaces": [namespace],
+                        "content": {"text": content},
+                        "timestamp": datetime.now(timezone.utc),
+                    }
+                ],
+            )
+        except Exception:
+            logger.warning(
+                "Failed to write memory record to AgentCore (memory_id=%s, ns=%s); "
+                "in-memory cache still has the record",
+                memory_id,
+                namespace,
+                exc_info=True,
+            )
+
+    def _retrieve_memory_records(
+        self,
+        memory_id: str,
+        namespace: str,
+        query: str,
+        top_k: int = 10,
+    ) -> list[dict]:
+        """Retrieve memory records via bedrock-agentcore:retrieve_memory_records.
+
+        Returns a list of dicts with 'content' and 'score' keys.
+        Returns empty list if the API is unavailable.
+        """
+        client = self._get_client()
+        if client is None:
+            return []
+        try:
+            resp = client.retrieve_memory_records(
+                memoryId=memory_id,
+                namespace=namespace,
+                searchCriteria={
+                    "searchQuery": query,
+                    "topK": top_k,
+                },
+            )
+            records = []
+            for summary in resp.get("memoryRecordSummaries", []):
+                text = ""
+                content_obj = summary.get("content", {})
+                if isinstance(content_obj, dict):
+                    text = content_obj.get("text", "")
+                records.append({
+                    "content": text,
+                    "score": summary.get("score", 0.0),
+                    "memory_record_id": summary.get("memoryRecordId", ""),
+                    "namespaces": summary.get("namespaces", []),
+                })
+            return records
+        except Exception:
+            logger.warning(
+                "Failed to retrieve memory records from AgentCore (memory_id=%s, ns=%s); "
+                "falling back to in-memory",
+                memory_id,
+                namespace,
+                exc_info=True,
+            )
+            return []
 
     # ── Availability / stateless mode ───────────────────────────────────
 

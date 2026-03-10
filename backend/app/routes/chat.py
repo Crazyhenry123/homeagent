@@ -81,11 +81,13 @@ def _get_agentcore_chat_stream(
     runtime_client = AgentCoreRuntimeClient(
         agent_id=cfg.AGENTCORE_ORCHESTRATOR_AGENT_ID or "orchestrator",
         region=cfg.AWS_REGION,
+        agent_runtime_arn=cfg.AGENTCORE_RUNTIME_ARN,
     )
     agent_mgmt = AgentManagementClient(region=cfg.AWS_REGION)
     memory_manager = AgentCoreMemoryManager(
         family_memory_id=cfg.AGENTCORE_FAMILY_MEMORY_ID or "family-mem",
         member_memory_id=cfg.AGENTCORE_MEMBER_MEMORY_ID or "member-mem",
+        region=cfg.AWS_REGION,
     )
 
     # --- Per-family isolation path ---
