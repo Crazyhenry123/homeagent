@@ -11,7 +11,7 @@ from urllib.parse import quote, urlencode
 from flask import Blueprint, current_app, g, jsonify, redirect, request
 
 from app.auth import require_auth
-from app.models.dynamo import get_table
+from app.dal import get_dal
 
 logger = logging.getLogger(__name__)
 
@@ -104,11 +104,13 @@ def list_providers():
             provider["oauth_configured"] = True
         enriched.append(provider)
 
-    return jsonify({
-        "providers": enriched,
-        "current_provider": current,
-        "current_status": status,
-    })
+    return jsonify(
+        {
+            "providers": enriched,
+            "current_provider": current,
+            "current_status": status,
+        }
+    )
 
 
 # ── Connect / disconnect ─────────────────────────────────────────
@@ -135,17 +137,21 @@ def connect_provider(provider_id: str):
 
     # Generate CSRF state token
     state = secrets.token_urlsafe(32)
-    state_table = get_table("OAuthState")
-    state_table.put_item(Item={
-        "state": state,
-        "user_id": g.user_id,
-        "provider": provider_id,
-        "expires_at": int(time.time()) + 600,  # 10 min TTL
-    })
+    dal = get_dal()
+    dal.oauth_state.create_with_ttl(
+        {
+            "state": state,
+            "user_id": g.user_id,
+            "provider": provider_id,
+        },
+        expires_at=int(time.time()) + 600,  # 10 min TTL
+    )
 
     redirect_uri = request.json.get("redirect_uri", "") if request.is_json else ""
     if not redirect_uri:
-        redirect_uri = request.host_url.rstrip("/") + f"/api/storage/oauth/callback/{provider_id}"
+        redirect_uri = (
+            request.host_url.rstrip("/") + f"/api/storage/oauth/callback/{provider_id}"
+        )
     else:
         # Validate redirect_uri is on our own host to prevent open redirects
         from urllib.parse import urlparse
@@ -212,16 +218,18 @@ def oauth_callback(provider_id: str):
         return _callback_response(False, "Missing code or state")
 
     # Validate and atomically consume state token (CSRF)
-    state_table = get_table("OAuthState")
+    dal = get_dal()
     try:
-        resp = state_table.delete_item(
+        resp = dal.oauth_state._table.delete_item(
             Key={"state": state},
             ConditionExpression="attribute_exists(#s)",
             ExpressionAttributeNames={"#s": "state"},
             ReturnValues="ALL_OLD",
         )
         state_item = resp.get("Attributes")
-    except state_table.meta.client.exceptions.ConditionalCheckFailedException:
+    except (
+        dal.oauth_state._table.meta.client.exceptions.ConditionalCheckFailedException
+    ):
         state_item = None
 
     if not state_item:
@@ -317,11 +325,13 @@ def test_connection():
         provider = get_storage_provider(g.user_id)
         result = provider.health_check()
         latency_ms = int((time_mod.time() - start) * 1000)
-        return jsonify({
-            "reachable": result.get("ok", False),
-            "latency_ms": latency_ms,
-            "provider": result.get("provider", "unknown"),
-        })
+        return jsonify(
+            {
+                "reachable": result.get("ok", False),
+                "latency_ms": latency_ms,
+                "provider": result.get("provider", "unknown"),
+            }
+        )
     except Exception:
         latency_ms = int((time_mod.time() - start) * 1000)
         return jsonify({"reachable": False, "latency_ms": latency_ms})
