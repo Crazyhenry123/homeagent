@@ -258,7 +258,7 @@ class AgentCoreStack(cdk.Stack):
             "OrchestratorRuntime",
             service_token=runtime_provider.service_token,
             properties={
-                "AgentRuntimeName": "homeagent-orchestrator",
+                "AgentRuntimeName": "homeagent_orchestrator",
                 "RoleArn": self.runtime_role.role_arn,
                 "S3Bucket": agent_code_bucket.bucket_name,
                 "S3Prefix": "homeagent-orchestrator",
