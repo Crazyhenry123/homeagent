@@ -5,8 +5,7 @@ from aws_cdk import aws_cognito as cognito
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as _lambda
-from aws_cdk import aws_s3 as s3
-from aws_cdk import aws_s3_deployment as s3deploy
+from aws_cdk import aws_s3_assets as s3_assets
 from aws_cdk import custom_resources as cr
 from constructs import Construct
 
@@ -137,24 +136,17 @@ class AgentCoreStack(cdk.Stack):
         # AgentCore Runtime — orchestrator agent deployed as code
         # ------------------------------------------------------------------
 
-        # S3 bucket for agent deployment package
-        agent_code_bucket = s3.Bucket(
-            self,
-            "AgentCodeBucket",
-            removal_policy=cdk.RemovalPolicy.DESTROY,
-            auto_delete_objects=True,
-        )
-
-        # Deploy agent code to S3
+        # Agent code as a zip asset in the CDK bootstrap bucket.
+        # AgentCore Runtime requires a .zip file in S3; s3_assets.Asset
+        # zips the directory and keeps it as-is (unlike BucketDeployment
+        # which extracts the zip).
         agent_code_path = os.path.join(
             os.path.dirname(__file__), "..", "..", "agent"
         )
-        deployment = s3deploy.BucketDeployment(
+        agent_code_asset = s3_assets.Asset(
             self,
-            "AgentCodeDeployment",
-            sources=[s3deploy.Source.asset(agent_code_path)],
-            destination_bucket=agent_code_bucket,
-            destination_key_prefix="homeagent-orchestrator",
+            "AgentCodeAsset",
+            path=agent_code_path,
         )
 
         # IAM role for the AgentCore Runtime agent
@@ -179,8 +171,8 @@ class AgentCoreStack(cdk.Stack):
             )
         )
 
-        # Runtime needs S3 access to read its own code
-        agent_code_bucket.grant_read(self.runtime_role)
+        # Runtime needs S3 access to read its own code from the CDK assets bucket
+        agent_code_asset.grant_read(self.runtime_role)
 
         # Runtime needs CloudWatch Logs
         self.runtime_role.add_to_policy(
@@ -260,14 +252,13 @@ class AgentCoreStack(cdk.Stack):
             properties={
                 "AgentRuntimeName": "homeagent_orchestrator",
                 "RoleArn": self.runtime_role.role_arn,
-                "S3Bucket": agent_code_bucket.bucket_name,
-                "S3Prefix": "homeagent-orchestrator",
+                "S3Bucket": agent_code_asset.s3_bucket_name,
+                "S3Prefix": agent_code_asset.s3_object_key,
                 "NetworkMode": "PUBLIC",
                 "Region": self.region,
             },
         )
-        # Ensure code is deployed and IAM is ready before creating runtime
-        agent_runtime.node.add_dependency(deployment)
+        # Ensure IAM is ready before creating runtime
         agent_runtime.node.add_dependency(runtime_handler.role)
         agent_runtime.node.add_dependency(self.runtime_role)
 
@@ -286,6 +277,3 @@ class AgentCoreStack(cdk.Stack):
         cdk.CfnOutput(self, "MemberMemoryId", value=self.member_memory_id)
         cdk.CfnOutput(self, "AgentRuntimeId", value=self.agent_runtime_id)
         cdk.CfnOutput(self, "AgentRuntimeArn", value=self.agent_runtime_arn)
-        cdk.CfnOutput(
-            self, "AgentCodeBucketName", value=agent_code_bucket.bucket_name
-        )
