@@ -323,3 +323,89 @@ class CombinedSessionManager:
             raise ValueError(
                 "family and member memory stores must use distinct memory_ids"
             )
+
+
+# ---------------------------------------------------------------------------
+# IsolatedContext (Request-Scoped)
+# ---------------------------------------------------------------------------
+
+_ISOLATED_CONTEXT_STORE_STATUSES = {"active", "pending"}
+
+
+@dataclass
+class IsolatedContext:
+    """Request-scoped context for family memory isolation.
+
+    Carries the verified family membership and resolved store information
+    through the request lifecycle.  When ``store_status`` is ``"pending"``
+    the ``family_store_id`` is ``None`` and memory operations are routed
+    through the write-behind buffer.
+    """
+
+    family_id: str
+    member_id: str
+    family_store_id: str | None
+    is_verified: bool
+    store_status: str  # "active" | "pending"
+    verified_at: str
+
+    def validate(self) -> None:
+        """Validate context fields.
+
+        Raises ``ValueError`` on constraint violations.
+        """
+        if self.is_verified:
+            _validate_non_empty_string(self.family_id, "family_id")
+            _validate_non_empty_string(self.member_id, "member_id")
+        if self.store_status not in _ISOLATED_CONTEXT_STORE_STATUSES:
+            valid = ", ".join(sorted(_ISOLATED_CONTEXT_STORE_STATUSES))
+            raise ValueError(
+                f"store_status must be one of: {valid}; got '{self.store_status}'"
+            )
+        if self.store_status == "active":
+            if not self.family_store_id or not self.family_store_id.strip():
+                raise ValueError(
+                    "family_store_id must be non-empty when store_status is 'active'"
+                )
+
+
+# ---------------------------------------------------------------------------
+# FamilyMemoryStoresItem
+# ---------------------------------------------------------------------------
+
+_FAMILY_STORE_STATUSES = {"active", "migrating", "provisioning", "decommissioned"}
+
+
+@dataclass
+class FamilyMemoryStoresItem:
+    """Persistent registry entry mapping a family to its dedicated AgentCore
+    Memory store.
+
+    Stored in the FamilyMemoryStores DynamoDB table with ``family_id`` as
+    the partition key.
+    """
+
+    family_id: str
+    store_id: str
+    store_name: str
+    created_at: str
+    updated_at: str
+    status: str  # "active" | "migrating" | "provisioning" | "decommissioned"
+    event_expiry_days: int = 365
+
+    def validate(self) -> None:
+        """Validate registry entry fields.
+
+        Raises ``ValueError`` on constraint violations.
+        """
+        _validate_non_empty_string(self.family_id, "family_id")
+        _validate_non_empty_string(self.store_id, "store_id")
+        if self.status not in _FAMILY_STORE_STATUSES:
+            valid = ", ".join(sorted(_FAMILY_STORE_STATUSES))
+            raise ValueError(
+                f"status must be one of: {valid}; got '{self.status}'"
+            )
+        if self.event_expiry_days <= 0:
+            raise ValueError(
+                f"event_expiry_days must be a positive integer; got {self.event_expiry_days}"
+            )

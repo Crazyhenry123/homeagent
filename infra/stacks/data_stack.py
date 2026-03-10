@@ -397,6 +397,21 @@ class DataStack(cdk.Stack):
             removal_policy=cdk.RemovalPolicy.RETAIN,
         )
 
+        # FamilyMemoryStores table (family-to-AgentCore Memory store mapping)
+        self.tables["FamilyMemoryStores"] = dynamodb.Table(
+            self,
+            "FamilyMemoryStoresTable",
+            table_name="FamilyMemoryStores",
+            partition_key=dynamodb.Attribute(
+                name="family_id", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True,
+            ),
+        )
+
         # S3 bucket for health documents
         self.documents_bucket = s3.Bucket(
             self,

@@ -159,15 +159,23 @@ def stream_agent_chat_v2(
     family_id: str | None,
     conversation_id: str,
     system_prompt: str | None = None,
+    isolated_memory_config: "CombinedSessionManager | None" = None,
 ) -> Generator[dict, None, None]:
     """Stream an agent chat response using AgentCore Runtime.
 
     Wires together:
     1. Resolve sub-agent tools via AgentManagementClient
-    2. Build memory config via AgentCoreMemoryManager
+    2. Build memory config via AgentCoreMemoryManager (or use pre-built isolated config)
     3. Create or resume session via AgentCoreRuntimeClient
     4. Invoke with streaming
     5. Persist assistant message on completion
+
+    Parameters
+    ----------
+    isolated_memory_config:
+        Optional pre-built CombinedSessionManager from IsolatedMemoryManager.
+        When provided, bypasses the internal ``create_combined_session_manager``
+        call, using the per-family isolated store instead of the global store.
 
     Yields dicts with keys: type, content, conversation_id.
     """
@@ -175,8 +183,9 @@ def stream_agent_chat_v2(
     sub_agent_tool_ids = agent_mgmt.build_sub_agent_tool_ids(user_id)
 
     # Step 2: Build memory configuration (dual-tier)
-    memory_config = None
-    if family_id:
+    # Use pre-built isolated config if provided (per-family isolation path)
+    memory_config = isolated_memory_config
+    if memory_config is None and family_id:
         try:
             memory_config = memory_manager.create_combined_session_manager(
                 family_id=family_id,

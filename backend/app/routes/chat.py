@@ -52,14 +52,32 @@ def _get_agentcore_chat_stream(
     family_id: str | None,
     conversation_id: str,
 ):
-    """Return the AgentCore-based chat stream (v2)."""
+    """Return the AgentCore-based chat stream (v2).
+
+    When *family_id* is provided, initialises the isolation components
+    (IsolationMiddleware, FamilyMemoryStoreRegistry, IsolatedMemoryManager,
+    MemoryWriteBehindBuffer) and routes memory through the per-family
+    isolated store.  Falls back to the global AgentCoreMemoryManager when
+    *family_id* is ``None``.
+
+    Raises
+    ------
+    AccessDeniedError
+        If the user is not a member of the requested family.
+    """
+    import logging
+
+    import boto3
+
     from app.config import Config
     from app.services.agentcore_integration import stream_agent_chat_v2
     from app.services.agentcore_memory import AgentCoreMemoryManager
     from app.services.agentcore_runtime import AgentCoreRuntimeClient
     from app.services.agent_management import AgentManagementClient
 
+    logger = logging.getLogger(__name__)
     cfg = Config()
+
     runtime_client = AgentCoreRuntimeClient(
         agent_id=cfg.AGENTCORE_ORCHESTRATOR_AGENT_ID or "orchestrator",
         region=cfg.AWS_REGION,
@@ -70,6 +88,81 @@ def _get_agentcore_chat_stream(
         member_memory_id=cfg.AGENTCORE_MEMBER_MEMORY_ID or "member-mem",
     )
 
+    # --- Per-family isolation path ---
+    if family_id:
+        from app.services.family_memory_registry import FamilyMemoryStoreRegistry
+        from app.services.isolated_memory_manager import IsolatedMemoryManager
+        from app.services.isolation_middleware import IsolationMiddleware
+        from app.services.memory_write_behind_buffer import MemoryWriteBehindBuffer
+
+        # Build DynamoDB resource
+        dynamodb_kwargs: dict = {"region_name": cfg.AWS_REGION}
+        if cfg.DYNAMODB_ENDPOINT:
+            dynamodb_kwargs["endpoint_url"] = cfg.DYNAMODB_ENDPOINT
+        dynamodb = boto3.resource("dynamodb", **dynamodb_kwargs)
+
+        # Build AgentCore client for store provisioning
+        agentcore_client = boto3.client(
+            "bedrock-agent-runtime", region_name=cfg.AWS_REGION
+        )
+
+        # Initialise isolation components
+        registry = FamilyMemoryStoreRegistry(
+            dynamodb_resource=dynamodb,
+            agentcore_client=agentcore_client,
+        )
+
+        # Write-behind buffer — execute_fn is a no-op placeholder;
+        # actual memory operations are handled by the runtime session.
+        def _execute_memory_op(store_id: str, operation: str, payload: dict):
+            logger.debug(
+                "Executing buffered memory op: store=%s op=%s", store_id, operation
+            )
+
+        buffer = MemoryWriteBehindBuffer(
+            registry=registry,
+            execute_fn=_execute_memory_op,
+        )
+
+        middleware = IsolationMiddleware(
+            dynamodb_resource=dynamodb,
+            registry=registry,
+            buffer=buffer,
+        )
+
+        # Validate membership and resolve store — may raise AccessDeniedError
+        context = middleware.validate_and_resolve(family_id, user_id)
+
+        isolated_memory_config = None
+        if context.store_status == "active":
+            # Build isolated memory config using the per-family store
+            iso_manager = IsolatedMemoryManager(
+                member_memory_id=cfg.AGENTCORE_MEMBER_MEMORY_ID or "member-mem",
+                registry=registry,
+            )
+            isolated_memory_config = iso_manager.safe_build_isolated_memory_config(
+                context, conversation_id
+            )
+        else:
+            # store_status == "pending": chat proceeds without family memory;
+            # the write-behind buffer handles deferred writes.
+            logger.info(
+                "Family %s store is pending; proceeding without family memory",
+                family_id,
+            )
+
+        return stream_agent_chat_v2(
+            runtime_client=runtime_client,
+            agent_mgmt=agent_mgmt,
+            memory_manager=memory_manager,
+            messages=messages,
+            user_id=user_id,
+            family_id=family_id,
+            conversation_id=conversation_id,
+            isolated_memory_config=isolated_memory_config,
+        )
+
+    # --- Global fallback (no family_id) ---
     return stream_agent_chat_v2(
         runtime_client=runtime_client,
         agent_mgmt=agent_mgmt,
@@ -119,10 +212,20 @@ def chat_v2():
 
     family_id = getattr(g, "family_id", None)
 
-    def generate():
-        for chunk in _get_agentcore_chat_stream(
+    # Eagerly create the stream generator so that AccessDeniedError
+    # (raised during validate_and_resolve) surfaces before we enter
+    # the streaming Response.  This lets us return a clean HTTP 403.
+    from app.services.isolation_middleware import AccessDeniedError
+
+    try:
+        chat_stream = _get_agentcore_chat_stream(
             messages, g.user_id, family_id, conversation_id
-        ):
+        )
+    except AccessDeniedError:
+        return jsonify({"error": "Access denied: not a member of this family"}), 403
+
+    def generate():
+        for chunk in chat_stream:
             yield f"data: {json.dumps(chunk)}\n\n"
 
     return Response(
