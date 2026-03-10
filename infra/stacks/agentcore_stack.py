@@ -216,6 +216,7 @@ class AgentCoreStack(cdk.Stack):
                     "bedrock-agentcore:GetAgentRuntimeEndpoint",
                     "bedrock-agentcore:DeleteAgentRuntimeEndpoint",
                     "bedrock-agentcore:ListAgentRuntimeEndpoints",
+                    "bedrock-agentcore:CreateWorkloadIdentity",
                     "bedrock-agentcore-control:CreateAgentRuntime",
                     "bedrock-agentcore-control:GetAgentRuntime",
                     "bedrock-agentcore-control:DeleteAgentRuntime",
@@ -223,6 +224,7 @@ class AgentCoreStack(cdk.Stack):
                     "bedrock-agentcore-control:GetAgentRuntimeEndpoint",
                     "bedrock-agentcore-control:DeleteAgentRuntimeEndpoint",
                     "bedrock-agentcore-control:ListAgentRuntimeEndpoints",
+                    "bedrock-agentcore-control:CreateWorkloadIdentity",
                 ],
                 resources=["*"],
             )
@@ -242,7 +244,7 @@ class AgentCoreStack(cdk.Stack):
         agent_code_asset.grant_read(runtime_handler)
         runtime_handler.add_to_role_policy(
             iam.PolicyStatement(
-                actions=["s3:PutObject"],
+                actions=["s3:PutObject", "s3:GetObject"],
                 resources=[
                     f"arn:aws:s3:::bedrock-agentcore-codebuild-sources-{self.account}-{self.region}/*"
                 ],
