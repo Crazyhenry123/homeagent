@@ -171,9 +171,6 @@ class AgentCoreStack(cdk.Stack):
             )
         )
 
-        # Runtime needs S3 access to read its own code from the CDK assets bucket
-        agent_code_asset.grant_read(self.runtime_role)
-
         # Runtime needs CloudWatch Logs
         self.runtime_role.add_to_policy(
             iam.PolicyStatement(
@@ -236,6 +233,26 @@ class AgentCoreStack(cdk.Stack):
             iam.PolicyStatement(
                 actions=["iam:PassRole"],
                 resources=[self.runtime_role.role_arn],
+            )
+        )
+
+        # Lambda needs to read the zip from CDK assets bucket and copy it
+        # to the AgentCore-managed bucket (bedrock-agentcore-codebuild-sources-*)
+        # where the service can access it during runtime creation.
+        agent_code_asset.grant_read(runtime_handler)
+        runtime_handler.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["s3:PutObject"],
+                resources=[
+                    f"arn:aws:s3:::bedrock-agentcore-codebuild-sources-{self.account}-{self.region}/*"
+                ],
+            )
+        )
+        # Lambda needs sts:GetCallerIdentity to resolve account ID
+        runtime_handler.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["sts:GetCallerIdentity"],
+                resources=["*"],
             )
         )
 

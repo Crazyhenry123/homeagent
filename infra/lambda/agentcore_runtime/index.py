@@ -74,12 +74,46 @@ def on_event(event: dict, context: object) -> dict:
         raise ValueError(f"Unknown request type: {request_type}")
 
 
+def _copy_to_agentcore_bucket(
+    source_bucket: str, source_key: str, agent_name: str, region: str
+) -> tuple[str, str]:
+    """Copy the code zip to the AgentCore-managed S3 bucket.
+
+    AgentCore can only read from its own managed bucket
+    (bedrock-agentcore-codebuild-sources-<account>-<region>), not from
+    arbitrary S3 buckets. We copy the CDK asset zip there.
+    """
+    s3 = boto3.client("s3", region_name=region)
+    sts = boto3.client("sts", region_name=region)
+    account_id = sts.get_caller_identity()["Account"]
+
+    dest_bucket = f"bedrock-agentcore-codebuild-sources-{account_id}-{region}"
+    dest_key = f"{agent_name}/deployment.zip"
+
+    logger.info(
+        "Copying s3://%s/%s -> s3://%s/%s",
+        source_bucket, source_key, dest_bucket, dest_key,
+    )
+    s3.copy_object(
+        Bucket=dest_bucket,
+        Key=dest_key,
+        CopySource={"Bucket": source_bucket, "Key": source_key},
+    )
+    return dest_bucket, dest_key
+
+
 def _handle_create(client: "boto3.client", props: dict) -> dict:
     agent_name = props["AgentRuntimeName"]
     role_arn = props["RoleArn"]
-    s3_bucket = props["S3Bucket"]
-    s3_prefix = props["S3Prefix"]
+    source_bucket = props["S3Bucket"]
+    source_key = props["S3Prefix"]
     network_mode = props.get("NetworkMode", "PUBLIC")
+    region = props.get("Region", "us-east-1")
+
+    # Copy zip to the AgentCore-managed bucket where the service can read it
+    dest_bucket, dest_key = _copy_to_agentcore_bucket(
+        source_bucket, source_key, agent_name, region
+    )
 
     # Create the agent runtime with code configuration
     resp = client.create_agent_runtime(
@@ -88,8 +122,8 @@ def _handle_create(client: "boto3.client", props: dict) -> dict:
             "codeConfiguration": {
                 "code": {
                     "s3": {
-                        "bucket": s3_bucket,
-                        "prefix": s3_prefix,
+                        "bucket": dest_bucket,
+                        "prefix": dest_key,
                     }
                 },
                 "runtime": "PYTHON_3_13",
@@ -99,7 +133,7 @@ def _handle_create(client: "boto3.client", props: dict) -> dict:
         networkConfiguration={"networkMode": network_mode},
         roleArn=role_arn,
         environmentVariables={
-            "AWS_REGION": props.get("Region", "us-east-1"),
+            "AWS_REGION": region,
         },
     )
 
