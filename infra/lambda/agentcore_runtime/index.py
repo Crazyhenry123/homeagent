@@ -121,54 +121,76 @@ def _handle_create(client: "boto3.client", props: dict) -> dict:
     logger.info("Waiting 15s for IAM role propagation before creating runtime")
     time.sleep(15)
 
-    # Create the agent runtime with code configuration
-    resp = client.create_agent_runtime(
-        agentRuntimeName=agent_name,
-        agentRuntimeArtifact={
-            "codeConfiguration": {
-                "code": {
-                    "s3": {
-                        "bucket": dest_bucket,
-                        "prefix": dest_key,
-                    }
-                },
-                "runtime": "PYTHON_3_13",
-                "entryPoint": ["main.py"],
-            }
-        },
-        networkConfiguration={"networkMode": network_mode},
-        roleArn=role_arn,
-        environmentVariables={
-            "AWS_REGION": region,
-        },
-    )
+    # Create the agent runtime with code configuration.
+    # If a previous CloudFormation rollback left an orphaned runtime with the
+    # same name, adopt it instead of failing.
+    try:
+        resp = client.create_agent_runtime(
+            agentRuntimeName=agent_name,
+            agentRuntimeArtifact={
+                "codeConfiguration": {
+                    "code": {
+                        "s3": {
+                            "bucket": dest_bucket,
+                            "prefix": dest_key,
+                        }
+                    },
+                    "runtime": "PYTHON_3_13",
+                    "entryPoint": ["main.py"],
+                }
+            },
+            networkConfiguration={"networkMode": network_mode},
+            roleArn=role_arn,
+            environmentVariables={
+                "AWS_REGION": region,
+            },
+        )
+        runtime_id = resp["agentRuntimeId"]
+        runtime_arn = resp["agentRuntimeArn"]
+        logger.info("Created agent runtime %s (id=%s)", agent_name, runtime_id)
 
-    runtime_id = resp["agentRuntimeId"]
-    runtime_arn = resp["agentRuntimeArn"]
-    logger.info("Created agent runtime %s (id=%s)", agent_name, runtime_id)
+        # Wait for runtime to become READY
+        _wait_for_status(
+            client, "get_agent_runtime", "", runtime_id, "READY", "AgentRuntime"
+        )
+    except client.exceptions.ConflictException:
+        logger.info("Runtime %s already exists, adopting existing runtime", agent_name)
+        runtimes = client.list_agent_runtimes()
+        runtime_id = ""
+        runtime_arn = ""
+        for rt in runtimes.get("agentRuntimes", []):
+            rt_id = rt.get("agentRuntimeId", "")
+            if rt_id.startswith(f"{agent_name}-"):
+                runtime_id = rt_id
+                resp = client.get_agent_runtime(agentRuntimeId=runtime_id)
+                runtime_arn = resp.get("agentRuntimeArn", "")
+                logger.info("Adopted existing runtime %s (id=%s)", agent_name, runtime_id)
+                break
+        if not runtime_id:
+            raise RuntimeError(
+                f"Runtime {agent_name} reported as existing but not found in list"
+            )
 
-    # Wait for runtime to become READY
-    _wait_for_status(
-        client, "get_agent_runtime", "", runtime_id, "READY", "AgentRuntime"
-    )
-
-    # Create an endpoint for the runtime
+    # Create an endpoint for the runtime (skip if one already exists)
     endpoint_name = f"{agent_name}_endpoint"
-    client.create_agent_runtime_endpoint(
-        agentRuntimeId=runtime_id,
-        name=endpoint_name,
-    )
-    logger.info("Created endpoint %s for runtime %s", endpoint_name, runtime_id)
+    try:
+        client.create_agent_runtime_endpoint(
+            agentRuntimeId=runtime_id,
+            name=endpoint_name,
+        )
+        logger.info("Created endpoint %s for runtime %s", endpoint_name, runtime_id)
 
-    # Wait for endpoint to become READY
-    _wait_for_status(
-        client,
-        "get_agent_runtime_endpoint",
-        runtime_id,
-        endpoint_name,
-        "READY",
-        "Endpoint",
-    )
+        # Wait for endpoint to become READY
+        _wait_for_status(
+            client,
+            "get_agent_runtime_endpoint",
+            runtime_id,
+            endpoint_name,
+            "READY",
+            "Endpoint",
+        )
+    except client.exceptions.ConflictException:
+        logger.info("Endpoint %s already exists, skipping creation", endpoint_name)
 
     return {
         "PhysicalResourceId": runtime_id,
