@@ -275,7 +275,11 @@ class AgentCoreRuntimeClient:
     def _invoke_agentcore(
         self, session: AgentSession, message: str
     ) -> Generator[StreamEvent, None, None]:
-        """Invoke via bedrock-agentcore:invoke_agent_runtime."""
+        """Invoke via bedrock-agentcore:invoke_agent_runtime.
+
+        Sends the personalized system prompt and conversation history
+        from the session so the shared runtime has full family context.
+        """
         client = self._get_agentcore_client()
 
         # Session ID must be 33+ characters for AgentCore
@@ -283,7 +287,26 @@ class AgentCoreRuntimeClient:
         if len(runtime_session_id) < 33:
             runtime_session_id = runtime_session_id.ljust(33, "0")
 
-        payload = json.dumps({"prompt": message}).encode()
+        # Build enriched payload with family context
+        payload_dict: dict[str, Any] = {
+            "prompt": message,
+            "system_prompt": session.system_prompt,
+            "model_id": self._model_id,
+        }
+
+        # Include conversation history in Bedrock converse format
+        if session.messages:
+            converse_messages = []
+            for msg in session.messages:
+                converse_messages.append(
+                    {
+                        "role": msg["role"],
+                        "content": [{"text": msg["content"]}],
+                    }
+                )
+            payload_dict["messages"] = converse_messages
+
+        payload = json.dumps(payload_dict).encode()
 
         for attempt in range(1, self.MAX_RETRIES + 1):
             try:

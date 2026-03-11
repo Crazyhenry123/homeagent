@@ -4,6 +4,10 @@ Wires together AgentManagementClient, AgentCoreGatewayManager,
 AgentCoreMemoryManager, and AgentCoreRuntimeClient to implement:
 - Dynamic sub-agent addition/removal (add_sub_agent_for_user, remove_sub_agent_for_user)
 - Migrated chat endpoint (stream_agent_chat_v2)
+
+The chat endpoint builds personalized family context (system prompt with
+user profile, family tree, shared memory) and passes it to the shared
+AgentCore Runtime for execution.
 """
 
 from __future__ import annotations
@@ -11,8 +15,11 @@ from __future__ import annotations
 import logging
 from typing import Generator
 
-from app.models.agentcore import AgentConfig, StreamEvent
+from flask import current_app
+
+from app.models.agentcore import AgentConfig, CombinedSessionManager
 from app.services.agent_management import AgentManagementClient
+from app.services.agent_orchestrator import _build_system_prompt
 from app.services.agentcore_gateway import AgentCoreGatewayManager
 from app.services.agentcore_memory import AgentCoreMemoryManager
 from app.services.agentcore_runtime import AgentCoreRuntimeClient
@@ -137,9 +144,7 @@ def remove_sub_agent_for_user(
     if deleted:
         logger.info("Removed sub-agent %s for user %s", agent_type, user_id)
     else:
-        logger.warning(
-            "No config found for user %s agent_type %s", user_id, agent_type
-        )
+        logger.warning("No config found for user %s agent_type %s", user_id, agent_type)
 
     # NOTE: Gateway routing tool is NOT deleted — other users may reference it
     return deleted
@@ -159,7 +164,7 @@ def stream_agent_chat_v2(
     family_id: str | None,
     conversation_id: str,
     system_prompt: str | None = None,
-    isolated_memory_config: "CombinedSessionManager | None" = None,
+    isolated_memory_config: CombinedSessionManager | None = None,
 ) -> Generator[dict, None, None]:
     """Stream an agent chat response using AgentCore Runtime.
 
@@ -201,11 +206,16 @@ def stream_agent_chat_v2(
             )
 
     # Step 3: Create or resume orchestrator session
+    # Build personalized system prompt with family context (profile, family
+    # tree, shared memory, current time) so the shared runtime has full
+    # context for this user.
     session = runtime_client.get_session(conversation_id)
     if session is None:
-        personalized_prompt = system_prompt or (
-            "You are a helpful family assistant. Be warm, friendly, and supportive."
+        base_prompt = system_prompt or current_app.config.get(
+            "SYSTEM_PROMPT",
+            "You are a helpful family assistant. Be warm, friendly, and supportive.",
         )
+        personalized_prompt = _build_system_prompt(user_id, base_prompt)
         session = runtime_client.create_session(
             session_id=conversation_id,
             user_id=user_id,
