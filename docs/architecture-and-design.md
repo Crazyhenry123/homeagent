@@ -108,7 +108,7 @@ User taps Send
        │
        ▼
 [Mobile: ChatScreen.tsx]
-  POST /api/chat/stream with message text + optional media_ids
+  POST /api/chat with message text + optional media_ids
        │
        ▼
 [API: auth.py → require_auth]
@@ -116,18 +116,18 @@ User taps Send
   Sets g.user_id, g.user_name, g.family_id
        │
        ▼
-[API: routes/chat.py → stream_chat()]
+[API: routes/chat.py → _get_chat_stream()]
   1. Loads conversation history (last N messages from DynamoDB)
   2. Resolves any image/audio media from S3
   3. Builds system prompt (base + profile + family context + agent configs)
   4. Saves user message to DynamoDB
        │
        ▼
-[API: services/agent_orchestrator.py] ──or── [API: services/bedrock.py]
-  If USE_AGENT_ORCHESTRATOR=true:                If false:
-    Strands orchestrator decides whether            Direct Bedrock converse_stream
-    to invoke sub-agents (health, logistics)        call with conversation history
-    or respond directly
+[Routing decision in _get_chat_stream()]
+  If AGENTCORE_RUNTIME_ARN set:          If USE_AGENT_ORCHESTRATOR=true:      Otherwise:
+    _stream_via_agentcore()                Strands orchestrator decides          Direct Bedrock
+    AgentCore Runtime handles              whether to invoke sub-agents          converse_stream
+    orchestration, memory, tools           or respond directly
        │
        ▼
 [SSE stream back to mobile]
@@ -296,7 +296,7 @@ Step  │ Where                              │ What
       │                                    │ Conversations record, returns conv_id
 ──────┼────────────────────────────────────┼─────────────────────────────────────
   2   │ Mobile: ChatScreen.tsx             │ User types message, taps send
-      │ services/sse.ts                    │ POST /api/chat/stream
+      │ services/sse.ts                    │ POST /api/chat
       │                                    │   body: {conversation_id, content,
       │                                    │          media_ids: []}
       │                                    │   Accept: text/event-stream
@@ -311,12 +311,14 @@ Step  │ Where                              │ What
       │                                    │   + family context (members, tree)
       │                                    │   + agent instructions (if enabled)
 ──────┼────────────────────────────────────┼─────────────────────────────────────
-  5   │ API: services/                     │ If USE_AGENT_ORCHESTRATOR=true:
-      │ agent_orchestrator.py              │   Strands agent evaluates if
-      │   └─ agents/personal.py            │   sub-agents should be invoked
-      │       └─ agents/health_advisor.py  │   (health query? → Health Advisor)
+  5   │ API: routes/chat.py                │ _get_chat_stream() routing:
+      │ _get_chat_stream()                 │ If AGENTCORE_RUNTIME_ARN set:
+      │                                    │   _stream_via_agentcore() → AgentCore
+      │                                    │   Runtime (orchestration + memory)
+      │                                    │ Elif USE_AGENT_ORCHESTRATOR=true:
+      │                                    │   Strands agent evaluates sub-agents
       │                                    │ Else:
-      │ services/bedrock.py                │   Direct Bedrock converse_stream
+      │                                    │   Direct Bedrock converse_stream
 ──────┼────────────────────────────────────┼─────────────────────────────────────
   6   │ API: routes/chat.py                │ Response streams as SSE events:
       │                                    │   data: {"type":"text","content":"I"}
@@ -372,7 +374,7 @@ Mobile                           API                              S3
   │  PUT upload_url (binary)      │                                │
   │───────────────────────────────┼───────────────────────────────>│
   │                               │                                │  Stores image
-  │  POST /api/chat/stream        │                                │
+  │  POST /api/chat               │                                │
   │  {content, media_ids: ["..."]}│                                │
   │──────────────────────────────>│                                │
   │                               │  Resolves media_ids → S3 URLs  │
@@ -388,7 +390,7 @@ Mobile                           API                              S3
 - `mobile/src/services/chatMedia.ts` — presigned upload logic
 - `backend/app/routes/chat_media.py` — presigned URL generation
 - `backend/app/services/chat_media.py` — media resolution for Bedrock
-- `backend/app/routes/chat.py` — includes images in converse_stream call
+- `backend/app/routes/chat.py` — includes images in chat request, routes through AgentCore Runtime or direct Bedrock
 
 **Why presigned URLs?** Images bypass the API entirely — the phone uploads directly to S3. This avoids loading the API with large binary payloads and keeps the API stateless.
 
@@ -422,7 +424,7 @@ Mobile                           API                         AWS Services
   │  PUT upload_url (WAV binary)  │                                │
   │───────────────────────────────┼──────────────────────────────>S3
   │                               │                                │
-  │  POST /api/chat/stream        │                                │
+  │  POST /api/chat        │                                │
   │  {content:"", media_ids:[…]}  │                                │
   │──────────────────────────────>│                                │
   │                               │  Detects audio media type      │

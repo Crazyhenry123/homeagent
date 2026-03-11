@@ -204,17 +204,66 @@ def _handle_create(client: "boto3.client", props: dict) -> dict:
 
 def _handle_update(event: dict, client: "boto3.client", props: dict) -> dict:
     physical_id = event.get("PhysicalResourceId", "")
-    logger.info("Update requested for runtime %s — fetching current state", physical_id)
+    logger.info("Update requested for runtime %s", physical_id)
 
-    # Retrieve existing runtime ARN and endpoint name
-    runtime_arn = ""
-    endpoint_name = ""
+    role_arn = props.get("RoleArn", "")
+    source_bucket = props.get("S3Bucket", "")
+    source_key = props.get("S3Prefix", "")
+    agent_name = props.get("AgentRuntimeName", "")
+    region = props.get("Region", "us-east-1")
+
+    # Copy updated code zip to the AgentCore-managed bucket
+    if source_bucket and source_key and agent_name:
+        dest_bucket, dest_key = _copy_to_agentcore_bucket(
+            source_bucket, source_key, agent_name, region
+        )
+    else:
+        dest_bucket = ""
+        dest_key = ""
+
+    # Build the update kwargs — always update roleArn to keep in sync
+    # with CloudFormation, and update the artifact if we have new code.
+    update_kwargs: dict = {
+        "agentRuntimeId": physical_id,
+    }
+    if role_arn:
+        update_kwargs["roleArn"] = role_arn
+
+    if dest_bucket and dest_key:
+        update_kwargs["agentRuntimeArtifact"] = {
+            "codeConfiguration": {
+                "code": {
+                    "s3": {
+                        "bucket": dest_bucket,
+                        "prefix": dest_key,
+                    }
+                },
+                "runtime": "PYTHON_3_13",
+                "entryPoint": ["main.py"],
+            }
+        }
+
+    # Apply the update
     try:
-        resp = client.get_agent_runtime(agentRuntimeId=physical_id)
+        resp = client.update_agent_runtime(**update_kwargs)
         runtime_arn = resp.get("agentRuntimeArn", "")
-    except Exception as e:
-        logger.warning("Failed to get runtime %s during update: %s", physical_id, e)
+        logger.info("Updated agent runtime %s", physical_id)
 
+        # Wait for runtime to become READY after update
+        _wait_for_status(
+            client, "get_agent_runtime", "", physical_id, "READY", "AgentRuntime"
+        )
+    except Exception as e:
+        logger.warning("Failed to update runtime %s: %s — fetching current state", physical_id, e)
+        try:
+            resp = client.get_agent_runtime(agentRuntimeId=physical_id)
+            runtime_arn = resp.get("agentRuntimeArn", "")
+        except Exception as inner_e:
+            logger.warning("Failed to get runtime %s: %s", physical_id, inner_e)
+            runtime_arn = ""
+
+    # Retrieve endpoint name
+    endpoint_name = ""
     try:
         endpoints = client.list_agent_runtime_endpoints(agentRuntimeId=physical_id)
         eps = endpoints.get("agentRuntimeEndpoints", [])

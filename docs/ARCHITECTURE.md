@@ -231,8 +231,10 @@ The pipeline is self-mutating: changes to `infra/stacks/pipeline_stack.py` autom
    a. Create or validate conversation
    b. Store user message in Messages table
    c. Load last 50 messages as context
-   d. Build personal agent with user's enabled sub-agent tools
-   e. Call Bedrock converse_stream API (or agent orchestrator)
+   d. Route via _get_chat_stream():
+      - AGENTCORE_RUNTIME_ARN set → _stream_via_agentcore() (AgentCore Runtime)
+      - USE_AGENT_ORCHESTRATOR=true → stream_agent_chat() (local Strands)
+      - Neither → stream_chat() (direct Bedrock converse_stream)
 5. SSE streaming response:
    a. Yield text_delta events as tokens arrive
    b. Yield message_done with token counts

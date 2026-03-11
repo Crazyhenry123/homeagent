@@ -1,5 +1,6 @@
 import json
 import threading
+from typing import Generator
 
 from flask import (
     Blueprint,
@@ -32,7 +33,15 @@ def _get_chat_stream(
     images: list[dict] | None = None,
     is_voice_message: bool = False,
 ):
-    """Return the appropriate chat stream based on feature flag."""
+    """Return the appropriate chat stream based on feature flag.
+
+    When AGENTCORE_RUNTIME_ARN is configured, routes through AgentCore
+    Runtime for orchestration. Otherwise falls back to the local agent
+    orchestrator or direct Bedrock.
+    """
+    if current_app.config.get("AGENTCORE_RUNTIME_ARN"):
+        return _stream_via_agentcore(messages, user_id, conversation_id)
+
     if current_app.config.get("USE_AGENT_ORCHESTRATOR"):
         from app.services.agent_orchestrator import stream_agent_chat
 
@@ -46,34 +55,24 @@ def _get_chat_stream(
     return stream_chat(messages, images=images)
 
 
-def _get_agentcore_chat_stream(
+def _stream_via_agentcore(
     messages: list[dict],
     user_id: str,
-    family_id: str | None,
-    conversation_id: str,
-):
-    """Return the AgentCore-based chat stream (v2).
+    conversation_id: str | None,
+) -> Generator[dict, None, None]:
+    """Stream a chat response through AgentCore Runtime.
 
-    When *family_id* is provided, initialises the isolation components
-    (IsolationMiddleware, FamilyMemoryStoreRegistry, IsolatedMemoryManager,
-    MemoryWriteBehindBuffer) and routes memory through the per-family
-    isolated store.  Falls back to the global AgentCoreMemoryManager when
-    *family_id* is ``None``.
-
-    Raises
-    ------
-    AccessDeniedError
-        If the user is not a member of the requested family.
+    Yields the same event format as stream_chat (text_delta, message_done,
+    error) so the v1 /api/chat generator can handle persistence and health
+    extraction unchanged.
     """
     import logging
 
-    import boto3
-
     from app.config import Config
-    from app.services.agentcore_integration import stream_agent_chat_v2
     from app.services.agentcore_memory import AgentCoreMemoryManager
     from app.services.agentcore_runtime import AgentCoreRuntimeClient
     from app.services.agent_management import AgentManagementClient
+    from app.services.agent_orchestrator import _build_system_prompt
 
     logger = logging.getLogger(__name__)
     cfg = Config()
@@ -91,151 +90,67 @@ def _get_agentcore_chat_stream(
         region=cfg.AWS_REGION,
     )
 
-    # --- Per-family isolation path ---
-    if family_id:
-        from app.services.family_memory_registry import FamilyMemoryStoreRegistry
-        from app.services.isolated_memory_manager import IsolatedMemoryManager
-        from app.services.isolation_middleware import IsolationMiddleware
-        from app.services.memory_write_behind_buffer import MemoryWriteBehindBuffer
+    # Resolve sub-agent tools
+    sub_agent_tool_ids = agent_mgmt.build_sub_agent_tool_ids(user_id)
 
-        # Build DynamoDB resource
-        dynamodb_kwargs: dict = {"region_name": cfg.AWS_REGION}
-        if cfg.DYNAMODB_ENDPOINT:
-            dynamodb_kwargs["endpoint_url"] = cfg.DYNAMODB_ENDPOINT
-        dynamodb = boto3.resource("dynamodb", **dynamodb_kwargs)
-
-        # Build AgentCore client for store provisioning
-        agentcore_client = boto3.client(
-            "bedrock-agent-runtime", region_name=cfg.AWS_REGION
-        )
-
-        # Initialise isolation components
-        registry = FamilyMemoryStoreRegistry(
-            dynamodb_resource=dynamodb,
-            agentcore_client=agentcore_client,
-        )
-
-        # Write-behind buffer — execute_fn is a no-op placeholder;
-        # actual memory operations are handled by the runtime session.
-        def _execute_memory_op(store_id: str, operation: str, payload: dict):
-            logger.debug(
-                "Executing buffered memory op: store=%s op=%s", store_id, operation
-            )
-
-        buffer = MemoryWriteBehindBuffer(
-            registry=registry,
-            execute_fn=_execute_memory_op,
-        )
-
-        middleware = IsolationMiddleware(
-            dynamodb_resource=dynamodb,
-            registry=registry,
-            buffer=buffer,
-        )
-
-        # Validate membership and resolve store — may raise AccessDeniedError
-        context = middleware.validate_and_resolve(family_id, user_id)
-
-        isolated_memory_config = None
-        if context.store_status == "active":
-            # Build isolated memory config using the per-family store
-            iso_manager = IsolatedMemoryManager(
-                member_memory_id=cfg.AGENTCORE_MEMBER_MEMORY_ID or "member-mem",
-                registry=registry,
-            )
-            isolated_memory_config = iso_manager.safe_build_isolated_memory_config(
-                context, conversation_id
-            )
-        else:
-            # store_status == "pending": chat proceeds without family memory;
-            # the write-behind buffer handles deferred writes.
-            logger.info(
-                "Family %s store is pending; proceeding without family memory",
-                family_id,
-            )
-
-        return stream_agent_chat_v2(
-            runtime_client=runtime_client,
-            agent_mgmt=agent_mgmt,
-            memory_manager=memory_manager,
-            messages=messages,
-            user_id=user_id,
-            family_id=family_id,
-            conversation_id=conversation_id,
-            isolated_memory_config=isolated_memory_config,
-        )
-
-    # --- Global fallback (no family_id) ---
-    return stream_agent_chat_v2(
-        runtime_client=runtime_client,
-        agent_mgmt=agent_mgmt,
-        memory_manager=memory_manager,
-        messages=messages,
-        user_id=user_id,
-        family_id=family_id,
-        conversation_id=conversation_id,
-    )
-
-
-@chat_bp.route("/chat/v2", methods=["POST"])
-@require_auth
-def chat_v2():
-    """AgentCore-migrated chat endpoint.
-
-    Uses AgentCoreRuntimeClient for session management, AgentManagementClient
-    for sub-agent tool resolution, and AgentCoreMemoryManager for dual-tier
-    memory. Uses standard auth (Cognito JWT + device-token fallback).
-    """
-
-    data = request.get_json()
-    if not data or not data.get("message"):
-        return jsonify({"error": "message is required"}), 400
-
-    user_message = data["message"]
-    conversation_id = data.get("conversation_id")
-
-    # Create or validate conversation
-    if conversation_id:
-        conv = get_conversation(conversation_id)
-        if not conv:
-            return jsonify({"error": "Conversation not found"}), 404
-        if conv["user_id"] != g.user_id:
-            return jsonify({"error": "Not your conversation"}), 403
-    else:
-        title = user_message[:50] + ("..." if len(user_message) > 50 else "")
-        conv = create_conversation(user_id=g.user_id, title=title)
-        conversation_id = conv["conversation_id"]
-
-    add_message(conversation_id=conversation_id, role="user", content=user_message)
-
-    history = get_messages(conversation_id, limit=50)
-    messages = [
-        {"role": m["role"], "content": m["content"]} for m in history["messages"]
-    ]
-
+    # Build memory config
     family_id = getattr(g, "family_id", None)
+    memory_config = None
+    if family_id:
+        try:
+            memory_config = memory_manager.create_combined_session_manager(
+                family_id=family_id,
+                member_id=user_id,
+                session_id=conversation_id or "",
+            )
+        except Exception:
+            logger.warning(
+                "Failed to create combined session manager for user %s, "
+                "proceeding without memory",
+                user_id,
+                exc_info=True,
+            )
 
-    # Eagerly create the stream generator so that AccessDeniedError
-    # (raised during validate_and_resolve) surfaces before we enter
-    # the streaming Response.  This lets us return a clean HTTP 403.
-    from app.services.isolation_middleware import AccessDeniedError
-
-    try:
-        chat_stream = _get_agentcore_chat_stream(
-            messages, g.user_id, family_id, conversation_id
+    # Create or resume session
+    session_id = conversation_id or "ephemeral"
+    session = runtime_client.get_session(session_id)
+    if session is None:
+        base_prompt = current_app.config.get(
+            "SYSTEM_PROMPT",
+            "You are a helpful family assistant. Be warm, friendly, and supportive.",
         )
-    except AccessDeniedError:
-        return jsonify({"error": "Access denied: not a member of this family"}), 403
+        personalized_prompt = _build_system_prompt(user_id, base_prompt)
+        session = runtime_client.create_session(
+            session_id=session_id,
+            user_id=user_id,
+            family_id=family_id or "",
+            system_prompt=personalized_prompt,
+            memory_config=memory_config,
+            sub_agent_tool_ids=sub_agent_tool_ids,
+        )
 
-    def generate():
-        for chunk in chat_stream:
-            yield f"data: {json.dumps(chunk)}\n\n"
+    # Invoke and stream — yield same format as stream_chat
+    user_message = messages[-1]["content"] if messages else ""
+    full_text = ""
 
-    return Response(
-        stream_with_context(generate()),
-        mimetype="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
+    for event in runtime_client.invoke_session(
+        session_id=session_id,
+        message=user_message,
+        stream=True,
+    ):
+        if event.type == "text_delta":
+            full_text += event.content
+            yield {"type": "text_delta", "content": event.content}
+        elif event.type == "error":
+            yield {"type": "error", "content": event.content}
+            return
+
+    yield {
+        "type": "message_done",
+        "content": full_text,
+        "input_tokens": 0,
+        "output_tokens": 0,
+    }
 
 
 @chat_bp.route("/chat", methods=["POST"])

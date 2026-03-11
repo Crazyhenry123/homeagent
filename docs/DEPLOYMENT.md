@@ -171,6 +171,7 @@ Commit and push — the pipeline will automatically pick up the change on the ne
 | `SYSTEM_PROMPT` | Family assistant persona | System prompt sent to Claude |
 | `ADMIN_INVITE_CODE` | `FAMILY` | Pre-seeded invite code for the first admin user |
 | `USE_AGENT_ORCHESTRATOR` | `false` | Enable Strands Agent orchestrator for sub-agent tools |
+| `AGENTCORE_RUNTIME_ARN` | — | AgentCore Runtime ARN; when set, `/api/chat` routes through AgentCore Runtime |
 | `AGENTCORE_MEMORY_ID` | — | AgentCore memory ID for conversation memory |
 | `S3_HEALTH_DOCUMENTS_BUCKET` | (from CDK) | S3 bucket for health docs and chat media |
 | `CHAT_MEDIA_MAX_SIZE` | `5242880` | Max image upload size in bytes (5 MB) |

@@ -137,9 +137,9 @@ class AgentCoreStack(cdk.Stack):
         # ------------------------------------------------------------------
 
         # Agent code as a zip asset in the CDK bootstrap bucket.
-        # AgentCore Runtime requires a .zip file in S3; s3_assets.Asset
-        # zips the directory and keeps it as-is (unlike BucketDeployment
-        # which extracts the zip).
+        # AgentCore Runtime requires a .zip file in S3 with pre-bundled
+        # ARM64 dependencies (no .pyc files). We use BundlingOptions to
+        # pip install wheels for the target platform into the zip.
         agent_code_path = os.path.join(
             os.path.dirname(__file__), "..", "..", "agent"
         )
@@ -147,6 +147,22 @@ class AgentCoreStack(cdk.Stack):
             self,
             "AgentCodeAsset",
             path=agent_code_path,
+            bundling=cdk.BundlingOptions(
+                image=_lambda.Runtime.PYTHON_3_12.bundling_image,
+                command=[
+                    "bash",
+                    "-c",
+                    "pip install -r requirements.txt "
+                    "--platform manylinux2014_aarch64 "
+                    "--python-version 3.13 "
+                    "--only-binary=:all: "
+                    "-t /asset-output && "
+                    "cp -au . /asset-output && "
+                    "find /asset-output -type d -name __pycache__ -exec rm -rf {} + ; "
+                    "find /asset-output -name '*.pyc' -delete ; "
+                    "true",
+                ],
+            ),
         )
 
         # IAM role for the AgentCore Runtime agent
@@ -211,6 +227,7 @@ class AgentCoreStack(cdk.Stack):
                 actions=[
                     "bedrock-agentcore:CreateAgentRuntime",
                     "bedrock-agentcore:GetAgentRuntime",
+                    "bedrock-agentcore:UpdateAgentRuntime",
                     "bedrock-agentcore:DeleteAgentRuntime",
                     "bedrock-agentcore:ListAgentRuntimes",
                     "bedrock-agentcore:CreateAgentRuntimeEndpoint",
@@ -220,6 +237,7 @@ class AgentCoreStack(cdk.Stack):
                     "bedrock-agentcore:CreateWorkloadIdentity",
                     "bedrock-agentcore-control:CreateAgentRuntime",
                     "bedrock-agentcore-control:GetAgentRuntime",
+                    "bedrock-agentcore-control:UpdateAgentRuntime",
                     "bedrock-agentcore-control:DeleteAgentRuntime",
                     "bedrock-agentcore-control:ListAgentRuntimes",
                     "bedrock-agentcore-control:CreateAgentRuntimeEndpoint",

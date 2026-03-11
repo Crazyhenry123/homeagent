@@ -215,7 +215,7 @@ data: {"type": "error", "content": "error message"}
 2. Creates conversation if `conversation_id` is not provided (auto-titled from first 50 chars of message).
 3. Stores user message in `Messages` table.
 4. Loads last 50 messages as history for Bedrock.
-5. Streams response via `stream_chat()` (direct Bedrock) or `stream_agent_chat()` (Strands orchestrator, if `USE_AGENT_ORCHESTRATOR=true`).
+5. Routes through the appropriate backend via `_get_chat_stream()`: `AGENTCORE_RUNTIME_ARN` set → `_stream_via_agentcore()` (AgentCore Runtime); `USE_AGENT_ORCHESTRATOR=true` → `stream_agent_chat()` (local Strands orchestrator); neither → `stream_chat()` (direct Bedrock `converse_stream`).
 6. Stores assistant message with token count.
 7. Fires a background thread for health observation extraction (if `HEALTH_EXTRACTION_ENABLED=true`).
 
@@ -854,7 +854,16 @@ All tools enforce family access control: users can only access their own data or
 
 The `POST /api/chat` endpoint returns a `text/event-stream` response using Flask's `stream_with_context`.
 
-**Direct Bedrock path** (`USE_AGENT_ORCHESTRATOR=false`):
+**AgentCore Runtime path** (`AGENTCORE_RUNTIME_ARN` set — preferred for production):
+
+1. `_stream_via_agentcore()` in `chat.py` creates an `AgentCoreRuntimeClient` with the configured ARN.
+2. Resolves sub-agent tools via `AgentManagementClient` and builds memory config via `AgentCoreMemoryManager`.
+3. Creates or resumes a session on AgentCore Runtime with personalized system prompt, memory, and sub-agent tools.
+4. Invokes the session and yields `text_delta` events as they arrive.
+5. Yields `message_done` when the stream completes.
+6. Falls back to direct Bedrock or in-memory simulation on failure.
+
+**Direct Bedrock path** (no `AGENTCORE_RUNTIME_ARN`, `USE_AGENT_ORCHESTRATOR=false`):
 
 1. `stream_chat()` in `bedrock.py` calls `bedrock-runtime.converse_stream()`.
 2. Iterates over `response["stream"]` events:
@@ -862,7 +871,7 @@ The `POST /api/chat` endpoint returns a `text/event-stream` response using Flask
    - `metadata` -> captures `inputTokens` and `outputTokens`
 3. After the stream ends, yields `{"type": "message_done", "content": full_text, ...}`
 
-**Agent orchestrator path** (`USE_AGENT_ORCHESTRATOR=true`):
+**Agent orchestrator path** (no `AGENTCORE_RUNTIME_ARN`, `USE_AGENT_ORCHESTRATOR=true`):
 
 1. `stream_agent_chat()` in `agent_orchestrator.py` creates a Strands `Agent`.
 2. The agent runs in a background thread (via `ThreadPoolExecutor`) with its own `asyncio` event loop.

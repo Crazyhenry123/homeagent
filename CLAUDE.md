@@ -43,8 +43,14 @@ Family AI agent app — family members chat with Claude (via Amazon Bedrock) thr
 - S3 + CloudFront for debug web UI static hosting
 
 ## AgentCore Integration
+The `/api/chat` endpoint routes through AgentCore Runtime when `AGENTCORE_RUNTIME_ARN` is set.
+The routing logic in `_get_chat_stream()` (in `backend/app/routes/chat.py`) follows this fallback chain:
+1. **AGENTCORE_RUNTIME_ARN set** → `_stream_via_agentcore()` → AgentCore Runtime orchestration
+2. **USE_AGENT_ORCHESTRATOR=true** → local Strands Agent orchestrator
+3. **Neither set** → direct Bedrock `converse_stream`
+
 The backend integrates with Amazon Bedrock AgentCore for:
-- **Runtime** — Agent orchestration via `agentcore_runtime.py` (invoke agents, manage sessions)
+- **Runtime** — Agent orchestration via `agentcore_runtime.py` (invoke agents, manage sessions). When `AGENTCORE_RUNTIME_ARN` is configured, the `/api/chat` endpoint routes all chat through AgentCore Runtime using `_stream_via_agentcore()`, which creates sessions, resolves sub-agent tools, and streams responses in the same SSE event format.
 - **Memory** — Persistent family and per-member memory via `agentcore_memory.py` and `family_memory.py`
 - **Gateway** — MCP tool gateway for health and family tools via `agentcore_gateway.py`
 - **Identity** — Cognito-based auth with AgentCore identity via `agentcore_security.py`
@@ -122,6 +128,7 @@ python -m http.server 8080 -d webui
 - `ADMIN_INVITE_CODE` — Pre-seeded invite code for first admin
 - `COGNITO_USER_POOL_ID` — Cognito User Pool ID (from AgentCore stack)
 - `COGNITO_CLIENT_ID` — Cognito User Pool Client ID (from AgentCore stack)
+- `AGENTCORE_RUNTIME_ARN` — AgentCore Runtime ARN; when set, `/api/chat` routes through AgentCore Runtime instead of local orchestrator/direct Bedrock
 - `AGENTCORE_ORCHESTRATOR_AGENT_ID` — AgentCore Runtime orchestrator agent ID
 - `AGENTCORE_RUNTIME_ENDPOINT` — AgentCore Runtime endpoint URL
 - `AGENTCORE_FAMILY_MEMORY_ID` — AgentCore Memory store ID for family memories

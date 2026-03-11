@@ -469,6 +469,7 @@ Complete reference of all environment variables consumed by the backend. Source 
 | `BEDROCK_MODEL_ID` | string | `us.anthropic.claude-opus-4-6-v1` | Bedrock model ID for the main chat assistant |
 | `SYSTEM_PROMPT` | string | `"You are a helpful family assistant..."` | System prompt injected into every Claude conversation |
 | `USE_AGENT_ORCHESTRATOR` | bool | `false` | Enable the Strands Agent orchestrator for sub-agent routing. Set to `true` in both local and production. |
+| `AGENTCORE_RUNTIME_ARN` | string | `None` | AgentCore Runtime ARN. When set, `/api/chat` routes through AgentCore Runtime instead of local orchestrator or direct Bedrock. Takes precedence over `USE_AGENT_ORCHESTRATOR`. |
 | `AGENTCORE_MEMORY_ID` | string | `None` | Bedrock AgentCore memory ID for persistent conversation memory across sessions |
 | `HEALTH_EXTRACTION_ENABLED` | bool | `true` | Enable automatic AI extraction of health observations from chat messages |
 | `HEALTH_EXTRACTION_MODEL_ID` | string | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | Bedrock model ID used for health extraction (smaller/faster model) |

@@ -57,9 +57,9 @@ A pluggable sub-agent architecture built on the Strands Agents SDK. Agents are r
 
 ### AgentCore Integration
 
-The backend integrates with Amazon Bedrock AgentCore for production-grade agent infrastructure:
+The backend integrates with Amazon Bedrock AgentCore for production-grade agent infrastructure. When `AGENTCORE_RUNTIME_ARN` is configured, the `/api/chat` endpoint routes all chat through AgentCore Runtime via `_stream_via_agentcore()`. When it is not set, the endpoint falls back to the local agent orchestrator or direct Bedrock.
 
-- **Runtime** — Serverless agent orchestration. The orchestrator agent is deployed to AgentCore Runtime and invoked via the Runtime API, providing automatic scaling and session management.
+- **Runtime** — Serverless agent orchestration. The orchestrator agent is deployed to AgentCore Runtime and invoked via the Runtime API, providing automatic scaling and session management. The agent code in `agent/` is deployed with pre-bundled ARM64 dependencies via CDK BundlingOptions.
 - **Memory** — Persistent memory stores for both family-level shared context and per-member personal context. Memories are stored and retrieved via the AgentCore Memory API, enabling agents to recall past interactions and preferences.
 - **Gateway** — MCP (Model Context Protocol) tool gateway that routes tool calls to health and family tree MCP servers. Agents can invoke tools through the gateway without direct endpoint management.
 - **Identity** — Cognito User Pool provisioned by the AgentCore stack provides JWT-based authentication. The backend validates Cognito tokens and maps them to internal user records.
@@ -208,7 +208,7 @@ For detailed architecture, user scenarios, and end-to-end flow diagrams, see [Ar
 +------------------+
 ```
 
-**Request flow (text chat):** Mobile app sends a POST to `/api/chat/stream` with the message and optional image references. The backend loads conversation history from DynamoDB, resolves any image media from S3, calls Bedrock `converse_stream`, and pipes the response back as SSE events. The assistant message is persisted to DynamoDB upon completion.
+**Request flow (text chat):** Mobile app sends a POST to `/api/chat` with the message and optional image references. The backend loads conversation history from DynamoDB, resolves any image media from S3, and routes through the appropriate backend: when `AGENTCORE_RUNTIME_ARN` is set, chat goes through AgentCore Runtime for orchestration, session management, and memory; otherwise falls back to the local Strands agent orchestrator (if `USE_AGENT_ORCHESTRATOR=true`) or direct Bedrock `converse_stream`. The response is piped back as SSE events and the assistant message is persisted to DynamoDB upon completion.
 
 **Request flow (voice mode):** Mobile app opens a WebSocket to `/api/voice?token=<token>`. The backend establishes a bidirectional stream with Amazon Nova Sonic. Audio frames flow in both directions in real time.
 
@@ -374,6 +374,7 @@ homeagent/
 ```bash
 cp .env.example .env
 # Edit .env with your Cognito pool details (optional for local dev)
+# Set AGENTCORE_RUNTIME_ARN to route chat through AgentCore Runtime (optional)
 ```
 
 **2. Start the backend**
@@ -487,6 +488,7 @@ git push origin main
 | `COGNITO_USER_POOL_ID` | -- | Cognito User Pool ID (from AgentCore stack) |
 | `COGNITO_CLIENT_ID` | -- | Cognito App Client ID (from AgentCore stack) |
 | `COGNITO_REGION` | `us-east-1` | Region for Cognito User Pool |
+| `AGENTCORE_RUNTIME_ARN` | -- | AgentCore Runtime ARN; when set, `/api/chat` routes through AgentCore Runtime |
 | `AGENTCORE_ORCHESTRATOR_AGENT_ID` | -- | AgentCore Runtime orchestrator agent ID |
 | `AGENTCORE_RUNTIME_ENDPOINT` | -- | AgentCore Runtime endpoint URL |
 | `AGENTCORE_FAMILY_MEMORY_ID` | -- | AgentCore Memory store ID for family memories |
@@ -511,7 +513,7 @@ All endpoints are prefixed with `/api/` except the health check. Authentication 
 | **Health Check** | `GET /health` | Service health (no auth) |
 | **Auth** | `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/cognito/register` | Registration and authentication |
 | **Session** | `GET /api/session` | Bootstrap all user data in a single call |
-| **Chat** | `POST /api/chat/stream`, `POST /api/chat/upload-image`, `POST /api/chat/upload-audio` | Streaming chat and media uploads |
+| **Chat** | `POST /api/chat`, `POST /api/chat/upload-image`, `POST /api/chat/upload-audio` | Streaming chat and media uploads |
 | **Voice** | `WS /api/voice` | Real-time voice mode via WebSocket |
 | **Conversations** | `GET/DELETE /api/conversations/*` | Conversation list, history, deletion |
 | **Profiles** | `GET/PUT /api/profiles/me` | Member profile management |

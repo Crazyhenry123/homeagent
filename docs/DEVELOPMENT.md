@@ -71,7 +71,7 @@ This starts the Expo dev server and displays a QR code. Scan it with Expo Go on 
 4. Register with invite code `FAMILY`
 5. Start chatting (requires AWS credentials for Bedrock)
 
-**Note:** Local chat requires valid AWS credentials with Bedrock access. Set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in `docker-compose.yml` or use `~/.aws/credentials`.
+**Note:** Local chat requires valid AWS credentials with Bedrock access. Set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in `docker-compose.yml` or use `~/.aws/credentials`. To route chat through AgentCore Runtime, set `AGENTCORE_RUNTIME_ARN` in `.env`; otherwise chat falls back to the local orchestrator or direct Bedrock.
 
 ### Voice Mode (Local Testing)
 

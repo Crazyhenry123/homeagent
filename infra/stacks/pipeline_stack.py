@@ -622,7 +622,7 @@ class PipelineStack(cdk.Stack):
                         push_filter=[
                             codepipeline.GitPushFilter(
                                 branches_includes=["main"],
-                                file_paths_includes=["infra/**"],
+                                file_paths_includes=["infra/**", "agent/**"],
                             ),
                         ],
                     ),

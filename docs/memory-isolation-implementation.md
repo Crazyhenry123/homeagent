@@ -103,7 +103,7 @@ python -m backend.scripts.migrate_memory_stores \
 
 ### 8. Chat Route Integration (`backend/app/routes/chat.py`)
 
-The `_get_agentcore_chat_stream` function orchestrates the isolation flow:
+**Note:** The primary `/api/chat` endpoint now routes through AgentCore Runtime via `_stream_via_agentcore()` when `AGENTCORE_RUNTIME_ARN` is set. The `_get_agentcore_chat_stream` function below is used by the `/api/chat/v2` endpoint (which is being deprecated). The isolation flow described here applies to the v2 path:
 
 ```
 if family_id:
