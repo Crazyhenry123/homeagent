@@ -153,7 +153,7 @@ def _handle_create(client: "boto3.client", props: dict) -> dict:
     )
 
     # Create an endpoint for the runtime
-    endpoint_name = f"{agent_name}-endpoint"
+    endpoint_name = f"{agent_name}_endpoint"
     client.create_agent_runtime_endpoint(
         agentRuntimeId=runtime_id,
         name=endpoint_name,
