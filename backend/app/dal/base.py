@@ -86,13 +86,16 @@ class BaseRepository:
     def create(self, item: dict[str, Any]) -> dict[str, Any]:
         """Create a new item with uniqueness check.
 
-        Automatically sets created_at, updated_at, and version (if configured).
+        Sets created_at and updated_at if not already present; always
+        updates updated_at.  Sets version=1 when the repo uses versioning.
         Raises DuplicateEntityError if the item already exists.
         """
         now = datetime.now(timezone.utc).isoformat()
-        item = {**item, "created_at": now, "updated_at": now}
+        item = {**item}  # shallow copy to avoid mutating caller's dict
+        item.setdefault("created_at", now)
+        item["updated_at"] = now
         if self._config.has_version:
-            item["version"] = 1
+            item.setdefault("version", 1)
 
         start = time.monotonic()
         try:
@@ -265,6 +268,31 @@ class BaseRepository:
         return result["Attributes"]
 
     # ------------------------------------------------------------------
+    # Upsert
+    # ------------------------------------------------------------------
+
+    def upsert(self, item: dict[str, Any]) -> dict[str, Any]:
+        """Insert or overwrite an item without uniqueness check.
+
+        Unlike ``create()``, this does NOT use a condition expression,
+        so it will overwrite any existing item with the same key.
+        Automatically sets updated_at (and created_at if not present).
+        """
+        now = datetime.now(timezone.utc).isoformat()
+        item.setdefault("created_at", now)
+        item = {**item, "updated_at": now}
+
+        start = time.monotonic()
+        try:
+            self._table.put_item(Item=item)
+        except ClientError as exc:
+            self._translate_client_error(exc, "upsert", self._extract_key(item))
+        finally:
+            self._log_timing("upsert", start)
+
+        return item
+
+    # ------------------------------------------------------------------
     # Delete
     # ------------------------------------------------------------------
 
@@ -277,6 +305,64 @@ class BaseRepository:
             self._translate_client_error(exc, "delete", key)
         finally:
             self._log_timing("delete", start)
+
+    def delete_and_return(
+        self,
+        key: dict[str, Any],
+        condition_expression: str | None = None,
+        expression_attribute_names: dict[str, str] | None = None,
+    ) -> dict[str, Any] | None:
+        """Atomically delete an item and return its old values.
+
+        Returns the item that was deleted, or None if the condition
+        failed (item didn't exist or condition wasn't met).
+        """
+        kwargs: dict[str, Any] = {"Key": key, "ReturnValues": "ALL_OLD"}
+        if condition_expression:
+            kwargs["ConditionExpression"] = condition_expression
+        if expression_attribute_names:
+            kwargs["ExpressionAttributeNames"] = expression_attribute_names
+
+        start = time.monotonic()
+        try:
+            result = self._table.delete_item(**kwargs)
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return None
+            self._translate_client_error(exc, "delete_and_return", key)
+        finally:
+            self._log_timing("delete_and_return", start)
+
+        return result.get("Attributes")
+
+    def conditional_delete(
+        self,
+        key: dict[str, Any],
+        condition_expression: str,
+        expression_attribute_names: dict[str, str] | None = None,
+        expression_attribute_values: dict[str, Any] | None = None,
+    ) -> bool:
+        """Delete an item only if a condition is met. Returns True if deleted."""
+        kwargs: dict[str, Any] = {
+            "Key": key,
+            "ConditionExpression": condition_expression,
+        }
+        if expression_attribute_names:
+            kwargs["ExpressionAttributeNames"] = expression_attribute_names
+        if expression_attribute_values:
+            kwargs["ExpressionAttributeValues"] = expression_attribute_values
+
+        start = time.monotonic()
+        try:
+            self._table.delete_item(**kwargs)
+            return True
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return False
+            self._translate_client_error(exc, "conditional_delete", key)
+        finally:
+            self._log_timing("conditional_delete", start)
+        return False  # unreachable but satisfies type checker
 
     # ------------------------------------------------------------------
     # Batch Get

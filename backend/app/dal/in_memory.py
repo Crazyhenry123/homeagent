@@ -30,11 +30,17 @@ class InMemoryRepository:
         partition_key: str,
         sort_key: str | None = None,
         has_version: bool = False,
+        gsi_definitions: list[dict[str, str]] | None = None,
     ) -> None:
         self._partition_key = partition_key
         self._sort_key = sort_key
         self._has_version = has_version
         self._store: dict[str, dict[str, Any]] = {}
+        # GSI definitions: [{"index_name": "...", "partition_key": "..."}]
+        self._gsi_map: dict[str, str] = {
+            g["index_name"]: g["partition_key"]
+            for g in (gsi_definitions or [])
+        }
 
     def _make_key_str(self, key: dict[str, Any]) -> str:
         """Build a string key from PK (and SK if present)."""
@@ -55,9 +61,11 @@ class InMemoryRepository:
 
     def create(self, item: dict[str, Any]) -> dict[str, Any]:
         now = datetime.now(timezone.utc).isoformat()
-        item = {**item, "created_at": now, "updated_at": now}
+        item = {**item}
+        item.setdefault("created_at", now)
+        item["updated_at"] = now
         if self._has_version:
-            item["version"] = 1
+            item.setdefault("version", 1)
 
         key_str = self._make_key_str(item)
         if key_str in self._store:
@@ -115,9 +123,44 @@ class InMemoryRepository:
 
         return copy.deepcopy(item)
 
+    def upsert(self, item: dict[str, Any]) -> dict[str, Any]:
+        now = datetime.now(timezone.utc).isoformat()
+        item = {**item}
+        item.setdefault("created_at", now)
+        item["updated_at"] = now
+        key_str = self._make_key_str(item)
+        self._store[key_str] = copy.deepcopy(item)
+        return copy.deepcopy(item)
+
     def delete(self, key: dict[str, Any]) -> None:
         key_str = self._make_key_str(key)
         self._store.pop(key_str, None)
+
+    def delete_and_return(
+        self,
+        key: dict[str, Any],
+        condition_expression: str | None = None,
+        expression_attribute_names: dict[str, str] | None = None,
+    ) -> dict[str, Any] | None:
+        key_str = self._make_key_str(key)
+        item = self._store.get(key_str)
+        if item is None:
+            return None
+        del self._store[key_str]
+        return copy.deepcopy(item)
+
+    def conditional_delete(
+        self,
+        key: dict[str, Any],
+        condition_expression: str,
+        expression_attribute_names: dict[str, str] | None = None,
+        expression_attribute_values: dict[str, Any] | None = None,
+    ) -> bool:
+        key_str = self._make_key_str(key)
+        if key_str in self._store:
+            del self._store[key_str]
+            return True
+        return False
 
     # ------------------------------------------------------------------
     # Query
@@ -135,13 +178,19 @@ class InMemoryRepository:
     ) -> PaginatedResult[dict[str, Any]]:
         """Query by partition key with offset-based pagination.
 
-        Note: index_name, sort_condition, and filter_expression are
-        simplified — GSI queries do a linear scan over all items.
+        When index_name is provided, queries by that GSI's partition key
+        attribute instead of the table's primary key.  Sort and filter
+        are simplified — GSI queries do a linear scan over all items.
         """
+        # Resolve which attribute to match against
+        pk_attr = self._partition_key
+        if index_name and index_name in self._gsi_map:
+            pk_attr = self._gsi_map[index_name]
+
         # Find matching items
         matching = []
         for item in self._store.values():
-            if str(item.get(self._partition_key)) == partition_value:
+            if str(item.get(pk_attr)) == partition_value:
                 matching.append(copy.deepcopy(item))
 
         # Sort by sort key if present

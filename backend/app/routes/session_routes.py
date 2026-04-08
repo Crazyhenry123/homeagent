@@ -47,7 +47,7 @@ def get_session() -> tuple[Response, int] | Response:
     try:
         # 1. User info (from auth middleware + Users table for email)
         dal = get_dal()
-        user_record = dal.users.get_by_id({"user_id": user_id}) or {}
+        user_record = dal.users.get_user(user_id) or {}
         user = {
             "user_id": user_id,
             "name": g.user_name,

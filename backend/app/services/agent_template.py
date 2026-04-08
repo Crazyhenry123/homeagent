@@ -123,7 +123,7 @@ def list_templates() -> list[dict]:
 def get_template(template_id: str) -> dict | None:
     """Get a single template by its primary key."""
     dal = get_dal()
-    return dal.agent_templates.get_by_id({"template_id": template_id})
+    return dal.agent_templates.get_template(template_id)
 
 
 def get_template_by_type(agent_type: str) -> dict | None:
@@ -166,7 +166,7 @@ def create_template(
         "created_at": now,
         "updated_at": now,
     }
-    dal.agent_templates._table.put_item(Item=item)
+    dal.agent_templates.upsert(item)
     return item
 
 

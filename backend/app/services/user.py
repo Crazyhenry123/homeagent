@@ -30,7 +30,7 @@ def register_device(
     dal = get_dal()
 
     # Fetch and validate invite code
-    code_item = dal.invite_codes.get_by_id({"code": invite_code})
+    code_item = dal.invite_codes.get_code(invite_code)
     if not code_item:
         raise ValueError("Invalid invite code")
     if code_item["status"] != "active":
@@ -242,7 +242,7 @@ def cancel_invite_code(code: str, user_id: str) -> bool:
     Returns True if cancelled, False if not found or not authorized.
     """
     dal = get_dal()
-    item = dal.invite_codes.get_by_id({"code": code})
+    item = dal.invite_codes.get_code(code)
     if not item:
         return False
     if item.get("created_by") != user_id:
@@ -318,7 +318,7 @@ def delete_member(user_id: str) -> None:
     dal = get_dal()
 
     # 1. Fetch user — reject if admin
-    user = dal.users.get_by_id({"user_id": user_id})
+    user = dal.users.get_user(user_id)
     if not user:
         raise ValueError("User not found")
     if user.get("role") == "admin":

@@ -29,7 +29,7 @@ def get_sharing_config(user_id: str) -> dict:
     Returns the stored config or defaults if none exists.
     """
     dal = get_dal()
-    item = dal.memory_sharing_config.get_by_id({"user_id": user_id})
+    item = dal.memory_sharing_config.get_config(user_id)
     if not item:
         return {"user_id": user_id, **DEFAULT_SHARING_CONFIG}
     return item
@@ -65,7 +65,7 @@ def update_sharing_config(user_id: str, updates: dict) -> dict:
     existing = get_sharing_config(user_id)
     existing.update(filtered)
     existing["user_id"] = user_id
-    dal.memory_sharing_config._table.put_item(Item=existing)
+    dal.memory_sharing_config.upsert(existing)
     return existing
 
 

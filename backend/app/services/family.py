@@ -47,7 +47,7 @@ def create_family(owner_user_id: str, family_name: str) -> dict:
 def get_family(family_id: str) -> dict | None:
     """Get family details by family_id."""
     dal = get_dal()
-    return dal.families.get_by_id({"family_id": family_id})
+    return dal.families.get_family(family_id)
 
 
 def get_family_by_owner(owner_user_id: str) -> dict | None:
@@ -59,7 +59,7 @@ def get_family_by_owner(owner_user_id: str) -> dict | None:
 def get_user_family_id(user_id: str) -> str | None:
     """Get the family_id for a user from the Users table."""
     dal = get_dal()
-    user = dal.users.get_by_id({"user_id": user_id})
+    user = dal.users.get_user(user_id)
     if not user:
         return None
     return user.get("family_id")

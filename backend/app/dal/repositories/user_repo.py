@@ -27,6 +27,10 @@ class UserRepository(BaseRepository):
     def __init__(self, dynamodb_resource: Any, table_prefix: str = "") -> None:
         super().__init__(self.CONFIG, dynamodb_resource, table_prefix)
 
+    def get_user(self, user_id: str) -> dict[str, Any] | None:
+        """Get a user by user_id."""
+        return self.get_by_id({"user_id": user_id})
+
     def get_by_email(self, email: str) -> dict[str, Any] | None:
         """Look up a user by email via email-index GSI."""
         result = self.query(email, index_name="email-index", limit=1)
