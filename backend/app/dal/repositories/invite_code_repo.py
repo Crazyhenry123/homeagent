@@ -26,6 +26,10 @@ class InviteCodeRepository(BaseRepository):
     def __init__(self, dynamodb_resource: Any, table_prefix: str = "") -> None:
         super().__init__(self.CONFIG, dynamodb_resource, table_prefix)
 
+    def get_code(self, code: str) -> dict[str, Any] | None:
+        """Get an invite code by its code value."""
+        return self.get_by_id({"code": code})
+
     def get_by_email(self, email: str) -> dict[str, Any] | None:
         """Look up an invite code by invited email."""
         result = self.query(email, index_name="invited_email-index", limit=1)
